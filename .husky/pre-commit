@@ -1,1 +1,6 @@
-pnpm gate
+# Fast lane: staged files only. Full wall runs on pre-push.
+pnpm exec lint-staged
+# Cheap repo-wide invariants — milliseconds, never let these slip through.
+bash .hooks/check-purity.sh
+bash .hooks/check-bypass-directives.sh
+bash .hooks/check-no-todos.sh
