@@ -1,3 +1,11 @@
 packages:
   - packages/*
   - apps/*
+
+# Supply-chain hardening. Only install a package version that has been public
+# for at least 3 days (4320 min), so a compromised just-published release has a
+# window to be caught and yanked before it can land here.
+minimumReleaseAge: 4320
+
+# Pin exact versions on `pnpm add` — no caret ranges in any package.json.
+savePrefix: ''
