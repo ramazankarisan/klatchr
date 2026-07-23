@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { MAX_PLAYERS, MIN_PLAYERS } from './index.js';
 
 describe('room-size bounds', () => {

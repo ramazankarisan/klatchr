@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { stubGame } from './game.testkit.js';
 import { createRegistry } from './registry.js';
 

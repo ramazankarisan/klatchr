@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { MAX_PLAYERS } from './bounds.js';
 import type { AnyGame } from './game.js';
 import { stubGame, stubGameDeps, stubRoomDeps } from './game.testkit.js';
