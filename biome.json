@@ -20,6 +20,20 @@
     }
   },
   "javascript": {
+    "globals": [
+      "describe",
+      "it",
+      "test",
+      "suite",
+      "expect",
+      "expectTypeOf",
+      "assert",
+      "vi",
+      "beforeAll",
+      "afterAll",
+      "beforeEach",
+      "afterEach"
+    ],
     "formatter": { "quoteStyle": "single", "semicolons": "always", "trailingCommas": "all" }
   }
 }
