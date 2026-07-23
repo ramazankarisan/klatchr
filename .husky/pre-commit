@@ -4,3 +4,4 @@ pnpm exec lint-staged
 bash .hooks/check-purity.sh
 bash .hooks/check-bypass-directives.sh
 bash .hooks/check-no-todos.sh
+bash .hooks/check-max-lines.sh
