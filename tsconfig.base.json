@@ -15,6 +15,6 @@
     "skipLibCheck": true,
     "declaration": true,
     "noEmit": true,
-    "types": []
+    "types": ["vitest/globals"]
   }
 }

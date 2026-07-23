@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import { normaliseNickname } from './nickname.js';
 
 describe('normaliseNickname', () => {
