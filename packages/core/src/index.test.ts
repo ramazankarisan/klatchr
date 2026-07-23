@@ -6,8 +6,4 @@ describe('room-size bounds', () => {
     expect(MIN_PLAYERS).toBe(2);
     expect(MAX_PLAYERS).toBe(12);
   });
-
-  it('min is below max', () => {
-    expect(MIN_PLAYERS).toBeLessThan(MAX_PLAYERS);
-  });
 });
