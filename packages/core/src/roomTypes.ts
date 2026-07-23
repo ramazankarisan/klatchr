@@ -31,7 +31,7 @@ export interface RoomError {
 }
 
 export type RoomEvent =
-  | { type: 'join'; nickname: string }
+  | { type: 'join'; nickname: string; reconnectId?: string }
   | { type: 'leave' }
   | { type: 'selectGame'; gameId: string }
   | { type: 'startGame' }

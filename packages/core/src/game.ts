@@ -17,10 +17,14 @@ export type RosterEvent =
   | { type: 'playerJoined'; player: Player }
   | { type: 'playerLeft'; id: PlayerId };
 
+/** Which social setting a game is built for — drives the picker (E4). */
+export type GameContext = 'teams' | 'strangers';
+
 export interface Game<TState, TEvent> {
   id: string;
   name: string;
   description: string;
+  contexts?: readonly GameContext[]; // omitted ⇒ shown in every context
   minPlayers: number;
   maxPlayers: number;
   init(players: readonly Player[], deps: GameDeps, config?: unknown): TState;

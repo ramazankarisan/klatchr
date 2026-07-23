@@ -19,7 +19,7 @@ function ctxWith(games: AnyGame[] = [stubGame()]): ReduceContext {
 }
 
 function player(id: string): Player {
-  return { id, nickname: id, joinedDuringGame: false };
+  return { id, nickname: id, joinedDuringGame: false, spectator: false };
 }
 
 function room(overrides: Partial<Room> = {}): Room {
@@ -59,10 +59,34 @@ describe('join', () => {
     );
   });
 
-  it('P2 rejoin with an existing nickname resumes the same player, no duplicate', () => {
-    const start = room({ players: [player('Ada')] });
-    const r = roomReduce(start, { type: 'join', nickname: 'ada' }, asPlayer('x'), ctxWith());
+  it('E3a a join with a matching reconnectId resumes the slot, no duplicate', () => {
+    const start = room({ players: [player('keep')] });
+    const r = roomReduce(
+      start,
+      { type: 'join', nickname: 'renamed', reconnectId: 'keep' },
+      asPlayer('x'),
+      ctxWith(),
+    );
     expect(r.ok && r.value.players).toHaveLength(1);
+    expect(r.ok && r.value.players[0]?.id).toBe('keep');
+  });
+
+  it('E3b a duplicate nickname without a reconnectId is a new, distinct player', () => {
+    const start = room({ players: [player('Ada')] });
+    const r = roomReduce(start, { type: 'join', nickname: 'Ada' }, asPlayer('x'), ctxWith());
+    expect(r.ok && r.value.players).toHaveLength(2);
+    expect(r.ok && r.value.players[1]?.id).toBe('p1');
+  });
+
+  it('E3d an unknown reconnectId is treated as a new player', () => {
+    const start = room({ players: [player('a')] });
+    const r = roomReduce(
+      start,
+      { type: 'join', nickname: 'New', reconnectId: 'ghost' },
+      asPlayer('x'),
+      ctxWith(),
+    );
+    expect(r.ok && r.value.players).toHaveLength(2);
   });
 
   it('refuses an empty nickname', () => {
@@ -145,6 +169,26 @@ describe('startGame', () => {
     const r = roomReduce(ready(), { type: 'startGame' }, HOST, ctxWith());
     expect(r.ok && r.value.phase).toBe('IN_GAME');
     expect(r.ok && r.value.gameState).toEqual({ moves: 0 });
+  });
+
+  it('E2c seats the first maxPlayers as active and the rest as spectators', () => {
+    let seen: readonly Player[] = [];
+    const g = stubGame({
+      maxPlayers: 3,
+      init: (players) => {
+        seen = players;
+        return { moves: 0 };
+      },
+    });
+    const start = room({
+      selectedGameId: 'stub',
+      players: ['a', 'b', 'c', 'd', 'e'].map(player),
+    });
+    const r = roomReduce(start, { type: 'startGame' }, HOST, ctxWith([g]));
+    expect(r.ok && r.value.phase).toBe('IN_GAME');
+    expect(seen).toHaveLength(3);
+    expect(r.ok && r.value.players.slice(0, 3).every((p) => !p.spectator)).toBe(true);
+    expect(r.ok && r.value.players.slice(3).every((p) => p.spectator)).toBe(true);
   });
 
   it('re-inits for a new round from SCORES', () => {
@@ -274,9 +318,35 @@ describe('mid-game roster forwarding (S2)', () => {
     });
     const r = roomReduce(start, { type: 'join', nickname: 'Zoe' }, asPlayer('x'), ctxWith([g]));
     expect(r.ok && r.value.players[2]?.joinedDuringGame).toBe(true);
+    expect(r.ok && r.value.players[2]?.spectator).toBe(true); // E2: mid-round joiner spectates
     expect(seen).toEqual([
       { type: 'playerJoined', player: expect.objectContaining({ nickname: 'Zoe' }) },
     ]);
+  });
+
+  it('E3c a reconnect mid-game resumes the slot without forwarding a roster event', () => {
+    const seen: unknown[] = [];
+    const g = stubGame({
+      reduce: (state, event) => {
+        seen.push(event);
+        return ok(state);
+      },
+    });
+    const start = room({
+      phase: 'IN_GAME',
+      selectedGameId: 'stub',
+      players: [player('a'), player('b')],
+      gameState: { moves: 3 },
+    });
+    const r = roomReduce(
+      start,
+      { type: 'join', nickname: 'a', reconnectId: 'a' },
+      asPlayer('x'),
+      ctxWith([g]),
+    );
+    expect(r.ok && r.value.players).toHaveLength(2);
+    expect(r.ok && r.value.gameState).toEqual({ moves: 3 });
+    expect(seen).toEqual([]);
   });
 
   it('a leave mid-game forwards playerLeft', () => {

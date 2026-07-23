@@ -4,6 +4,7 @@ export interface Player {
   id: PlayerId;
   nickname: string; // display form
   joinedDuringGame: boolean; // true if they joined while a round was IN_GAME
+  spectator: boolean; // not an active participant in the current round
 }
 
 /** Who a redaction (or an inbound action) is for. The host is the shared screen. */
