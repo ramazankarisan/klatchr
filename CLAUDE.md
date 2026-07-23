@@ -134,7 +134,7 @@ is wrong — stop and say so rather than special-casing the game in core.
 8. **Do not add dependencies** without asking first. Runtime stack is fixed:
    pnpm, TypeScript, vitest, zod, NestJS, React, MUI, playwright. Approved
    tooling: **biome** (lint + format, replaces eslint), dependency-cruiser,
-   knip, jscpd, type-coverage, husky + lint-staged, gitleaks.
+   knip, jscpd, type-coverage, husky + lint-staged, gitleaks, commitlint.
    **No Python.** The `pre-commit` framework and semgrep are excluded; the gate
    wall is node/bash-native, orchestrated by `pnpm gate`. Call-level purity in
    `core`/`games` (no `Math.random`/`Date.now`/timers) is enforced by
