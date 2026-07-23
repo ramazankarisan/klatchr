@@ -3,4 +3,4 @@
  * minPlayers / maxPlayers, never widen them.
  */
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS = 12;
+export const MAX_PLAYERS = 50;

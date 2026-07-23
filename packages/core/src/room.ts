@@ -27,7 +27,7 @@ export function roomReduce(
 ): Result<Room, RoomError> {
   switch (event.type) {
     case 'join':
-      return join(room, event.nickname, ctx);
+      return join(room, event.nickname, event.reconnectId, ctx);
     case 'leave':
       return leave(room, actor, ctx);
     case 'selectGame':
@@ -41,23 +41,31 @@ export function roomReduce(
   }
 }
 
-function join(room: Room, rawNickname: string, ctx: ReduceContext): Result<Room, RoomError> {
+function join(
+  room: Room,
+  rawNickname: string,
+  reconnectId: string | undefined,
+  ctx: ReduceContext,
+): Result<Room, RoomError> {
   const normalised = normaliseNickname(rawNickname);
   if (!normalised.ok) {
     return err({ code: 'EMPTY_NICKNAME' });
   }
-  const { display, key } = normalised.value;
-  const existing = room.players.find((p) => p.nickname.toLowerCase() === key);
-  if (existing !== undefined) {
-    return ok(room); // P2: rejoin resumes the same player, no duplicate
+  if (reconnectId !== undefined) {
+    const returning = room.players.find((p) => p.id === reconnectId);
+    if (returning !== undefined) {
+      return ok(room); // E3: a known id resumes its slot, no duplicate, no roster event
+    }
   }
   if (room.players.length >= MAX_PLAYERS) {
     return err({ code: 'ROOM_FULL' }); // P1
   }
+  const midGame = room.phase === 'IN_GAME';
   const player: Player = {
     id: ctx.roomDeps.id(),
-    nickname: display,
-    joinedDuringGame: room.phase === 'IN_GAME',
+    nickname: normalised.value.display, // E3: display-only, duplicates allowed
+    joinedDuringGame: midGame,
+    spectator: midGame, // E2: a mid-round joiner spectates until the next round
   };
   const players = [...room.players, player];
   const gameState = forwardRoster(room, { type: 'playerJoined', player }, ctx);
@@ -111,8 +119,16 @@ function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, 
   if (room.players.length < game.minPlayers) {
     return err({ code: 'BELOW_MIN_PLAYERS' }); // P3
   }
-  const gameState = game.init(room.players, ctx.gameDeps);
-  return ok({ ...room, phase: 'IN_GAME', gameState });
+  // E2 seat-and-spectate: the first game.maxPlayers (join order) play this
+  // round; any overflow spectates. init only ever sees the active seats.
+  const seated = room.players.map((p, i) => ({
+    ...p,
+    spectator: i >= game.maxPlayers,
+    joinedDuringGame: false,
+  }));
+  const active = seated.filter((p) => !p.spectator);
+  const gameState = game.init(active, ctx.gameDeps);
+  return ok({ ...room, phase: 'IN_GAME', gameState, players: seated });
 }
 
 function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room, RoomError> {
