@@ -139,6 +139,13 @@ is wrong — stop and say so rather than special-casing the game in core.
    wall is node/bash-native, orchestrated by `pnpm gate`. Call-level purity in
    `core`/`games` (no `Math.random`/`Date.now`/timers) is enforced by
    `.hooks/check-purity.sh` + dependency-cruiser, not semgrep.
+9. **UI is designed before it is built.** For any UI addition or change in
+   `apps/web`, first produce a design sketch on a Claude design surface and
+   publish it for the user to review and control. Do **not** write component
+   code until the sketch is approved. `design.md` is the design-system source
+   of truth (tokens, the two surfaces, component style); keep it current and
+   design against it. Applies to every screen: host lobby, join, game views,
+   scores.
 
 ## Testing
 
