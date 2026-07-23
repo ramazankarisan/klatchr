@@ -1,0 +1,36 @@
+{
+  "name": "klatchr",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": { "node": ">=20" },
+  "pnpm": { "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"] },
+  "scripts": {
+    "test": "vitest run",
+    "test:core": "vitest run packages/core",
+    "test:cov": "vitest run --coverage",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs",
+    "jscpd": "jscpd .",
+    "type-coverage": "pnpm -r exec type-coverage --at-least 99.9 --ignore-files '**/*.test.ts'",
+    "knip": "knip",
+    "gate": "bash scripts/gate.sh",
+    "e2e": "playwright test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.7.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "dependency-cruiser": "^16.4.2",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "knip": "^5.36.0",
+    "type-coverage": "^2.29.7",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

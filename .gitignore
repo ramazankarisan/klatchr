@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.jscpd/
+*.report.html
+*.tsbuildinfo
+.DS_Store
+test-results/
+playwright-report/
