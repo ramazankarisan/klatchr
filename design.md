@@ -6,8 +6,8 @@ updated alongside the sketch, and component code is written against it.
 
 ## Workflow
 
-1. Sketch the screen/component on a Claude design surface (design tool of the
-   day — confirmed with the user before first use).
+1. Sketch the screen/component on **claude.ai/design** (surface confirmed with
+   the user 2026-07-24).
 2. Publish it for the user to review and control. Wait for approval.
 3. Only then implement in React + MUI, matching the approved sketch and the
    tokens below.
@@ -41,6 +41,10 @@ MUI is the component library (fixed stack). Tokens map to an MUI theme.
 - Host: **lobby** (room code + joining players), **in-game** per phase,
   **scores**.
 - Player: **join** (code + nickname), **in-game** per phase, **scores**.
+
+**Scale constraint (E1, plan-2):** rooms hold up to **50** players. Sketch the
+host lobby + scores at 50, not at 6 — roster needs a compact/paged layout, not
+one large tile per player. Player-phone screens are unaffected by room size.
 
 Each gets a sketch → approval → build. Redaction is verified in the game view,
 not left to the UI.
