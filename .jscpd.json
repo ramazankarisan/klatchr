@@ -3,5 +3,14 @@
   "minTokens": 50,
   "gitignore": true,
   "reporters": ["console"],
-  "ignore": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/.jscpd/**", "**/*.test.ts"]
+  "ignore": [
+    "**/node_modules/**",
+    "**/.claude/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.jscpd/**",
+    "**/*.md",
+    "**/*.test.ts",
+    "**/*.testkit.ts"
+  ]
 }
