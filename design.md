@@ -24,17 +24,59 @@ Klatchr is Jackbox-shaped: one shared screen plus phones.
 - **Player phone** — compact, portrait, touch. One primary action per phase
   (type an answer, pick a guess). Thumb-reachable controls.
 
-## Tokens (to be filled at Cycle 4, with the first approved sketch)
+## Design direction — Paper / bulletin-board (locked 2026-07-25)
+
+Screen = a warm **bulletin board**; phone = your **name-tag + index card**. Warm,
+tactile, workshop/offsite energy — a team tool that feels hand-made, not a neon
+party toy. The room code lives on **label-maker tape**; answers are **index
+cards** taped to the board; the reveal is a teal rubber **stamp**. A committed
+warm-light world for the product surfaces in v1 (no dark mode yet — a later
+consideration); the design-gallery chrome is theme-aware.
+
+## Tokens (locked from the approved paper sketch)
 
 | Token | Value | Notes |
 |---|---|---|
-| color.* | TBD | brand, surface, text, accent, per-player colors |
-| type.* | TBD | display (host), body (phone), mono (room code) |
-| space.* | TBD | 4/8-based scale |
-| radius.* | TBD | |
-| elevation.* | TBD | |
+| color.kraft | `#F0E7D8` | board / phone ground (with a subtle SVG grain overlay) |
+| color.kraft2 | `#E7DCC8` | deeper kraft — dashed dividers, overflow tiles |
+| color.card | `#FBF6EC` | index card / name-tag surface |
+| color.ink | `#2B2620` | warm black text |
+| color.inkSoft | `#6B6154` | muted / secondary text |
+| color.marker | `#E8623D` | **primary / CTA** — the only "buzzer" |
+| color.markerDeep | `#C14A2B` | pressed / eyebrow |
+| color.teal | `#2E8B7B` | **correct / reveal** — earned, never shown before reveal |
+| color.dymo | `#34302A` | label-maker tape ground (room code sits on it) |
+| color.players[8] | `#E8623D #E0A32E #2E8B7B #3E7CB1 #8A5A83 #6E7B3E #F2996E #55707A` | one marker per person |
+| font.display | `"Helvetica Neue", Arial, system-ui` 900 | headings + prompts |
+| font.body | `ui-sans-serif, system-ui` | running text, buttons |
+| font.hand | `"Bradley Hand","Segoe Print","Comic Sans MS", cursive` | **name-tags + tape only** — seasoning, never body |
+| font.mono | `ui-monospace, "SF Mono", Menlo` | room code (on dymo tape), data |
+| space | `4 · 8 · 12 · 16 · 24 · 32 · 48` | 4/8-based scale |
+| radius.card | `6px` | index cards, tally |
+| radius.control | `8px` | fields, name-tags |
+| radius.pill | `999px` | primary button |
+| elevation.lift | `1px 3px 6px rgba(43,38,32,.14)` | paper lift on cards/tags |
+| elevation.board | `0 22px 50px -30px rgba(43,38,32,.5)` | the board panel |
 
-MUI is the component library (fixed stack). Tokens map to an MUI theme.
+**Component style.** Room code = mono on dark dymo tape. Name-tag = colored band
++ hand-lettered name. Index card = ruled cream, a strip of tape at top, slight
+hand-placed rotation (±1.5° max). Reveal = teal outlined "Said it" stamp,
+rotated. Primary button = marker-red pill; disabled/waiting reuses it dimmed. A
+✓ tick marks who has answered. MUI is the component library (fixed stack); these
+tokens map to an MUI theme (`theme.palette`, `theme.typography`, `shape`,
+`shadows`).
+
+Approved sketch (paper, full): the claude.ai/design artifact (paper direction,
+guess-picker revision).
+
+**Guess interaction (phone).** You never pick an author from 50. Guess Who seats
+**12 players per round** (`guessWho.maxPlayers = 12`; the rest of a large room
+spectate and rotate in — E2 seat-and-spectate), so a guesser chooses among the
+**≤11 other** active players. The screen is a list of answer cards; tapping a
+card opens a **searchable author picker** (name-tag chips + a search field),
+one card at a time, with a `N of 11 named` progress count. The search field is
+there so the pattern still holds if a future game seats more — never a flat row
+of 50 pills.
 
 ## Screens (Cycle 4)
 
