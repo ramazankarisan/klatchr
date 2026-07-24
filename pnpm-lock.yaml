@@ -57,7 +57,11 @@ importers:
 
   packages/core: {}
 
-  packages/games: {}
+  packages/games:
+    dependencies:
+      '@klatchr/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/protocol:
     dependencies:
