@@ -273,6 +273,21 @@ describe('lifecycle guards and empty-room discard (rule 7)', () => {
     await flush();
     expect(hub.hasRoom(code)).toBe(false);
   });
+
+  it('unbinds bystanders on close, so a player can open a fresh room afterwards', async () => {
+    const [hub, host, code] = await open();
+    const a = at(await seat(hub, code, 3), 0);
+    hub.handle(host, { type: 'leave', code }); // closes the room out from under A
+    await flush();
+    hub.handle(a, { type: 'open', nickname: 'NewScreen' });
+    await flush();
+    const fresh = lastFrame(a);
+    expect(fresh.code).not.toBe(code);
+    expect(hub.hasRoom(fresh.code)).toBe(true);
+    expect(a.received.some((m) => m.type === 'error' && m.message === 'ALREADY_IN_ROOM')).toBe(
+      false,
+    );
+  });
 });
 
 describe('rejected connections and forwarded game errors', () => {
@@ -303,5 +318,20 @@ describe('rejected connections and forwarded game errors', () => {
     const a = at(await seat(hub, code, 3), 0);
     hub.handle(a, { type: 'play', code, event: { type: 'submit', text: 'early' } });
     expect(lastError(a).message).toBe('GAME_EVENT_OUTSIDE_GAME');
+  });
+
+  it('keeps the inner reason when the game itself rejects a play', async () => {
+    const [hub, host, code] = await open();
+    const a = at(await seat(hub, code, 3), 0);
+    hub.handle(host, { type: 'host', code, action: 'selectGame', gameId: 'guess-who' });
+    hub.handle(host, { type: 'host', code, action: 'startGame' });
+    await flush();
+    // Guessing during the collect phase is a game-level WRONG_PHASE (wrapped GAME_REJECTED).
+    hub.handle(a, {
+      type: 'play',
+      code,
+      event: { type: 'guess', cardId: 'c0', author: playerId(a) },
+    });
+    expect(lastError(a).message).toBe('GAME_REJECTED: WRONG_PHASE');
   });
 });
