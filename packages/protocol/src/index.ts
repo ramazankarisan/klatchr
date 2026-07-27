@@ -57,7 +57,8 @@ export const serverMessage = z.discriminatedUnion('type', [
     phase,
     players: z.array(publicPlayer),
     selectedGameId: z.string().nullable(),
-    gameView: z.unknown(), // already redacted per viewer in packages/games
+    // already redacted per viewer in packages/games; opaque but present (null when no game)
+    gameView: z.unknown().refine((v) => v !== undefined, 'a frame must carry a gameView'),
     scores: z.array(score).nullable(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string().optional() }),
