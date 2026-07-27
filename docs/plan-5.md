@@ -92,44 +92,108 @@ Tests: a `RoomSession` unit-driven through a full round with two fake
 connections; asserts each connection receives only its redacted frame, host
 authority is enforced, and an empty room is discarded.
 
-## Stage 5.3 — `apps/web` (socket transport, real input, E2E)
+## Stage 5.3 — real web + E2E (detailed, 2026-07-27)
 
-- **SocketTransport** — implements `Transport` over a `WebSocket` to
-  `VITE_WS_URL`, parsing every inbound frame with `@klatchr/protocol`. The app
-  factory picks socket in the browser, mock in tests. **(W4 — keep MockEngine as
-  the dev/test transport: yes.)**
-- **Delete the Stage.** `/host` renders the board only; `/` renders join → the
-  player's own phone. One connection per surface.
-- **Host scores overview.** The host board may show the round tally at reveal
-  and, optionally, cumulative standings across rounds — public by nature (the
-  shared screen), so no leak. Mid-round per-player scores stay withheld (the
-  Cycle-4 fix) so the reveal isn't spoiled.
-- **Real player input** (the phones stop being read-only):
-  - Collect — a text field + submit → `play { submit, text }`. The client keeps
-    its own answer locally so the guess screen can mark "your card" (the view
-    doesn't reveal which card is yours — that's correct redaction).
-  - Guess — the searchable author picker (design.md) → `play { guess, cardId,
-    author }`, one card at a time, ≤11 candidates (seat-and-spectate).
-  - Reconnect — store the reconnect handle from `joined` in `localStorage`;
-    resend on reconnect (E3). **(W5 — localStorage handle, dies with the room
-    server-side.)**
-    > **Prerequisite from the 5.2 review (blocks reconnect in 5.3).** The
-    > reconnect handle must be a **server-minted secret, distinct from
-    > `playerId`**. Today `join.reconnectId` *is* the `playerId`, and `playerId`
-    > is broadcast in every frame's roster (it has to be — guess targets are
-    > player ids). So any fresh socket can `join` with a visible id and resume
-    > that slot — impersonation + redaction leak (receives that player's view,
-    > acts as them, evicts them). Fix spans **protocol** (add a `reconnectToken`
-    > to `joined`/`join`, keep it out of `frame`) and **core** (match resume on
-    > the token, not the public id). This is the one place Cycle 5 must touch
-    > `core`/`protocol` beyond 5.1. Also revisit disconnect-vs-leave: a dropped
-    > socket currently applies an immediate core `leave`, so resume only works
-    > in the pre-`close` window — mark the slot offline and reap on a real leave
-    > or a `GameDeps` clock timeout instead.
-- **E2E (the one that slipped from Cycle 4)** — two Playwright browser contexts,
-  a real server: host opens a room, a player joins, they play a round; assert
-  the player's DOM never contains another player's hidden answer or the authors
-  before reveal. This is the whole-stack redaction proof.
+5.3 turns the merged 5.2 server into the running product: the web talks to a
+real socket, players submit and guess for real, and a two-browser E2E proves
+whole-stack redaction. It is **larger than one PR** — the same
+dependency-ordered discipline as 5.1/5.2 applies. Split into **four sub-PRs,
+each its own session + green gate**: `5.3a reconnect-secret → 5.3b transport +
+runnable server → 5.3c real input + host scores → 5.3d E2E`.
+
+### Decisions to lock before 5.3 starts
+
+- **D1 — server runtime dep.** The server has no `start`/`dev` script and no TS
+  runner; the gate typechecks/tests but never boots it. 5.3b needs it running
+  (for `pnpm dev` and the E2E `webServer`). Proposed: add **`tsx`** (dev dep) +
+  `start`/`dev` scripts (`tsx src/index.ts` / `tsx watch`), and a root `dev`
+  that runs server + web `concurrently`. **New deps `tsx` (+ maybe
+  `concurrently`) need rule-8 sign-off.** Alternatives: `tsc` build + `node`
+  (heavier, needs a build tsconfig), or `node --experimental-strip-types`
+  (Node ≥22, no decorators/metadata handling — risky for Nest). Recommend `tsx`.
+- **D2 — `VITE_WS_URL`.** Rule 6: URL from `VITE_WS_URL`, never hardcoded. Add
+  `apps/web/.env` (or vite `define` default) `ws://localhost:8080`; the E2E
+  points it at the test server's port.
+- **D3 — design gate (rule 9).** Before any 5.3c component code, audit what the
+  approved paper sketch already covers vs what is new, and get new/changed
+  screens sketched + approved. Already **locked in design.md**: the guess
+  searchable author-picker (≤11, `N of 11 named`) and "type an answer" collect
+  input. **Likely needs a fresh/updated sketch:** the host **scores overview**
+  (round tally + cumulative standings) and the host **control bar** that
+  replaces the single demo `step()` button (Start / Show cards / Reveal / New
+  round). 5.3a/5.3b touch no visual design (transport plumbing only); the design
+  gate blocks only 5.3c.
+- **D4 — the `Transport` seam is multi-viewer; a socket is single-viewer.** The
+  mock serves every viewer from one engine (the Stage). A socket connection *is*
+  one viewer (host **or** one player). `SocketTransport` implements the same
+  `subscribe(viewer, cb)` / `send(actor, action)` interface but binds to its own
+  single connection: it opens/join-s on construct, ignores the per-call `actor`
+  (its identity is fixed by the connection), and maps `Action` → wire
+  (`selectGame/startGame/endGame` → `host`, `gameEvent` → `play`). Keep the
+  interface; do not refactor the mock.
+
+### 5.3a — reconnect-secret (`protocol` + `core`) · the blocking prereq
+
+The one place Cycle 5 must touch `core`/`protocol` beyond 5.1. From the 5.2
+review (HIGH): the reconnect handle is currently the public `playerId`, which is
+broadcast in every frame's roster (it must be — guess targets are player ids).
+So any fresh socket can `join` with a visible id and **resume that slot** —
+impersonation + redaction leak (receives that player's view, acts as them,
+evicts them).
+
+- **protocol** — `joined` carries a new `reconnectToken` (server-minted secret,
+  distinct from `playerId`); `join` carries `reconnectToken?` in place of
+  `reconnectId`. The token never appears in `frame`. Round-trip + reject tests.
+- **core** — `join` resume matches on the token, not the public id: the room
+  stores a per-player secret (via `RoomDeps.id()` / a new dep), returns the
+  resumed player, and a wrong/absent token is a fresh join. Unit tests incl.
+  rejections (100% core).
+- **disconnect-vs-leave (also here or 5.3b).** A dropped socket currently
+  applies an immediate core `leave`, so resume only works in the pre-`close`
+  window. Mark the slot **offline** and reap on a real `leave` or a `GameDeps`
+  clock timeout, so a reconnect within the window truly resumes. Decide whether
+  the offline flag lives in `core` (roster fact) — likely yes.
+- Server (`apps/server`) then threads the token: mint on join, return in
+  `joined`, match on reconnect, keep it out of `frameFor`.
+
+### 5.3b — SocketTransport + runnable server (`apps/web`, `apps/server`)
+
+- **`SocketTransport implements Transport`** over `WebSocket(VITE_WS_URL)`,
+  parsing every inbound with `@klatchr/protocol.serverMessage` (rule 2, never
+  `as`). Per D4: single-viewer. Host surface → `open`; player surface →
+  `join { code, nickname, reconnectToken? }`. Rebuilds the web `ViewFrame` from
+  the wire `frame` + its own known viewer.
+- **App factory** picks socket in the browser, `MockEngine` in tests (W4 —
+  MockEngine stays as the dev/test transport; RTL tests need no server).
+  `HostScreen`/`PlayerScreen`/`useFrame` retype from `MockEngine` → `Transport`.
+- **Delete the `Stage`.** `App` routes two surfaces: `/host` (or a host button)
+  = the board only, one host connection; `/` = join form → the player's **own**
+  phone, one player connection. Nobody renders anyone else's phone.
+- **Runnable server** (D1): `start`/`dev` scripts; root `dev` = server + web.
+- Wire the real host controls (replace `engine.step()`): Start → `selectGame`
+  (only game today = `guess-who`) + `startGame`; Show cards → advance `collect`;
+  Reveal → advance `guess`; New round → `endGame`/next. **Visual is the existing
+  button until 5.3c refines the control bar.**
+
+### 5.3c — real player input + host scores overview (`apps/web`) · behind D3
+
+- **Collect** — text field + submit → `play { submit, text }`. Client keeps its
+  own answer locally so the guess screen can mark "your card" (the view does not
+  reveal which card is yours — correct redaction).
+- **Guess** — the searchable author picker (design.md, locked) → `play { guess,
+  cardId, author }`, one card at a time, ≤11 candidates, `N of 11 named`.
+- **Host scores overview** — round tally at reveal + optional cumulative
+  standings; public by nature (shared screen), no leak. Mid-round per-player
+  scores stay withheld (the Cycle-4 fix) so the reveal isn't spoiled.
+- RTL tests (query by role/label) on the mock transport for each interaction.
+
+### 5.3d — two-context Playwright E2E · the whole-stack redaction proof
+
+Two browser contexts, a real server (playwright `webServer` launches server +
+web, `VITE_WS_URL` at the test server): host opens a room, ≥3 players join, they
+play a round. Assert each player's DOM **never** contains another player's hidden
+answer or any authorship before reveal, and reconnect resumes a slot. This is
+the proof that slipped from Cycle 4.
 
 ## Open questions (answer before 5.1 starts)
 
