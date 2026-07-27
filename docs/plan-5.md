@@ -110,8 +110,22 @@ authority is enforced, and an empty room is discarded.
     doesn't reveal which card is yours — that's correct redaction).
   - Guess — the searchable author picker (design.md) → `play { guess, cardId,
     author }`, one card at a time, ≤11 candidates (seat-and-spectate).
-  - Reconnect — store `playerId` from `joined` in `localStorage`; resend on
-    reconnect (E3). **(W5 — localStorage handle, dies with the room server-side.)**
+  - Reconnect — store the reconnect handle from `joined` in `localStorage`;
+    resend on reconnect (E3). **(W5 — localStorage handle, dies with the room
+    server-side.)**
+    > **Prerequisite from the 5.2 review (blocks reconnect in 5.3).** The
+    > reconnect handle must be a **server-minted secret, distinct from
+    > `playerId`**. Today `join.reconnectId` *is* the `playerId`, and `playerId`
+    > is broadcast in every frame's roster (it has to be — guess targets are
+    > player ids). So any fresh socket can `join` with a visible id and resume
+    > that slot — impersonation + redaction leak (receives that player's view,
+    > acts as them, evicts them). Fix spans **protocol** (add a `reconnectToken`
+    > to `joined`/`join`, keep it out of `frame`) and **core** (match resume on
+    > the token, not the public id). This is the one place Cycle 5 must touch
+    > `core`/`protocol` beyond 5.1. Also revisit disconnect-vs-leave: a dropped
+    > socket currently applies an immediate core `leave`, so resume only works
+    > in the pre-`close` window — mark the slot offline and reap on a real leave
+    > or a `GameDeps` clock timeout instead.
 - **E2E (the one that slipped from Cycle 4)** — two Playwright browser contexts,
   a real server: host opens a room, a player joins, they play a round; assert
   the player's DOM never contains another player's hidden answer or the authors
