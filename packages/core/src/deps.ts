@@ -4,7 +4,8 @@
  */
 export interface RoomDeps {
   random(): number; // [0, 1) — room code
-  id(): string; // opaque unique — playerId, hostId
+  id(): string; // opaque unique — playerId, hostId (public: appears in rosters)
+  secret(): string; // unguessable, distinct from id() — the reconnect token (never public)
 }
 
 /** Non-deterministic sources handed to a game's init/reduce. */

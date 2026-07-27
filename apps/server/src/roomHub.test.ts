@@ -30,11 +30,13 @@ const lastError = (c: FakeConn): ErrorMessage => {
   if (e === undefined) throw new Error('no error received');
   return e;
 };
-const playerId = (c: FakeConn): string => {
+const joinedOf = (c: FakeConn): Joined => {
   const j = c.received.find((m): m is Joined => m.type === 'joined');
   if (j === undefined) throw new Error('never joined');
-  return j.playerId;
+  return j;
 };
+const playerId = (c: FakeConn): string => joinedOf(c).playerId;
+const reconnectToken = (c: FakeConn): string => joinedOf(c).reconnectToken;
 // Views are opaque on the wire; in tests we read the already-redacted result freely.
 const gv = (f: Frame) => JSON.parse(JSON.stringify(f.gameView));
 
@@ -94,15 +96,35 @@ describe('join', () => {
     expect(lastError(stranger).message).toBe('NO_SUCH_ROOM');
   });
 
-  it('resumes a slot on a matching reconnectId without a duplicate roster entry', async () => {
+  it('resumes a slot on a matching reconnect token without a duplicate roster entry', async () => {
     const [hub, , code] = await open();
     const a = at(await seat(hub, code, 3), 0);
     const id = playerId(a);
     const back = new FakeConn();
-    hub.handle(back, { type: 'join', code, nickname: 'P0', reconnectId: id });
+    hub.handle(back, { type: 'join', code, nickname: 'P0', reconnectToken: reconnectToken(a) });
     await flush();
-    expect(playerId(back)).toBe(id);
+    expect(playerId(back)).toBe(id); // same slot
     expect(lastFrame(back).players).toHaveLength(3); // resumed, not a 4th seat
+  });
+
+  it('never puts the reconnect token in a frame (it is a secret, not roster data)', async () => {
+    const [hub, host, code] = await open();
+    const a = at(await seat(hub, code, 3), 0);
+    const secret = reconnectToken(a);
+    expect(secret).not.toBe(playerId(a)); // token is distinct from the public id
+    expect(JSON.stringify(lastFrame(host))).not.toContain(secret);
+    expect(JSON.stringify(lastFrame(a))).not.toContain(secret);
+  });
+
+  it('refuses to resume with a public playerId as the token (impersonation blocked)', async () => {
+    const [hub, , code] = await open();
+    const a = at(await seat(hub, code, 3), 0);
+    const attacker = new FakeConn();
+    // The attacker knows A's id (it's in every roster) but not A's secret.
+    hub.handle(attacker, { type: 'join', code, nickname: 'evil', reconnectToken: playerId(a) });
+    await flush();
+    expect(playerId(attacker)).not.toBe(playerId(a)); // a new, distinct slot — not A
+    expect(lastFrame(attacker).players).toHaveLength(4); // a 4th seat, not a resume
   });
 });
 

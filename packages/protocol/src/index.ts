@@ -31,7 +31,15 @@ const score = z.object({
 // ---- inbound: client -> server ----
 export const clientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('open'), nickname }),
-  z.object({ type: z.literal('join'), code: roomCode, nickname, reconnectId: playerId.optional() }),
+  // reconnectToken is a server-minted secret (from a prior `joined`), NOT the public
+  // playerId — the id is broadcast in every roster, so it must not double as the
+  // resume credential. See packages/core `playerIdForToken`.
+  z.object({
+    type: z.literal('join'),
+    code: roomCode,
+    nickname,
+    reconnectToken: z.string().optional(),
+  }),
   z.object({
     type: z.literal('host'),
     code: roomCode,
@@ -50,7 +58,9 @@ export type ClientMessage = z.infer<typeof clientMessage>;
 
 // ---- outbound: server -> client ----
 export const serverMessage = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('joined'), code: roomCode, playerId }), // the reconnect handle
+  // playerId = who you are (public, appears in rosters); reconnectToken = the secret
+  // to resume this slot, stored client-side and never echoed in a `frame`.
+  z.object({ type: z.literal('joined'), code: roomCode, playerId, reconnectToken: z.string() }),
   z.object({
     type: z.literal('frame'),
     code: roomCode,

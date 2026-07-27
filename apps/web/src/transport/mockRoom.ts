@@ -190,12 +190,17 @@ function toPublic(p: Player): PublicPlayer {
 }
 
 function makeRoomDeps(): RoomDeps {
-  let n = 0;
+  let ids = 0;
+  let secrets = 0;
   return {
     random: () => Math.random(),
     id: () => {
-      n += 1;
-      return `id-${n}`;
+      ids += 1;
+      return `id-${ids}`;
+    },
+    secret: () => {
+      secrets += 1;
+      return `secret-${secrets}`;
     },
   };
 }

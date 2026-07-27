@@ -6,6 +6,7 @@ import {
   type RoomEvent,
   type Score,
   type Viewer,
+  playerIdForToken,
   roomReduce,
 } from '@klatchr/core';
 import type { ServerMessage } from '@klatchr/protocol';
@@ -55,13 +56,13 @@ export class RoomSession {
     this.scheduleBroadcast();
   }
 
-  /** Add (or, on a matching reconnectId, resume) a player. Returns whether it joined. */
-  join(conn: Connection, nickname: string, reconnectId?: string): boolean {
+  /** Add (or, on a matching reconnect token, resume) a player. Returns whether it joined. */
+  join(conn: Connection, nickname: string, reconnectToken?: string): boolean {
     const before = new Set(this.room.players.map((p) => p.id));
     const event: RoomEvent =
-      reconnectId === undefined
+      reconnectToken === undefined
         ? { type: 'join', nickname }
-        : { type: 'join', nickname, reconnectId };
+        : { type: 'join', nickname, reconnectToken };
     // `join` ignores the actor in core; the joining connection has no identity yet.
     const result = this.apply(event, { role: 'host' });
     if (!result.ok) {
@@ -69,8 +70,12 @@ export class RoomSession {
       return false;
     }
     const added = this.room.players.find((p) => !before.has(p.id));
-    const playerId = added?.id ?? reconnectId;
-    if (playerId === undefined) {
+    // New join -> the id core just minted; resume -> the id the token maps to.
+    const playerId =
+      added?.id ??
+      (reconnectToken === undefined ? undefined : playerIdForToken(this.room, reconnectToken));
+    const token = playerId === undefined ? undefined : this.room.tokens[playerId];
+    if (playerId === undefined || token === undefined) {
       conn.send(this.errorMsg('JOIN_FAILED'));
       return false;
     }
@@ -80,7 +85,8 @@ export class RoomSession {
       this.evict(playerId);
     }
     this.members.set(conn, { role: 'player', id: playerId });
-    conn.send({ type: 'joined', code: this.room.code, playerId });
+    // The token is the resume secret — sent only here, never in a frame roster.
+    conn.send({ type: 'joined', code: this.room.code, playerId, reconnectToken: token });
     return true;
   }
 

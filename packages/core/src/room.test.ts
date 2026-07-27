@@ -28,6 +28,7 @@ function room(overrides: Partial<Room> = {}): Room {
     hostId: 'host',
     phase: 'LOBBY',
     players: [],
+    tokens: {},
     selectedGameId: null,
     gameState: null,
     closed: false,
@@ -59,11 +60,11 @@ describe('join', () => {
     );
   });
 
-  it('E3a a join with a matching reconnectId resumes the slot, no duplicate', () => {
-    const start = room({ players: [player('keep')] });
+  it('E3a a join with a matching reconnect token resumes the slot, no duplicate', () => {
+    const start = room({ players: [player('keep')], tokens: { keep: 'sec-keep' } });
     const r = roomReduce(
       start,
-      { type: 'join', nickname: 'renamed', reconnectId: 'keep' },
+      { type: 'join', nickname: 'renamed', reconnectToken: 'sec-keep' },
       asPlayer('x'),
       ctxWith(),
     );
@@ -71,22 +72,25 @@ describe('join', () => {
     expect(r.ok && r.value.players[0]?.id).toBe('keep');
   });
 
-  it('E3b a duplicate nickname without a reconnectId is a new, distinct player', () => {
+  it('E3b a duplicate nickname without a reconnect token is a new, distinct player', () => {
     const start = room({ players: [player('Ada')] });
     const r = roomReduce(start, { type: 'join', nickname: 'Ada' }, asPlayer('x'), ctxWith());
     expect(r.ok && r.value.players).toHaveLength(2);
     expect(r.ok && r.value.players[1]?.id).toBe('p1');
+    expect(r.ok && r.value.tokens.p1).toBe('s1'); // a fresh secret is minted for the new slot
   });
 
-  it('E3d an unknown reconnectId is treated as a new player', () => {
-    const start = room({ players: [player('a')] });
+  it('E3d a join whose token belongs to no one is treated as a new player', () => {
+    // Covers both an unknown secret and — since a public id is never a token — the
+    // impersonation attempt of passing another player's id as the reconnect token.
+    const start = room({ players: [player('victim')], tokens: { victim: 'sec-victim' } });
     const r = roomReduce(
       start,
-      { type: 'join', nickname: 'New', reconnectId: 'ghost' },
+      { type: 'join', nickname: 'attacker', reconnectToken: 'victim' },
       asPlayer('x'),
       ctxWith(),
     );
-    expect(r.ok && r.value.players).toHaveLength(2);
+    expect(r.ok && r.value.players).toHaveLength(2); // a new player, not a resume of 'victim'
   });
 
   it('refuses an empty nickname', () => {
@@ -294,11 +298,15 @@ describe('leave', () => {
     expect(r.ok && r.value.closed).toBe(true);
   });
 
-  it('a player leaving among others is removed and the room stays open', () => {
-    const start = room({ players: [player('a'), player('b')] });
+  it('a player leaving among others is removed, keeps the room open, and drops only its token', () => {
+    const start = room({
+      players: [player('a'), player('b')],
+      tokens: { a: 'sec-a', b: 'sec-b' },
+    });
     const r = roomReduce(start, { type: 'leave' }, asPlayer('a'), ctxWith());
     expect(r.ok && r.value.players).toHaveLength(1);
     expect(r.ok && r.value.closed).toBe(false);
+    expect(r.ok && r.value.tokens).toEqual({ b: 'sec-b' }); // a's secret gone, b's kept
   });
 });
 
@@ -336,11 +344,12 @@ describe('mid-game roster forwarding (S2)', () => {
       phase: 'IN_GAME',
       selectedGameId: 'stub',
       players: [player('a'), player('b')],
+      tokens: { a: 'sec-a', b: 'sec-b' },
       gameState: { moves: 3 },
     });
     const r = roomReduce(
       start,
-      { type: 'join', nickname: 'a', reconnectId: 'a' },
+      { type: 'join', nickname: 'a', reconnectToken: 'sec-a' },
       asPlayer('x'),
       ctxWith([g]),
     );

@@ -9,6 +9,10 @@ export interface Room {
   hostId: string;
   phase: Phase;
   players: readonly Player[];
+  // playerId -> reconnect secret. Kept off the Player (and so out of every view/frame)
+  // so it can never leak to a game or another viewer; the server reads it to mint a
+  // `joined`, and matches it via `playerIdForToken` on resume. Never broadcast.
+  tokens: Readonly<Record<string, string>>;
   selectedGameId: string | null;
   gameState: unknown;
   closed: boolean;
@@ -31,7 +35,7 @@ export interface RoomError {
 }
 
 export type RoomEvent =
-  | { type: 'join'; nickname: string; reconnectId?: string }
+  | { type: 'join'; nickname: string; reconnectToken?: string }
   | { type: 'leave' }
   | { type: 'selectGame'; gameId: string }
   | { type: 'startGame' }

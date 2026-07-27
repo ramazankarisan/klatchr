@@ -13,10 +13,21 @@ export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set(
     hostId: deps.id(),
     phase: 'LOBBY',
     players: [],
+    tokens: {},
     selectedGameId: null,
     gameState: null,
     closed: false,
   };
+}
+
+/** The player a reconnect token belongs to, or undefined — the resume credential check. */
+export function playerIdForToken(room: Room, token: string): string | undefined {
+  for (const [id, secret] of Object.entries(room.tokens)) {
+    if (secret === token) {
+      return id;
+    }
+  }
+  return undefined;
 }
 
 export function roomReduce(
@@ -27,7 +38,7 @@ export function roomReduce(
 ): Result<Room, RoomError> {
   switch (event.type) {
     case 'join':
-      return join(room, event.nickname, event.reconnectId, ctx);
+      return join(room, event.nickname, event.reconnectToken, ctx);
     case 'leave':
       return leave(room, actor, ctx);
     case 'selectGame':
@@ -44,18 +55,15 @@ export function roomReduce(
 function join(
   room: Room,
   rawNickname: string,
-  reconnectId: string | undefined,
+  reconnectToken: string | undefined,
   ctx: ReduceContext,
 ): Result<Room, RoomError> {
   const normalised = normaliseNickname(rawNickname);
   if (!normalised.ok) {
     return err({ code: 'EMPTY_NICKNAME' });
   }
-  if (reconnectId !== undefined) {
-    const returning = room.players.find((p) => p.id === reconnectId);
-    if (returning !== undefined) {
-      return ok(room); // E3: a known id resumes its slot, no duplicate, no roster event
-    }
+  if (reconnectToken !== undefined && playerIdForToken(room, reconnectToken) !== undefined) {
+    return ok(room); // E3: a valid secret resumes its slot, no duplicate, no roster event
   }
   if (room.players.length >= MAX_PLAYERS) {
     return err({ code: 'ROOM_FULL' }); // P1
@@ -68,8 +76,9 @@ function join(
     spectator: midGame, // E2: a mid-round joiner spectates until the next round
   };
   const players = [...room.players, player];
+  const tokens = { ...room.tokens, [player.id]: ctx.roomDeps.secret() };
   const gameState = forwardRoster(room, { type: 'playerJoined', player }, ctx);
-  return ok({ ...room, players, gameState });
+  return ok({ ...room, players, tokens, gameState });
 }
 
 function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
@@ -77,9 +86,11 @@ function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Room
     return ok({ ...room, closed: true }); // P6: host leaves -> room closed
   }
   const players = room.players.filter((p) => p.id !== actor.id);
+  // Drop the leaver's token too, or a stale secret could "resume" a gone slot.
+  const tokens = Object.fromEntries(Object.entries(room.tokens).filter(([id]) => id !== actor.id));
   const gameState = forwardRoster(room, { type: 'playerLeft', id: actor.id }, ctx);
   const closed = players.length === 0; // P7: last player leaves -> discarded
-  return ok({ ...room, players, gameState, closed });
+  return ok({ ...room, players, tokens, gameState, closed });
 }
 
 function selectGame(

@@ -8,7 +8,7 @@ describe('clientMessage', () => {
   const cases: ClientMessage[] = [
     { type: 'open', nickname: 'Ada' },
     { type: 'join', code: 'WXYZ', nickname: 'Bo' },
-    { type: 'join', code: 'WXYZ', nickname: 'Bo', reconnectId: 'p_1' },
+    { type: 'join', code: 'WXYZ', nickname: 'Bo', reconnectToken: 'tok_secret_1' },
     { type: 'host', code: 'WXYZ', action: 'selectGame', gameId: 'guessWho' },
     { type: 'host', code: 'WXYZ', action: 'startGame' },
     { type: 'host', code: 'WXYZ', action: 'endGame' },
@@ -38,7 +38,7 @@ describe('clientMessage', () => {
 
 describe('serverMessage', () => {
   const cases: ServerMessage[] = [
-    { type: 'joined', code: 'WXYZ', playerId: 'p_1' },
+    { type: 'joined', code: 'WXYZ', playerId: 'p_1', reconnectToken: 'tok_secret_1' },
     {
       type: 'frame',
       code: 'WXYZ',
@@ -98,6 +98,12 @@ describe('serverMessage', () => {
         scores: [{ playerId: 'p_1', points: 'lots' }],
       }).success,
     ).toBe(false);
+  });
+
+  it('rejects a joined without a reconnectToken', () => {
+    expect(serverMessage.safeParse({ type: 'joined', code: 'WXYZ', playerId: 'p_1' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a frame with the gameView key dropped', () => {
