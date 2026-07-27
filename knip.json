@@ -5,9 +5,14 @@
       "entry": ["vitest.config.ts", "playwright.config.ts"],
       "project": ["*.ts"]
     },
-    "apps/*": {
+    "apps/server": {
       "entry": "src/index.ts!",
       "project": "src/**/*.ts"
+    },
+    "apps/web": {
+      "entry": ["index.html!"],
+      "project": "src/**/*.{ts,tsx}",
+      "ignoreDependencies": ["jsdom"]
     }
   }
 }
