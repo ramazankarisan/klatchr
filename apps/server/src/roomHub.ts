@@ -48,7 +48,7 @@ export class RoomHub {
         this.open(conn);
         return;
       case 'join':
-        this.joinRoom(conn, message.code, message.nickname, message.reconnectId);
+        this.joinRoom(conn, message.code, message.nickname, message.reconnectToken);
         return;
       case 'host':
         this.route(conn, message.code, (s) => s.hostAction(conn, message.action, message.gameId));
@@ -95,7 +95,12 @@ export class RoomHub {
     session.addHost(conn);
   }
 
-  private joinRoom(conn: Connection, code: string, nickname: string, reconnectId?: string): void {
+  private joinRoom(
+    conn: Connection,
+    code: string,
+    nickname: string,
+    reconnectToken?: string,
+  ): void {
     if (this.sessionOf.has(conn)) {
       conn.send({ type: 'error', code, message: 'ALREADY_IN_ROOM' });
       return;
@@ -107,7 +112,7 @@ export class RoomHub {
     }
     // Bind only on a real join, so a rejected join (full room, empty nickname)
     // does not leave the connection falsely attached to the session.
-    if (session.join(conn, nickname, reconnectId)) {
+    if (session.join(conn, nickname, reconnectToken)) {
       this.sessionOf.set(conn, session);
     }
   }

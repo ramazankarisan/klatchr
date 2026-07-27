@@ -4,12 +4,17 @@ import { ok } from './result.js';
 
 /** Deterministic room deps: fixed random, sequential ids. */
 export function stubRoomDeps(): RoomDeps {
-  let n = 0;
+  let ids = 0;
+  let secrets = 0;
   return {
     random: () => 0,
     id: () => {
-      n += 1;
-      return `p${n}`;
+      ids += 1;
+      return `p${ids}`;
+    },
+    secret: () => {
+      secrets += 1;
+      return `s${secrets}`;
     },
   };
 }

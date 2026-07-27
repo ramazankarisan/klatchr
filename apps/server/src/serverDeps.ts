@@ -14,7 +14,7 @@ export interface ServerDeps {
 
 export function realDeps(): ServerDeps {
   return {
-    roomDeps: { random: () => Math.random(), id: () => randomUUID() },
+    roomDeps: { random: () => Math.random(), id: () => randomUUID(), secret: () => randomUUID() },
     gameDeps: { random: () => Math.random(), now: () => Date.now() },
   };
 }

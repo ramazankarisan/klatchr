@@ -6,7 +6,7 @@ export { type NormalisedNickname, normaliseNickname } from './nickname.js';
 export { createRegistry, type Registry } from './registry.js';
 export { type Result, err, ok } from './result.js';
 export { generateRoomCode } from './roomCode.js';
-export { createRoom, roomReduce } from './room.js';
+export { createRoom, playerIdForToken, roomReduce } from './room.js';
 export type {
   Phase,
   ReduceContext,
