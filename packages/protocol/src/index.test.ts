@@ -99,4 +99,17 @@ describe('serverMessage', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('rejects a frame with the gameView key dropped', () => {
+    expect(
+      serverMessage.safeParse({
+        type: 'frame',
+        code: 'WXYZ',
+        phase: 'LOBBY',
+        players: [],
+        selectedGameId: null,
+        scores: null,
+      }).success,
+    ).toBe(false);
+  });
 });
