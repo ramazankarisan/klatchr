@@ -67,6 +67,14 @@ Tests: round-trip parse/serialize each message; reject malformed.
   discarded when empty (rule 7 — no persistence, no DB, no auth).
 - **Connection lifecycle** — `open` creates a room (host connection). `join`
   adds a player (or, with a matching `reconnectId`, resumes the slot — E3).
+  - *From the 5.1 review:* the host is **not** a player, so it never gets a
+    `joined` (there's no `opened` ack in the protocol by design). The host
+    learns its own room code from `frame.code`, so the server must send the
+    host a `frame` **immediately on `open`**, not only on the first game event.
+  - *From the 5.1 review:* `selectGame` carries `gameId?` (the protocol can't
+    express "required iff `action==='selectGame'`" inside a discriminated
+    union), so **the server rejects a `selectGame` with no `gameId`** and
+    narrows `gameId` before use. This enforcement lives here, not on the wire.
 - **Authority (C1/S3)** — `host` actions are applied only from the host
   connection; `play` events are stamped with the sender's authenticated
   `playerId` before forwarding to `reduce`. The pure reducer never checks this;
