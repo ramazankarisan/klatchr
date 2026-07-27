@@ -24,6 +24,7 @@ step "7 · jscpd (duplication)";          pnpm exec jscpd .
 step "8 · typecheck";                    pnpm -r typecheck
 step "9 · type-coverage (no any)";       pnpm type-coverage
 step "10 · dependency-cruiser (arch)";   pnpm exec depcruise packages apps --config .dependency-cruiser.cjs
-step "11 · tests (100% core/games)";     pnpm exec vitest run --coverage
+step "11 · audit (prod, high+)";         pnpm audit --prod --audit-level=high
+step "12 · tests (100% core/games)";     pnpm exec vitest run --coverage
 
 printf '\n\033[1;32m✅ gate green\033[0m\n'
