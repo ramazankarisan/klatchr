@@ -82,9 +82,14 @@ export class RoomHub {
       return;
     }
     const room = createRoom(this.deps.roomDeps, new Set(this.rooms.keys()));
-    const session = new RoomSession(room, this.registry, this.deps, (code) =>
-      this.rooms.delete(code),
-    );
+    const session = new RoomSession(room, this.registry, this.deps, (code, conns) => {
+      this.rooms.delete(code);
+      // Unbind every connection closed out with the room, so a bystander whose
+      // room vanished under them can open or join a new one (not ALREADY_IN_ROOM).
+      for (const conn of conns) {
+        this.sessionOf.delete(conn);
+      }
+    });
     this.rooms.set(room.code, session);
     this.sessionOf.set(conn, session);
     session.addHost(conn);

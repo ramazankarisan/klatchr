@@ -34,7 +34,9 @@ export class RoomSession {
     room: Room,
     private readonly registry: Registry,
     private readonly deps: ServerDeps,
-    private readonly onEmpty: (code: string) => void,
+    // Called once the room has closed: the hub drops it from the registry *and*
+    // unbinds every still-attached connection (the bystanders closed out with it).
+    private readonly onClosed: (code: string, conns: readonly Connection[]) => void,
   ) {
     this.room = room;
   }
@@ -63,7 +65,7 @@ export class RoomSession {
     // `join` ignores the actor in core; the joining connection has no identity yet.
     const result = this.apply(event, { role: 'host' });
     if (!result.ok) {
-      conn.send(this.errorMsg(result.error.code));
+      this.sendError(conn, result.error);
       return false;
     }
     const added = this.room.players.find((p) => !before.has(p.id));
@@ -95,7 +97,7 @@ export class RoomSession {
     }
     const result = this.apply(event, viewer);
     if (!result.ok) {
-      conn.send(this.errorMsg(result.error.code));
+      this.sendError(conn, result.error);
     }
   }
 
@@ -141,7 +143,7 @@ export class RoomSession {
   private forwardGameEvent(conn: Connection, event: unknown, actor: Viewer): void {
     const result = this.apply({ type: 'gameEvent', event }, actor);
     if (!result.ok) {
-      conn.send(this.errorMsg(result.error.code));
+      this.sendError(conn, result.error);
     }
   }
 
@@ -179,11 +181,12 @@ export class RoomSession {
 
   private broadcast(): void {
     if (this.room.closed) {
-      for (const conn of this.members.keys()) {
+      const conns = [...this.members.keys()];
+      for (const conn of conns) {
         conn.send(this.errorMsg('ROOM_CLOSED'));
       }
       this.members.clear();
-      this.onEmpty(this.room.code);
+      this.onClosed(this.room.code, conns); // hand the bystanders back so the hub unbinds them
       return;
     }
     for (const [conn, viewer] of this.members) {
@@ -226,6 +229,12 @@ export class RoomSession {
 
   private errorMsg(message: string): ServerMessage {
     return { type: 'error', code: this.room.code, message };
+  }
+
+  /** Relay a core rejection, keeping its inner reason (GAME_REJECTED carries the game's code). */
+  private sendError(conn: Connection, error: RoomError): void {
+    const message = error.message === undefined ? error.code : `${error.code}: ${error.message}`;
+    conn.send(this.errorMsg(message));
   }
 }
 
