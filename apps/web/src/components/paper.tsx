@@ -2,8 +2,10 @@ import { Box, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { tokens } from '../tokens.js';
 
+// Warm paper grain: fractal noise, desaturated so it reads as tooth in the
+// stock rather than colored static, at an opacity you can actually see.
 const grain =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")";
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E\")";
 
 export const kraftBg = { backgroundColor: tokens.color.kraft, backgroundImage: grain } as const;
 

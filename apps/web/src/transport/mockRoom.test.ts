@@ -39,6 +39,10 @@ describe('MockEngine', () => {
 
     const hostJson = JSON.stringify(engine.snapshot(HOST).gameView);
     expect(hostJson).not.toContain('authorId'); // the shared screen is strictest
+
+    // scores are withheld until reveal — no running standings mid-round
+    expect(engine.snapshot({ role: 'player', id: someone.id }).scores).toBeNull();
+    expect(engine.snapshot(HOST).scores).toBeNull();
   });
 
   it('reveals authors and scores after the final advance', () => {
