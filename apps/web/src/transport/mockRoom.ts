@@ -122,7 +122,9 @@ export class MockEngine implements Transport {
       players: room.players.map(toPublic),
       selectedGameId: room.selectedGameId,
       gameView: live ? game.view(room.gameState, viewer) : null,
-      scores: live ? game.scores(room.gameState) : null,
+      // Scores are a reveal-time fact — never shipped during collect/guess, or a
+      // player would learn whether their guesses were right before the reveal.
+      scores: live && room.phase === 'SCORES' ? game.scores(room.gameState) : null,
     };
   }
 
