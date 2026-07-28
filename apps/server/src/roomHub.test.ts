@@ -238,12 +238,15 @@ describe('lifecycle guards and empty-room discard (rule 7)', () => {
     expect(hub.hasRoom(code)).toBe(false);
   });
 
-  it('discards the room when the host socket drops', async () => {
+  it('keeps the room alive when the host socket drops, pending its grace window (7.1)', async () => {
+    // A host drop is no longer an immediate close: it schedules a reap so a
+    // reloaded host can `resumeHost` within the window. The reap-fires-and-closes
+    // path is driven with a fake timer in roomHub.reconnect.test.ts.
     const [hub, host, code] = await open();
     await seat(hub, code, 3);
     hub.disconnect(host);
     await flush();
-    expect(hub.hasRoom(code)).toBe(false);
+    expect(hub.hasRoom(code)).toBe(true);
   });
 
   it('unbinds bystanders on close, so a player can open a fresh room afterwards', async () => {

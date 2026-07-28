@@ -11,6 +11,7 @@ import { RoomHub } from './roomHub.js';
 
 export type Frame = Extract<ServerMessage, { type: 'frame' }>;
 type Joined = Extract<ServerMessage, { type: 'joined' }>;
+type Opened = Extract<ServerMessage, { type: 'opened' }>;
 type ErrorMessage = Extract<ServerMessage, { type: 'error' }>;
 
 export class FakeConn implements Connection {
@@ -43,6 +44,12 @@ const joinedOf = (c: FakeConn): Joined => {
 };
 export const playerId = (c: FakeConn): string => joinedOf(c).playerId;
 export const reconnectToken = (c: FakeConn): string => joinedOf(c).reconnectToken;
+const openedOf = (c: FakeConn): Opened => {
+  const o = c.received.find((m): m is Opened => m.type === 'opened');
+  if (o === undefined) throw new Error('never opened');
+  return o;
+};
+export const hostToken = (c: FakeConn): string => openedOf(c).hostToken;
 
 /** Open a room and return [hub, hostConn, code] after the opening frame lands. */
 export async function open(): Promise<[RoomHub, FakeConn, string]> {

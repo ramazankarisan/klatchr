@@ -50,6 +50,9 @@ export class RoomHub {
       case 'join':
         this.joinRoom(conn, message.code, message.nickname, message.reconnectToken);
         return;
+      case 'resumeHost':
+        this.resumeHostRoom(conn, message.code, message.hostToken);
+        return;
       case 'host':
         this.route(conn, message.code, (s) => s.hostAction(conn, message.action, message.gameId));
         return;
@@ -101,6 +104,27 @@ export class RoomHub {
     nickname: string,
     reconnectToken?: string,
   ): void {
+    // Bind only on a real join, so a rejected join (full room, empty nickname)
+    // does not leave the connection falsely attached to the session.
+    this.attachToRoom(conn, code, (session) => session.join(conn, nickname, reconnectToken));
+  }
+
+  /** A reloaded host re-attaches to its own room by code + secret (7.1). Mirrors joinRoom. */
+  private resumeHostRoom(conn: Connection, code: string, hostToken: string): void {
+    // Bind only on a verified token, so a wrong-token attempt stays unbound.
+    this.attachToRoom(conn, code, (session) => session.resumeHost(conn, hostToken));
+  }
+
+  /**
+   * Attach a not-yet-bound connection to an existing room by code, binding it to
+   * the session only if `attach` accepts (a real join / a verified host resume).
+   * Shared by `join` and `resumeHost` — the fresh-connection entry paths.
+   */
+  private attachToRoom(
+    conn: Connection,
+    code: string,
+    attach: (session: RoomSession) => boolean,
+  ): void {
     if (this.sessionOf.has(conn)) {
       conn.send({ type: 'error', code, message: 'ALREADY_IN_ROOM' });
       return;
@@ -110,9 +134,7 @@ export class RoomHub {
       conn.send({ type: 'error', code, message: 'NO_SUCH_ROOM' });
       return;
     }
-    // Bind only on a real join, so a rejected join (full room, empty nickname)
-    // does not leave the connection falsely attached to the session.
-    if (session.join(conn, nickname, reconnectToken)) {
+    if (attach(session)) {
       this.sessionOf.set(conn, session);
     }
   }
