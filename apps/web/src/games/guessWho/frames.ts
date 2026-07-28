@@ -1,3 +1,6 @@
+import { phaseNarrower } from '../phaseGuard.js';
+import type { HostStep } from '../viewProps.js';
+
 /**
  * Web-side types for `guessWho.view(...)` output. The engine returns `unknown`
  * across the transport boundary; these mirror the shapes and the guards narrow
@@ -48,22 +51,19 @@ export interface RevealView {
 type HostGameView = CollectHostView | GuessHostView | RevealView;
 type PlayerGameView = CollectPlayerView | GuessPlayerView | RevealView;
 
-function phaseOf(view: unknown): string | null {
-  if (typeof view === 'object' && view !== null && 'phase' in view) {
-    const { phase } = view as { phase: unknown };
-    return typeof phase === 'string' ? phase : null;
-  }
-  return null;
-}
-
 const PHASES = new Set(['collect', 'guess', 'reveal']);
 
-export function asHostView(view: unknown): HostGameView | null {
-  const phase = phaseOf(view);
-  return phase !== null && PHASES.has(phase) ? (view as HostGameView) : null;
-}
+export const asHostView = phaseNarrower<HostGameView>(PHASES);
+export const asPlayerView = phaseNarrower<PlayerGameView>(PHASES);
 
-export function asPlayerView(view: unknown): PlayerGameView | null {
-  const phase = phaseOf(view);
-  return phase !== null && PHASES.has(phase) ? (view as PlayerGameView) : null;
+/** The host control step per phase: collect → guess → reveal → (new round). */
+export function guessWhoStep(view: unknown): HostStep {
+  const phase = asHostView(view)?.phase ?? null;
+  if (phase === 'collect') {
+    return { label: 'Show the cards', advance: { type: 'advance', from: 'collect' } };
+  }
+  if (phase === 'guess') {
+    return { label: 'Reveal the authors', advance: { type: 'advance', from: 'guess' } };
+  }
+  return { label: 'New round', advance: null }; // reveal is terminal
 }

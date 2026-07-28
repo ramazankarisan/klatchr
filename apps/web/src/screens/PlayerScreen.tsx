@@ -51,15 +51,11 @@ function youId(frame: ViewFrame): string {
 export function PlayerScreen({ transport }: { transport: Transport }): ReactNode {
   const frame = useFrame(transport);
 
-  const onSubmit = useCallback(
-    (text: string) => {
-      transport.send({ type: 'gameEvent', event: { type: 'submit', text } });
-    },
-    [transport],
-  );
-  const onGuess = useCallback(
-    (cardId: string, author: string) => {
-      transport.send({ type: 'gameEvent', event: { type: 'guess', cardId, author } });
+  // One opaque seam: the game view builds its own event; the transport wraps it
+  // in a `play`. Adding a game needs no new callback here.
+  const onEvent = useCallback(
+    (event: unknown) => {
+      transport.send({ type: 'gameEvent', event });
     },
     [transport],
   );
@@ -87,13 +83,7 @@ export function PlayerScreen({ transport }: { transport: Transport }): ReactNode
       ) : views === null ? (
         <Centered title="Waiting" body="The host is setting up." />
       ) : (
-        <views.Player
-          view={frame.gameView}
-          players={frame.players}
-          youId={id}
-          onSubmit={onSubmit}
-          onGuess={onGuess}
-        />
+        <views.Player view={frame.gameView} players={frame.players} youId={id} onEvent={onEvent} />
       )}
     </Phone>
   );

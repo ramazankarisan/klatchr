@@ -158,6 +158,19 @@ class MockEngine {
       this.botsSubmit();
     } else if (phase === 'guess') {
       this.botsGuess();
+    } else if (phase === 'vote') {
+      this.botsVote();
+    }
+  }
+
+  private botsVote(): void {
+    const ids = this.active().map((p) => p.id);
+    for (const player of this.active()) {
+      const target = ids[Math.floor(Math.random() * ids.length)] ?? player.id;
+      this.apply(HOST, {
+        type: 'gameEvent',
+        event: { type: 'vote', playerId: player.id, target },
+      });
     }
   }
 

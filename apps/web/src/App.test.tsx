@@ -40,6 +40,8 @@ describe('App', () => {
     renderApp();
     await user.click(screen.getByRole('button', { name: /host a room/i }));
 
+    // The lobby now shows a game picker; choose a game, then start.
+    await user.click(await screen.findByRole('button', { name: /guess who said it/i }));
     await user.click(await screen.findByRole('button', { name: /start the round/i }));
     expect(await screen.findByText(/answered/i)).toBeTruthy();
 
@@ -49,5 +51,18 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: /reveal the authors/i }));
     expect(await screen.findByText(/the authors are/i)).toBeTruthy();
     expect(await screen.findByRole('button', { name: /new round/i })).toBeTruthy();
+  });
+
+  it('hosts a Most Likely To round on the mock engine', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: /host a room/i }));
+
+    await user.click(await screen.findByRole('button', { name: /most likely to/i }));
+    await user.click(await screen.findByRole('button', { name: /start the round/i }));
+    expect(await screen.findByText(/\d+ of \d+ voted/i)).toBeTruthy(); // vote-progress board
+
+    await user.click(await screen.findByRole('button', { name: /show the results/i }));
+    expect(await screen.findByRole('button', { name: /new round/i })).toBeTruthy(); // results reached
   });
 });
