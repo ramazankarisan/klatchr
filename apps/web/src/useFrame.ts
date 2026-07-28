@@ -1,14 +1,12 @@
-import type { Viewer } from '@klatchr/core';
 import { useEffect, useState } from 'react';
-import type { MockEngine } from './transport/mockRoom.js';
-import type { ViewFrame } from './transport/types.js';
+import type { Transport, ViewFrame } from './transport/types.js';
 
-const viewerOf = (role: 'host' | 'player', id: string): Viewer =>
-  role === 'host' ? { role: 'host' } : { role: 'player', id };
-
-/** Subscribe a component to one viewer's redacted frame stream. */
-export function useFrame(engine: MockEngine, role: 'host' | 'player', id = ''): ViewFrame {
-  const [frame, setFrame] = useState<ViewFrame>(() => engine.snapshot(viewerOf(role, id)));
-  useEffect(() => engine.subscribe(viewerOf(role, id), setFrame), [engine, role, id]);
+/**
+ * Subscribe a component to its transport's redacted frame stream. Null until the
+ * first frame arrives (a socket is connecting; the mock delivers synchronously).
+ */
+export function useFrame(transport: Transport): ViewFrame | null {
+  const [frame, setFrame] = useState<ViewFrame | null>(null);
+  useEffect(() => transport.subscribe(setFrame), [transport]);
   return frame;
 }

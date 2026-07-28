@@ -1,11 +1,17 @@
 import { Box, Button, Container, TextField, Typography } from '@mui/material';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { kraftBg } from './components/paper.js';
-import { Stage } from './screens/Stage.js';
+import { HostScreen } from './screens/HostScreen.js';
+import { PlayerScreen } from './screens/PlayerScreen.js';
 import { tokens } from './tokens.js';
-import { MockEngine } from './transport/mockRoom.js';
+import { createHostTransport, createPlayerTransport } from './transport/factory.js';
+import type { Transport } from './transport/types.js';
 
-type Mode = 'landing' | 'join' | 'stage';
+type Screen =
+  | { mode: 'landing' }
+  | { mode: 'join' }
+  | { mode: 'host'; transport: Transport }
+  | { mode: 'player'; transport: Transport };
 
 const column = { display: 'flex', flexDirection: 'column' } as const;
 
@@ -34,7 +40,7 @@ function Landing({ onHost, onJoin }: { onHost: () => void; onJoin: () => void })
   );
 }
 
-function JoinForm({ onJoin }: { onJoin: () => void }): ReactNode {
+function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }): ReactNode {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   return (
@@ -42,7 +48,7 @@ function JoinForm({ onJoin }: { onJoin: () => void }): ReactNode {
       component="form"
       onSubmit={(e) => {
         e.preventDefault();
-        onJoin();
+        onJoin(code, name.trim());
       }}
       sx={{ ...column, gap: 2.5, maxWidth: 360 }}
     >
@@ -69,21 +75,26 @@ function JoinForm({ onJoin }: { onJoin: () => void }): ReactNode {
 }
 
 export function App(): ReactNode {
-  const engineRef = useRef<MockEngine | null>(null);
-  if (engineRef.current === null) {
-    engineRef.current = new MockEngine();
-  }
-  const [mode, setMode] = useState<Mode>('landing');
+  const [screen, setScreen] = useState<Screen>({ mode: 'landing' });
 
   return (
     <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
       <Container maxWidth="lg" sx={{ py: { xs: 4, sm: 6 } }}>
-        {mode === 'landing' ? (
-          <Landing onHost={() => setMode('stage')} onJoin={() => setMode('join')} />
-        ) : mode === 'join' ? (
-          <JoinForm onJoin={() => setMode('stage')} />
+        {screen.mode === 'landing' ? (
+          <Landing
+            onHost={() => setScreen({ mode: 'host', transport: createHostTransport('Host') })}
+            onJoin={() => setScreen({ mode: 'join' })}
+          />
+        ) : screen.mode === 'join' ? (
+          <JoinForm
+            onJoin={(code, name) =>
+              setScreen({ mode: 'player', transport: createPlayerTransport(code, name) })
+            }
+          />
+        ) : screen.mode === 'host' ? (
+          <HostScreen transport={screen.transport} />
         ) : (
-          <Stage engine={engineRef.current} />
+          <PlayerScreen transport={screen.transport} />
         )}
       </Container>
     </Box>

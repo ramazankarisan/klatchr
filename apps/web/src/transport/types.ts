@@ -31,8 +31,16 @@ export type Action =
   | { type: 'endGame' }
   | { type: 'gameEvent'; event: unknown };
 
-/** The seam the app is written against; a real WebSocket transport swaps in later. */
+/**
+ * The seam the app is written against. Single-viewer: a transport is bound to
+ * one connection (the host board, or one player's phone) at creation. A real
+ * socket only ever *is* one viewer, and a player's id isn't known until the
+ * server assigns it, so the viewer isn't a per-call argument — the transport
+ * owns it and stamps it onto each `frame.viewer`. `MockEngine` (dev/test) and
+ * `SocketTransport` (browser) both implement this.
+ */
 export interface Transport {
-  subscribe(viewer: Viewer, onFrame: (frame: ViewFrame) => void): () => void;
-  send(actor: Viewer, action: Action): void;
+  /** Register for frames; the current frame arrives on subscribe. Returns an unsubscribe. */
+  subscribe(onFrame: (frame: ViewFrame) => void): () => void;
+  send(action: Action): void;
 }

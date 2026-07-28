@@ -4,9 +4,10 @@ import { Board, NameTag } from '../components/paper.js';
 import { asHostView } from '../games/guessWho/frames.js';
 import { viewsFor } from '../games/registry.js';
 import { playerColor, tokens } from '../tokens.js';
-import type { MockEngine } from '../transport/mockRoom.js';
-import type { ViewFrame } from '../transport/types.js';
+import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useFrame } from '../useFrame.js';
+
+const GAME_ID = 'guess-who';
 
 function stepLabel(frame: ViewFrame): string {
   if (frame.phase === 'LOBBY') {
@@ -20,6 +21,21 @@ function stepLabel(frame: ViewFrame): string {
     return 'Reveal the authors';
   }
   return 'New round';
+}
+
+/** The host's one control drives the room forward with real actions (no bots here). */
+function stepActions(frame: ViewFrame): readonly Action[] {
+  if (frame.phase === 'LOBBY') {
+    return [{ type: 'selectGame', gameId: GAME_ID }, { type: 'startGame' }];
+  }
+  const phase = asHostView(frame.gameView)?.phase ?? null;
+  if (phase === 'collect') {
+    return [{ type: 'gameEvent', event: { type: 'advance', from: 'collect' } }];
+  }
+  if (phase === 'guess') {
+    return [{ type: 'gameEvent', event: { type: 'advance', from: 'guess' } }];
+  }
+  return [{ type: 'selectGame', gameId: GAME_ID }, { type: 'startGame' }]; // new round
 }
 
 function Lobby({ frame }: { frame: ViewFrame }): ReactNode {
@@ -56,8 +72,15 @@ function Lobby({ frame }: { frame: ViewFrame }): ReactNode {
   );
 }
 
-export function HostScreen({ engine }: { engine: MockEngine }): ReactNode {
-  const frame = useFrame(engine, 'host');
+export function HostScreen({ transport }: { transport: Transport }): ReactNode {
+  const frame = useFrame(transport);
+  if (frame === null) {
+    return (
+      <Board code="····" hint={<>Opening the room…</>}>
+        {null}
+      </Board>
+    );
+  }
   const views = viewsFor(frame.selectedGameId);
   return (
     <Board code={frame.code} hint={<>Join at klatchr.app · punch in the code</>}>
@@ -67,7 +90,15 @@ export function HostScreen({ engine }: { engine: MockEngine }): ReactNode {
         <views.Host view={frame.gameView} players={frame.players} />
       )}
       <Box sx={{ mt: 4 }}>
-        <Button variant="contained" size="large" onClick={() => engine.step()}>
+        <Button
+          variant="contained"
+          size="large"
+          onClick={() => {
+            for (const action of stepActions(frame)) {
+              transport.send(action);
+            }
+          }}
+        >
           {stepLabel(frame)}
         </Button>
       </Box>

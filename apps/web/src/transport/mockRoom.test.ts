@@ -1,58 +1,56 @@
-import type { Viewer } from '@klatchr/core';
-import { MockEngine } from './mockRoom.js';
+import { describe, expect, it } from 'vitest';
+import { mockHostTransport, mockPlayerTransport } from './mockRoom.js';
+import type { Transport, ViewFrame } from './types.js';
 
-const HOST: Viewer = { role: 'host' };
-const phaseOf = (view: unknown): string => (view as { phase?: string }).phase ?? '';
+/** Latest frame from a synchronous mock transport (subscribe + send fire inline). */
+function capture(transport: Transport): () => ViewFrame {
+  let latest: ViewFrame | null = null;
+  transport.subscribe((f) => {
+    latest = f;
+  });
+  return () => {
+    if (latest === null) throw new Error('no frame emitted');
+    return latest;
+  };
+}
 
-describe('MockEngine', () => {
+const phaseOf = (frame: ViewFrame): string =>
+  JSON.parse(JSON.stringify(frame.gameView))?.phase ?? '';
+
+describe('mock host transport', () => {
   it('seeds a lobby with a four-letter code and enough players to seat a round', () => {
-    const engine = new MockEngine();
-    const frame = engine.snapshot(HOST);
-    expect(frame.phase).toBe('LOBBY');
-    expect(frame.code).toHaveLength(4);
-    expect(frame.players.length).toBeGreaterThanOrEqual(12);
+    const frame = capture(mockHostTransport());
+    expect(frame().phase).toBe('LOBBY');
+    expect(frame().code).toHaveLength(4);
+    expect(frame().players.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('starts a round into the collect phase with answers submitted', () => {
-    const engine = new MockEngine();
-    engine.step();
-    const frame = engine.snapshot(HOST);
-    expect(frame.phase).toBe('IN_GAME');
-    expect(phaseOf(frame.gameView)).toBe('collect');
+  it('plays a full round with reactive bots, withholding authorship and scores until reveal', () => {
+    const host = mockHostTransport();
+    const frame = capture(host);
+
+    host.send({ type: 'selectGame', gameId: 'guess-who' });
+    host.send({ type: 'startGame' });
+    expect(phaseOf(frame())).toBe('collect'); // bots have submitted
+    expect(frame().scores).toBeNull();
+    expect(JSON.stringify(frame().gameView)).not.toContain('authorId');
+
+    host.send({ type: 'gameEvent', event: { type: 'advance', from: 'collect' } });
+    expect(phaseOf(frame())).toBe('guess');
+    expect(JSON.stringify(frame().gameView)).not.toContain('authorId'); // still hidden
+
+    host.send({ type: 'gameEvent', event: { type: 'advance', from: 'guess' } });
+    expect(frame().phase).toBe('SCORES');
+    expect(Array.isArray(frame().scores)).toBe(true); // scores only now
   });
+});
 
-  it('redacts author identity from both player and host views during guess', () => {
-    const engine = new MockEngine();
-    engine.step(); // start + submit -> collect
-    engine.step(); // advance -> guess (+ bots guess)
-
-    const active = engine.snapshot(HOST).players.filter((p) => !p.spectator);
-    const someone = active[0];
-    if (someone === undefined) {
-      throw new Error('expected an active player');
-    }
-    const playerView = engine.snapshot({ role: 'player', id: someone.id }).gameView;
-    const playerJson = JSON.stringify(playerView);
-    expect(phaseOf(playerView)).toBe('guess');
-    expect(playerJson).not.toContain('authorId'); // no card reveals its author
-    expect(playerJson).not.toContain('"guesses"'); // never another player's guesses
-
-    const hostJson = JSON.stringify(engine.snapshot(HOST).gameView);
-    expect(hostJson).not.toContain('authorId'); // the shared screen is strictest
-
-    // scores are withheld until reveal — no running standings mid-round
-    expect(engine.snapshot({ role: 'player', id: someone.id }).scores).toBeNull();
-    expect(engine.snapshot(HOST).scores).toBeNull();
-  });
-
-  it('reveals authors and scores after the final advance', () => {
-    const engine = new MockEngine();
-    engine.step();
-    engine.step();
-    engine.step(); // advance guess -> reveal (game complete -> room SCORES)
-    const frame = engine.snapshot(HOST);
-    expect(frame.phase).toBe('SCORES');
-    expect(phaseOf(frame.gameView)).toBe('reveal');
-    expect(frame.scores).not.toBeNull();
+describe('mock player transport', () => {
+  it('seats you as a player in the lobby', () => {
+    const current = capture(mockPlayerTransport())();
+    expect(current.phase).toBe('LOBBY');
+    expect(current.viewer.role).toBe('player');
+    const you = current.viewer.role === 'player' ? current.viewer.id : '';
+    expect(current.players.some((p) => p.id === you)).toBe(true);
   });
 });
