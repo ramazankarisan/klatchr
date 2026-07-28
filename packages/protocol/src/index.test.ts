@@ -14,6 +14,7 @@ describe('clientMessage', () => {
     { type: 'host', code: 'WXYZ', action: 'endGame' },
     { type: 'play', code: 'WXYZ', event: { kind: 'submit', text: 'hi' } },
     { type: 'leave', code: 'WXYZ' },
+    { type: 'resumeHost', code: 'WXYZ', hostToken: 'htok_secret_1' },
   ];
 
   it.each(cases)('round-trips $type', (msg) => {
@@ -27,6 +28,7 @@ describe('clientMessage', () => {
   it('rejects a missing required field', () => {
     expect(clientMessage.safeParse({ type: 'open' }).success).toBe(false);
     expect(clientMessage.safeParse({ type: 'play', code: 'WXYZ' }).success).toBe(false);
+    expect(clientMessage.safeParse({ type: 'resumeHost', code: 'WXYZ' }).success).toBe(false);
   });
 
   it('rejects an unknown host action', () => {
@@ -39,6 +41,7 @@ describe('clientMessage', () => {
 describe('serverMessage', () => {
   const cases: ServerMessage[] = [
     { type: 'joined', code: 'WXYZ', playerId: 'p_1', reconnectToken: 'tok_secret_1' },
+    { type: 'opened', code: 'WXYZ', hostToken: 'htok_secret_1' },
     {
       type: 'frame',
       code: 'WXYZ',

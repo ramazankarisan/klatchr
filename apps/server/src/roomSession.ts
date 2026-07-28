@@ -35,6 +35,13 @@ export class RoomSession {
   private readonly members = new Map<Connection, Viewer>();
   // playerId -> cancel handle for its pending grace-window reap (see disconnect).
   private readonly reapers = new Map<string, () => void>();
+  // The host's resume secret (7.1), minted server-side so `core` stays pure — the
+  // host is not a player, so it has no `tokens` entry; this is its parallel. Sent
+  // in `opened`, never in a frame, and matched on `resumeHost`.
+  private readonly hostToken: string;
+  // Cancel handle for the host's pending grace-window reap (a host has no playerId,
+  // so it can't live in `reapers`); undefined while the host is attached.
+  private hostReaper: (() => void) | undefined;
   private pendingBroadcast = false;
 
   constructor(
@@ -46,6 +53,7 @@ export class RoomSession {
     private readonly onClosed: (code: string, conns: readonly Connection[]) => void,
   ) {
     this.room = room;
+    this.hostToken = deps.roomDeps.secret();
   }
 
   get code(): string {
@@ -59,7 +67,29 @@ export class RoomSession {
    */
   addHost(conn: Connection): void {
     this.members.set(conn, { role: 'host' });
+    // The host's resume secret — sent only here (and on `resumeHost`), never in a
+    // frame roster (parallel to a player's `joined` + reconnect token).
+    conn.send({ type: 'opened', code: this.room.code, hostToken: this.hostToken });
     this.scheduleBroadcast();
+  }
+
+  /**
+   * A reloaded host reconnects with the secret from its `opened` (7.1). Verify the
+   * token, swap the live socket onto the `{ role: 'host' }` viewer, call off the
+   * grace reaper, and re-ack with `opened` (so the client re-persists it). Returns
+   * whether the resume was accepted.
+   */
+  resumeHost(conn: Connection, hostToken: string): boolean {
+    if (hostToken !== this.hostToken) {
+      conn.send(this.errorMsg('BAD_HOST_TOKEN'));
+      return false;
+    }
+    this.cancelHostReap();
+    this.evictHost(); // drop the stale host socket (likely already dead)
+    this.members.set(conn, { role: 'host' });
+    conn.send({ type: 'opened', code: this.room.code, hostToken: this.hostToken });
+    this.scheduleBroadcast();
+    return true;
   }
 
   /** Add (or, on a matching reconnect token, resume) a player. Returns whether it joined. */
@@ -157,7 +187,8 @@ export class RoomSession {
    * A dropped socket detaches but keeps the player's slot alive for a grace
    * window: a reload or flaky network reconnects with the same token and
    * resumes it. After the window the slot is reaped like a real leave. The host
-   * is not a player — a host drop still closes the room immediately (P6).
+   * gets the same grace (7.1): a host drop schedules a reap and `resumeHost`
+   * re-attaches within the window; only the timeout closes the room (P6).
    */
   disconnect(conn: Connection): void {
     const viewer = this.members.get(conn);
@@ -166,10 +197,34 @@ export class RoomSession {
     }
     this.members.delete(conn);
     if (viewer.role === 'host') {
-      this.apply({ type: 'leave' }, viewer);
+      this.scheduleHostReap();
       return;
     }
     this.scheduleReap(viewer.id);
+  }
+
+  private scheduleHostReap(): void {
+    this.cancelHostReap(); // a fresh drop restarts the window
+    this.hostReaper = this.deps.schedule(() => {
+      this.hostReaper = undefined;
+      // The board was abandoned: close the room as a host leave (P6).
+      this.apply({ type: 'leave' }, { role: 'host' });
+    }, RECONNECT_GRACE_MS);
+  }
+
+  private cancelHostReap(): void {
+    if (this.hostReaper !== undefined) {
+      this.hostReaper();
+      this.hostReaper = undefined;
+    }
+  }
+
+  private evictHost(): void {
+    for (const [conn, viewer] of this.members) {
+      if (viewer.role === 'host') {
+        this.members.delete(conn);
+      }
+    }
   }
 
   private scheduleReap(playerId: string): void {
@@ -237,12 +292,13 @@ export class RoomSession {
         conn.send(this.errorMsg('ROOM_CLOSED'));
       }
       this.members.clear();
-      // The room is gone; cancel any pending reaps so no timer fires into a
-      // dead session after the hub has dropped it.
+      // The room is gone; cancel any pending reaps (player and host) so no timer
+      // fires into a dead session after the hub has dropped it.
       for (const cancel of this.reapers.values()) {
         cancel();
       }
       this.reapers.clear();
+      this.cancelHostReap();
       this.onClosed(this.room.code, conns); // hand the bystanders back so the hub unbinds them
       return;
     }
