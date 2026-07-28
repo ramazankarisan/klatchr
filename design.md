@@ -66,8 +66,22 @@ rotated. Primary button = marker-red pill; disabled/waiting reuses it dimmed. A
 tokens map to an MUI theme (`theme.palette`, `theme.typography`, `shape`,
 `shadows`).
 
-Approved sketch (paper, full): the claude.ai/design artifact (paper direction,
-guess-picker revision).
+**Design system:** the claude.ai/design **Klatchr** project — a *Foundations*
+card (the two surfaces, palette, type, component kit) plus one card per
+Cycle-5.3c screen, synced from this repo via DesignSync (driven from the code
+session, not the design chat). It is the visual source of truth alongside the
+tokens above.
+
+**Cycle 5.3c — approved &amp; built (2026-07-28).** Three screens shipped against
+the approved cards:
+- **Collect (phone):** an index-card answer field + *Tape it up*; locks to a
+  teal ✓ once submitted. The client keeps its own answer to mark "your card".
+- **Guess (phone):** the searchable author picker below the tapped card (see
+  below); one card at a time, `N of 11`, your own card marked and unpickable.
+- **Host scores (board):** a reveal-time standings scoreboard, ranked, leader in
+  marker. **Round tally only** — a cross-round *running total* was in the sketch
+  but is deferred: the engine scores a single round, so cumulative standings need
+  platform-level accumulation that does not exist yet.
 
 **Guess interaction (phone).** You never pick an author from 50. Guess Who seats
 **12 players per round** (`guessWho.maxPlayers = 12`; the rest of a large room

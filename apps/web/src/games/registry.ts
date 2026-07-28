@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { PublicPlayer } from '../transport/types.js';
 import { HostView } from './guessWho/HostView.js';
 import { PlayerView } from './guessWho/PlayerView.js';
+import type { PlayerViewProps } from './viewProps.js';
 
 /**
  * The web-side game view registry (S4). `core`/`games` emit view *data*; the
@@ -11,7 +12,7 @@ import { PlayerView } from './guessWho/PlayerView.js';
  */
 interface GameViews {
   Host: (props: { view: unknown; players: readonly PublicPlayer[] }) => ReactNode;
-  Player: (props: { view: unknown; players: readonly PublicPlayer[]; youId: string }) => ReactNode;
+  Player: (props: PlayerViewProps) => ReactNode;
 }
 
 const registry: Record<string, GameViews> = {

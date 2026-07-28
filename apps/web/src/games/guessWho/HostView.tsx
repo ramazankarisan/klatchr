@@ -94,6 +94,71 @@ function RevealCards({
   );
 }
 
+/**
+ * The reveal scoreboard on the shared screen. Public by nature (everyone sees
+ * the board), so no leak — and shown only at reveal, so mid-round scores never
+ * spoil it. Round tally only: the engine scores a single round; cross-round
+ * running totals need platform-level accumulation that does not exist yet.
+ */
+function Standings({
+  scores,
+  players,
+}: { scores: RevealView['scores']; players: readonly PublicPlayer[] }): ReactNode {
+  const ranked = [...scores].sort((a, b) => b.points - a.points);
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Kicker>Standings · this round</Kicker>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 520 }}>
+        {ranked.map((s, i) => (
+          <Box
+            key={s.playerId}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              backgroundColor: tokens.color.card,
+              border: '1px solid #e9ddc7',
+              borderRadius: `${tokens.radius.control}px`,
+              p: 1.25,
+              boxShadow: i === 0 ? `inset 3px 0 0 ${tokens.color.marker}` : 'none',
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: tokens.font.mono,
+                fontSize: 13,
+                color: tokens.color.inkSoft,
+                width: 22,
+              }}
+            >
+              {i + 1}
+            </Typography>
+            <Box
+              component="span"
+              sx={{
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                backgroundColor: playerColor(s.playerId, players),
+              }}
+            />
+            <Typography sx={{ flex: 1, fontWeight: 700 }}>{nameOf(s.playerId, players)}</Typography>
+            <Typography
+              sx={{
+                fontFamily: tokens.font.mono,
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              +{s.points}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 export function HostView({
   view,
   players,
@@ -133,6 +198,7 @@ export function HostView({
     <Box>
       <Kicker>And the authors are…</Kicker>
       <RevealCards cards={v.cards} players={players} />
+      <Standings scores={v.scores} players={players} />
     </Box>
   );
 }
