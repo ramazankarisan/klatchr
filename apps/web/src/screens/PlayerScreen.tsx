@@ -3,8 +3,7 @@ import type { ReactNode } from 'react';
 import { DymoCode, Phone } from '../components/paper.js';
 import { viewsFor } from '../games/registry.js';
 import { tokens } from '../tokens.js';
-import type { MockEngine } from '../transport/mockRoom.js';
-import type { ViewFrame } from '../transport/types.js';
+import type { Transport, ViewFrame } from '../transport/types.js';
 import { useFrame } from '../useFrame.js';
 
 function Brand({ code, name }: { code: string; name: string }): ReactNode {
@@ -44,8 +43,21 @@ function Centered({ title, body }: { title: string; body: string }): ReactNode {
   );
 }
 
-export function PlayerScreen({ engine, id }: { engine: MockEngine; id: string }): ReactNode {
-  const frame: ViewFrame = useFrame(engine, 'player', id);
+/** This phone's own player id — the transport resolves it (host has none). */
+function youId(frame: ViewFrame): string {
+  return frame.viewer.role === 'player' ? frame.viewer.id : '';
+}
+
+export function PlayerScreen({ transport }: { transport: Transport }): ReactNode {
+  const frame = useFrame(transport);
+  if (frame === null) {
+    return (
+      <Phone>
+        <Centered title="Joining…" body="Finding your seat." />
+      </Phone>
+    );
+  }
+  const id = youId(frame);
   const me = frame.players.find((p) => p.id === id);
   const views = viewsFor(frame.selectedGameId);
   return (

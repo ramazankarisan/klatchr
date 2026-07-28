@@ -52,11 +52,12 @@ interface Sub {
 
 /**
  * The mock "server": the real pure `core` room plus `guessWho`, run in the
- * browser. It drives a demo round with bot players so a single browser shows
- * the whole flow — every frame it emits is `view(state, viewer)`, genuinely
- * redacted, never raw state.
+ * browser as the dev/test transport (no server needed for RTL tests). It seats
+ * bot players; the host drives real phase advances and the bots respond
+ * automatically (`driveBots`), so a host surface plays a whole round. Every
+ * frame it emits is `view(state, viewer)` — genuinely redacted, never raw state.
  */
-export class MockEngine implements Transport {
+class MockEngine {
   private room: Room;
   private readonly registry = createRegistry(games);
   private readonly roomDeps: RoomDeps = makeRoomDeps();
@@ -71,6 +72,11 @@ export class MockEngine implements Transport {
     }
   }
 
+  /** The first seated player — the identity a mock player-phone binds to. */
+  firstPlayerId(): PlayerId {
+    return this.room.players[0]?.id ?? '';
+  }
+
   subscribe(viewer: Viewer, cb: (frame: ViewFrame) => void): () => void {
     const sub: Sub = { viewer, cb };
     this.subs.add(sub);
@@ -81,34 +87,21 @@ export class MockEngine implements Transport {
   }
 
   send(actor: Viewer, action: Action): void {
-    this.apply(actor, action);
-  }
-
-  /** Roster for the UI to open phones against (public info only). */
-  roster(): readonly PublicPlayer[] {
-    return this.room.players.map(toPublic);
-  }
-
-  /** The current redacted frame for a viewer, without subscribing. */
-  snapshot(viewer: Viewer): ViewFrame {
-    return this.frameFor(viewer);
-  }
-
-  /** Host-driven demo step: start a round, or advance the current phase, with bots acting. */
-  step(): void {
-    if (this.room.phase !== 'IN_GAME') {
-      this.send(HOST, { type: 'selectGame', gameId: 'guess-who' });
-      this.send(HOST, { type: 'startGame' });
-      this.botsSubmit();
-      return;
+    switch (action.type) {
+      case 'selectGame':
+        this.apply(actor, { type: 'selectGame', gameId: action.gameId });
+        break;
+      case 'startGame':
+        this.apply(actor, { type: 'startGame' });
+        break;
+      case 'endGame':
+        this.apply(actor, { type: 'endGame' });
+        break;
+      case 'gameEvent':
+        this.apply(actor, { type: 'gameEvent', event: action.event });
+        break;
     }
-    const phase = this.gamePhase();
-    if (phase === 'collect') {
-      this.send(HOST, { type: 'gameEvent', event: { type: 'advance', from: 'collect' } });
-      this.botsGuess();
-    } else if (phase === 'guess') {
-      this.send(HOST, { type: 'gameEvent', event: { type: 'advance', from: 'guess' } });
-    }
+    this.driveBots();
   }
 
   private frameFor(viewer: Viewer): ViewFrame {
@@ -155,11 +148,24 @@ export class MockEngine implements Transport {
     return isPhased(view) ? view.phase : '';
   }
 
+  /** After a host advance, the bots fill in the current phase so the round moves. */
+  private driveBots(): void {
+    if (this.room.phase !== 'IN_GAME') {
+      return;
+    }
+    const phase = this.gamePhase();
+    if (phase === 'collect') {
+      this.botsSubmit();
+    } else if (phase === 'guess') {
+      this.botsGuess();
+    }
+  }
+
   private botsSubmit(): void {
     for (const [i, player] of this.active().entries()) {
       const text = ANSWERS[i % ANSWERS.length] ?? 'No comment.';
       this.answered.set(player.id, text);
-      this.send(HOST, { type: 'gameEvent', event: { type: 'submit', playerId: player.id, text } });
+      this.apply(HOST, { type: 'gameEvent', event: { type: 'submit', playerId: player.id, text } });
     }
   }
 
@@ -176,13 +182,40 @@ export class MockEngine implements Transport {
           continue; // never guess your own card
         }
         const author = ids[Math.floor(Math.random() * ids.length)] ?? player.id;
-        this.send(HOST, {
+        this.apply(HOST, {
           type: 'gameEvent',
           event: { type: 'guess', playerId: player.id, cardId: card.id, author },
         });
       }
     }
   }
+}
+
+/** A single-viewer `Transport` over a `MockEngine` — binds one viewer to the engine. */
+class MockTransport implements Transport {
+  constructor(
+    private readonly engine: MockEngine,
+    private readonly viewer: Viewer,
+  ) {}
+
+  subscribe(onFrame: (frame: ViewFrame) => void): () => void {
+    return this.engine.subscribe(this.viewer, onFrame);
+  }
+
+  send(action: Action): void {
+    this.engine.send(this.viewer, action);
+  }
+}
+
+/** Dev/test host board: you drive the round, bots respond. */
+export function mockHostTransport(): Transport {
+  return new MockTransport(new MockEngine(), { role: 'host' });
+}
+
+/** Dev/test player phone: you are seated in a bot-populated room. */
+export function mockPlayerTransport(): Transport {
+  const engine = new MockEngine();
+  return new MockTransport(engine, { role: 'player', id: engine.firstPlayerId() });
 }
 
 function toPublic(p: Player): PublicPlayer {
