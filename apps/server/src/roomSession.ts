@@ -15,6 +15,10 @@ import type { ServerDeps } from './serverDeps.js';
 
 type HostAction = 'selectGame' | 'startGame' | 'endGame';
 
+/** How long a dropped player's slot survives before it is reaped (a reload/flaky
+ * network reconnects with the same token inside this window and resumes). */
+const RECONNECT_GRACE_MS = 30_000;
+
 /**
  * One live room: the pure `core` room plus the connections attached to it. It
  * owns the three server responsibilities the plan calls out —
@@ -29,6 +33,8 @@ type HostAction = 'selectGame' | 'startGame' | 'endGame';
 export class RoomSession {
   private room: Room;
   private readonly members = new Map<Connection, Viewer>();
+  // playerId -> cancel handle for its pending grace-window reap (see disconnect).
+  private readonly reapers = new Map<string, () => void>();
   private pendingBroadcast = false;
 
   constructor(
@@ -80,8 +86,10 @@ export class RoomSession {
       return false;
     }
     if (added === undefined) {
-      // A reconnect resumed an existing slot — swap the live socket onto that id
+      // A reconnect resumed an existing slot — it came back inside the grace
+      // window, so call off the reaper, then swap the live socket onto that id
       // (the stale one is likely already dead) without a spurious core leave.
+      this.cancelReap(playerId);
       this.evict(playerId);
     }
     this.members.set(conn, { role: 'player', id: playerId });
@@ -138,12 +146,49 @@ export class RoomSession {
       return;
     }
     this.members.delete(conn);
+    // An explicit leave reaps now — call off any grace reaper for this slot first.
+    if (viewer.role === 'player') {
+      this.cancelReap(viewer.id);
+    }
     this.apply({ type: 'leave' }, viewer);
   }
 
-  /** A dropped socket is a leave. */
+  /**
+   * A dropped socket detaches but keeps the player's slot alive for a grace
+   * window: a reload or flaky network reconnects with the same token and
+   * resumes it. After the window the slot is reaped like a real leave. The host
+   * is not a player — a host drop still closes the room immediately (P6).
+   */
   disconnect(conn: Connection): void {
-    this.leave(conn);
+    const viewer = this.members.get(conn);
+    if (viewer === undefined) {
+      return;
+    }
+    this.members.delete(conn);
+    if (viewer.role === 'host') {
+      this.apply({ type: 'leave' }, viewer);
+      return;
+    }
+    this.scheduleReap(viewer.id);
+  }
+
+  private scheduleReap(playerId: string): void {
+    this.cancelReap(playerId); // a fresh drop restarts the window
+    const cancel = this.deps.schedule(() => {
+      this.reapers.delete(playerId);
+      // The slot was abandoned: leave as that player (drops it and its token,
+      // and closes the room if it was the last one).
+      this.apply({ type: 'leave' }, { role: 'player', id: playerId });
+    }, RECONNECT_GRACE_MS);
+    this.reapers.set(playerId, cancel);
+  }
+
+  private cancelReap(playerId: string): void {
+    const cancel = this.reapers.get(playerId);
+    if (cancel !== undefined) {
+      cancel();
+      this.reapers.delete(playerId);
+    }
   }
 
   private forwardGameEvent(conn: Connection, event: unknown, actor: Viewer): void {
@@ -192,6 +237,12 @@ export class RoomSession {
         conn.send(this.errorMsg('ROOM_CLOSED'));
       }
       this.members.clear();
+      // The room is gone; cancel any pending reaps so no timer fires into a
+      // dead session after the hub has dropped it.
+      for (const cancel of this.reapers.values()) {
+        cancel();
+      }
+      this.reapers.clear();
       this.onClosed(this.room.code, conns); // hand the bystanders back so the hub unbinds them
       return;
     }
