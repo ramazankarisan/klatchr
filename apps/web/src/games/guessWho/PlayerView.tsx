@@ -1,44 +1,9 @@
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
-import { nameOf } from '../../players.js';
-import { playerColor, tokens } from '../../tokens.js';
+import { tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
-import type { PlayerViewProps } from '../viewProps.js';
+import { NameLabel, NamePicker, PlayerKicker, PlayerResults, gamePlayerView } from '../viewKit.js';
 import { type GuessPlayerView, type RevealView, asPlayerView } from './frames.js';
-
-function Kicker({ children }: { children: ReactNode }): ReactNode {
-  return (
-    <Typography variant="overline" sx={{ color: tokens.color.markerDeep, fontSize: 11 }}>
-      {children}
-    </Typography>
-  );
-}
-
-function AuthorChip({ id, players }: { id: string; players: readonly PublicPlayer[] }): ReactNode {
-  return (
-    <Box
-      component="span"
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 0.75,
-        fontWeight: 700,
-        fontSize: 13,
-      }}
-    >
-      <Box
-        component="span"
-        sx={{
-          width: 12,
-          height: 12,
-          borderRadius: '50%',
-          backgroundColor: playerColor(id, players),
-        }}
-      />
-      {nameOf(id, players)}
-    </Box>
-  );
-}
 
 function CollectPhone({
   prompt,
@@ -49,7 +14,7 @@ function CollectPhone({
   const trimmed = text.trim();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
-      <Kicker>Your answer · secret</Kicker>
+      <PlayerKicker>Your answer · secret</PlayerKicker>
       <Typography variant="h3" sx={{ fontSize: 23, lineHeight: 1.08 }}>
         {prompt}
       </Typography>
@@ -123,56 +88,6 @@ function Card({ text, children }: { text: string; children: ReactNode }): ReactN
   );
 }
 
-function AuthorPicker({
-  candidates,
-  players,
-  onPick,
-}: {
-  candidates: readonly string[];
-  players: readonly PublicPlayer[];
-  onPick: (author: string) => void;
-}): ReactNode {
-  const [search, setSearch] = useState('');
-  const q = search.trim().toLowerCase();
-  const shown = candidates.filter((id) => nameOf(id, players).toLowerCase().includes(q));
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-      <TextField
-        label="Search names"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        size="small"
-      />
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-        {shown.map((id) => (
-          <Button
-            key={id}
-            onClick={() => onPick(id)}
-            sx={{
-              textTransform: 'none',
-              borderRadius: 999,
-              border: '1px solid #e6d9c1',
-              color: tokens.color.ink,
-              gap: 0.75,
-            }}
-          >
-            <Box
-              component="span"
-              sx={{
-                width: 11,
-                height: 11,
-                borderRadius: '50%',
-                backgroundColor: playerColor(id, players),
-              }}
-            />
-            {nameOf(id, players)}
-          </Button>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
 function GuessPhone({
   v,
   players,
@@ -190,12 +105,12 @@ function GuessPhone({
   const named = guessable.filter((card) => v.myGuesses[card.id] !== undefined).length;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1 }}>
-      <Kicker>
+      <PlayerKicker>
         Name the authors ·{' '}
         <Box component="span" sx={{ fontFamily: tokens.font.mono, color: tokens.color.markerDeep }}>
           {named} of {guessable.length}
         </Box>
-      </Kicker>
+      </PlayerKicker>
       {v.cards.map((card) => {
         if (card.id === v.yourCardId) {
           return (
@@ -211,7 +126,7 @@ function GuessPhone({
         return (
           <Card key={card.id} text={card.text}>
             {openCard === card.id ? (
-              <AuthorPicker
+              <NamePicker
                 candidates={candidates}
                 players={players}
                 onPick={(a) => {
@@ -224,7 +139,7 @@ function GuessPhone({
                 onClick={() => setOpenCard(card.id)}
                 sx={{ alignSelf: 'flex-start', textTransform: 'none', p: 0 }}
               >
-                <AuthorChip id={author} players={players} />
+                <NameLabel id={author} players={players} />
               </Button>
             ) : (
               <Button
@@ -253,60 +168,37 @@ function RevealPhone({
 }: { v: RevealView; players: readonly PublicPlayer[]; youId: string }): ReactNode {
   const points = v.scores.find((s) => s.playerId === youId)?.points ?? 0;
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1 }}>
-      <Box
-        component="span"
-        sx={{
-          alignSelf: 'flex-start',
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          px: 1.25,
-          py: 0.5,
-          borderRadius: 1,
-          backgroundColor: tokens.color.teal,
-          color: '#fff',
-        }}
-      >
-        Round done
-      </Box>
-      <Box sx={{ textAlign: 'center', mt: 1 }}>
-        <Typography sx={{ color: tokens.color.inkSoft, fontSize: 14 }}>You got</Typography>
-        <Typography variant="h2" sx={{ fontSize: 46 }}>
-          {points}
-        </Typography>
-        <Typography sx={{ color: tokens.color.inkSoft, fontSize: 14 }}>
-          correct this round
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
+    <PlayerResults value={points} unit="correct this round">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         {v.cards.map((card) => (
           <Card key={card.id} text={`“${card.text}”`}>
-            <AuthorChip id={card.authorId} players={players} />
+            <NameLabel id={card.authorId} players={players} />
           </Card>
         ))}
       </Box>
-    </Box>
+    </PlayerResults>
   );
 }
 
-export function PlayerView({
-  view,
-  players,
-  youId,
-  onSubmit,
-  onGuess,
-}: PlayerViewProps): ReactNode {
-  const v = asPlayerView(view);
-  if (v === null) {
-    return null;
-  }
+export const PlayerView = gamePlayerView(asPlayerView, (v, { players, youId, onEvent }) => {
   if (v.phase === 'collect') {
-    return <CollectPhone prompt={v.prompt} youSubmitted={v.youSubmitted} onSubmit={onSubmit} />;
+    return (
+      <CollectPhone
+        prompt={v.prompt}
+        youSubmitted={v.youSubmitted}
+        onSubmit={(text) => onEvent({ type: 'submit', text })}
+      />
+    );
   }
   if (v.phase === 'guess') {
-    return <GuessPhone v={v} players={players} youId={youId} onGuess={onGuess} />;
+    return (
+      <GuessPhone
+        v={v}
+        players={players}
+        youId={youId}
+        onGuess={(cardId, author) => onEvent({ type: 'guess', cardId, author })}
+      />
+    );
   }
   return <RevealPhone v={v} players={players} youId={youId} />;
-}
+});

@@ -77,8 +77,9 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
     return page;
   };
 
-  // --- host starts the round once all three are seated (min 3) ---
+  // --- host picks a game, then starts once all three are seated (min 3) ---
   await expect(host.page.getByText(/3 \/ 50 in the room/)).toBeVisible();
+  await host.page.getByRole('button', { name: /guess who said it/i }).click();
   await host.page.getByRole('button', { name: STEP.start }).click();
 
   // --- collect: everyone writes a secret answer ---

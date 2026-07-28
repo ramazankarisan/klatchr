@@ -12,18 +12,14 @@ const players: PublicPlayer[] = [
   { id: 'p3', nickname: 'Lena', spectator: false },
 ];
 
-function renderView(view: unknown): {
-  onSubmit: ReturnType<typeof vi.fn>;
-  onGuess: ReturnType<typeof vi.fn>;
-} {
-  const onSubmit = vi.fn();
-  const onGuess = vi.fn();
+function renderView(view: unknown): { onEvent: ReturnType<typeof vi.fn> } {
+  const onEvent = vi.fn();
   render(
     <ThemeProvider theme={theme}>
-      <PlayerView view={view} players={players} youId="p1" onSubmit={onSubmit} onGuess={onGuess} />
+      <PlayerView view={view} players={players} youId="p1" onEvent={onEvent} />
     </ThemeProvider>,
   );
-  return { onSubmit, onGuess };
+  return { onEvent };
 }
 
 describe('collect', () => {
@@ -37,10 +33,10 @@ describe('collect', () => {
 
   it('submits the typed answer via Tape it up', async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderView(collect);
+    const { onEvent } = renderView(collect);
     await user.type(screen.getByLabelText(/your answer/i), 'Tacos');
     await user.click(screen.getByRole('button', { name: /tape it up/i }));
-    expect(onSubmit).toHaveBeenCalledWith('Tacos');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'submit', text: 'Tacos' });
   });
 
   it('disables the button until something is typed', () => {
@@ -90,18 +86,18 @@ describe('guess', () => {
 
   it('opens the picker, excludes yourself, and guesses the chosen player', async () => {
     const user = userEvent.setup();
-    const { onGuess } = renderView(guess);
+    const { onEvent } = renderView(guess);
     await user.click(screen.getByRole('button', { name: /tap to name/i }));
     expect(screen.queryByRole('button', { name: /^You$/ })).toBeNull(); // p1 excluded
     await user.click(screen.getByRole('button', { name: /marcus/i }));
-    expect(onGuess).toHaveBeenCalledWith('c0', 'p2');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'guess', cardId: 'c0', author: 'p2' });
   });
 
   it('lets a placed guess be re-opened and changed', async () => {
     const user = userEvent.setup();
-    const { onGuess } = renderView({ ...guess, myGuesses: { c0: 'p2' } });
+    const { onEvent } = renderView({ ...guess, myGuesses: { c0: 'p2' } });
     await user.click(screen.getByRole('button', { name: /marcus/i })); // the placed guess chip
     await user.click(screen.getByRole('button', { name: /lena/i })); // re-pick
-    expect(onGuess).toHaveBeenCalledWith('c0', 'p3');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'guess', cardId: 'c0', author: 'p3' });
   });
 });

@@ -1,51 +1,107 @@
 import { Box, Button, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { Board, NameTag } from '../components/paper.js';
-import { asHostView } from '../games/guessWho/frames.js';
-import { viewsFor } from '../games/registry.js';
+import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { playerColor, tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useFrame } from '../useFrame.js';
 
-const GAME_ID = 'guess-who';
-
-function stepLabel(frame: ViewFrame): string {
+/** The host's one control button, resolved for any game from the current frame. */
+function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
+  const gameId = frame.selectedGameId;
   if (frame.phase === 'LOBBY') {
-    return 'Start the round';
+    // A game must be picked first (selectGame, sent from the picker); then start.
+    return { label: 'Start the round', actions: gameId === null ? [] : [{ type: 'startGame' }] };
   }
-  const phase = asHostView(frame.gameView)?.phase ?? null;
-  if (phase === 'collect') {
-    return 'Show the cards';
+  const step = gameId === null ? null : (viewsFor(gameId)?.hostStep(frame.gameView) ?? null);
+  if (step !== null && step.advance !== null) {
+    return { label: step.label, actions: [{ type: 'gameEvent', event: step.advance }] };
   }
-  if (phase === 'guess') {
-    return 'Reveal the authors';
-  }
-  return 'New round';
+  // Terminal phase (reveal/results): run it back with the same selected game.
+  return { label: 'New round', actions: gameId === null ? [] : [{ type: 'startGame' }] };
 }
 
-/** The host's one control drives the room forward with real actions (no bots here). */
-function stepActions(frame: ViewFrame): readonly Action[] {
-  if (frame.phase === 'LOBBY') {
-    return [{ type: 'selectGame', gameId: GAME_ID }, { type: 'startGame' }];
-  }
-  const phase = asHostView(frame.gameView)?.phase ?? null;
-  if (phase === 'collect') {
-    return [{ type: 'gameEvent', event: { type: 'advance', from: 'collect' } }];
-  }
-  if (phase === 'guess') {
-    return [{ type: 'gameEvent', event: { type: 'advance', from: 'guess' } }];
-  }
-  return [{ type: 'selectGame', gameId: GAME_ID }, { type: 'startGame' }]; // new round
+function GamePicker({
+  games,
+  selectedId,
+  onSelect,
+}: {
+  games: readonly GameOption[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}): ReactNode {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {games.map((game) => {
+        const sel = game.id === selectedId;
+        return (
+          <Button
+            key={game.id}
+            onClick={() => onSelect(game.id)}
+            sx={{
+              textTransform: 'none',
+              textAlign: 'left',
+              alignItems: 'flex-start',
+              flexDirection: 'column',
+              gap: 0.5,
+              p: '15px 16px',
+              color: tokens.color.ink,
+              backgroundColor: tokens.color.card,
+              border: `1px solid ${sel ? tokens.color.marker : '#e8dcc6'}`,
+              borderRadius: `${tokens.radius.card}px`,
+              boxShadow: sel
+                ? `0 0 0 1px ${tokens.color.marker}, 1px 3px 6px rgba(43,38,32,.14)`
+                : '1px 3px 6px rgba(43,38,32,.14)',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                gap: 1,
+              }}
+            >
+              <Typography variant="h3" sx={{ fontSize: 20 }}>
+                {game.name}
+              </Typography>
+              {sel ? (
+                <Typography sx={{ color: tokens.color.marker, fontWeight: 800, fontSize: 14 }}>
+                  ✓ selected
+                </Typography>
+              ) : null}
+            </Box>
+            <Typography sx={{ color: tokens.color.inkSoft, fontSize: 13.5 }}>
+              {game.description}
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: tokens.font.mono,
+                fontSize: 11.5,
+                color: tokens.color.markerDeep,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {game.minPlayers}–{game.maxPlayers} players
+            </Typography>
+          </Button>
+        );
+      })}
+    </Box>
+  );
 }
 
-function Lobby({ frame }: { frame: ViewFrame }): ReactNode {
+function Lobby({
+  frame,
+  onSelect,
+}: { frame: ViewFrame; onSelect: (id: string) => void }): ReactNode {
   return (
     <Box>
-      <Box
-        sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 0.5 }}
-      >
+      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="h3" sx={{ fontSize: 20 }}>
-          On the board
+          Choose tonight’s game
         </Typography>
         <Typography
           sx={{ fontFamily: tokens.font.mono, color: tokens.color.markerDeep, fontWeight: 700 }}
@@ -53,21 +109,21 @@ function Lobby({ frame }: { frame: ViewFrame }): ReactNode {
           {frame.players.length} / 50 in the room
         </Typography>
       </Box>
-      <Typography sx={{ color: tokens.color.inkSoft, fontSize: 13, mb: 2 }}>
-        Guess Who seats <b>12 per round</b> — the rest cheer from the bench and rotate in next
-        round.
-      </Typography>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
-          gap: 1.5,
-        }}
-      >
-        {frame.players.map((p) => (
-          <NameTag key={p.id} name={p.nickname} color={playerColor(p.id, frame.players)} />
-        ))}
-      </Box>
+      <GamePicker games={gameCatalog()} selectedId={frame.selectedGameId} onSelect={onSelect} />
+      {frame.players.length > 0 ? (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+            gap: 1.25,
+            mt: 2.5,
+          }}
+        >
+          {frame.players.map((p) => (
+            <NameTag key={p.id} name={p.nickname} color={playerColor(p.id, frame.players)} />
+          ))}
+        </Box>
+      ) : null}
     </Box>
   );
 }
@@ -82,10 +138,15 @@ export function HostScreen({ transport }: { transport: Transport }): ReactNode {
     );
   }
   const views = viewsFor(frame.selectedGameId);
+  const control = hostControl(frame);
+  const showLobby = frame.phase === 'LOBBY' || views === null;
   return (
     <Board code={frame.code} hint={<>Join at klatchr.app · punch in the code</>}>
-      {frame.phase === 'LOBBY' || views === null ? (
-        <Lobby frame={frame} />
+      {showLobby ? (
+        <Lobby
+          frame={frame}
+          onSelect={(id) => transport.send({ type: 'selectGame', gameId: id })}
+        />
       ) : (
         <views.Host view={frame.gameView} players={frame.players} />
       )}
@@ -93,13 +154,14 @@ export function HostScreen({ transport }: { transport: Transport }): ReactNode {
         <Button
           variant="contained"
           size="large"
+          disabled={control.actions.length === 0}
           onClick={() => {
-            for (const action of stepActions(frame)) {
+            for (const action of control.actions) {
               transport.send(action);
             }
           }}
         >
-          {stepLabel(frame)}
+          {control.label}
         </Button>
       </Box>
     </Board>

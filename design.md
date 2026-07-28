@@ -96,6 +96,33 @@ one card at a time, with a `N of 11 named` progress count. The search field is
 there so the pattern still holds if a future game seats more — never a flat row
 of 50 pills.
 
+## Cycle 6.2 — Most Likely To + the game picker (approved 2026-07-28)
+
+The second game's screens plus the platform's first host **game picker**. Sketched
+on the Klatchr design project (cards `game-picker`, `most-likely-to-phone`,
+`most-likely-to-board`); the picked options:
+
+- **Host game picker (LOBBY) — game cards (A).** One tappable card per game: name,
+  one-line blurb, player range (from `Game.name`/`description`/`min–max`, S5); the
+  selected card in marker, then *Start the round*. (A radio-list variant is kept in
+  the sketch for when the library outgrows cards.)
+- **Player vote (phone) — searchable picker (B).** The same name-tag picker as Guess
+  Who's guess: a search field + name-tag chips, tap one to vote, *Lock it in*. Reuses
+  the pattern and scales past 12. Self-vote allowed (toggle A).
+- **Player results (phone).** Your received-vote count (large), your own vote echoed as
+  a chip, then the **counts-only** tally with the winner bar in marker. Who-voted-for-whom
+  is never shown (toggle B).
+- **Host board — vote progress — one meter (B).** A single marker progress bar +
+  `N of M voted` + name chips (done vs pending). **No target, no running tally** — the
+  host view is the strictest redaction. Scales to 50.
+- **Host board — results.** A winner spotlight (a *Most likely* stamp + name + count) over
+  a ranked bar tally — winner bar in marker, the rest teal.
+
+No new tokens — all on the locked paper palette. Two invisible seam refactors ride along
+(no visual change): `PlayerViewProps` collapses to a single `onEvent(event)`, and each
+game's web module exports **step metadata** (per-phase label + advance action) to the view
+registry, so the host control bar is no longer hard-wired to Guess Who's three steps.
+
 ## Screens (Cycle 4)
 
 - Host: **lobby** (room code + joining players), **in-game** per phase,
