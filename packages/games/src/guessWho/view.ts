@@ -43,6 +43,10 @@ function guessView(state: GWState, viewer: Viewer) {
     cards,
     candidates: state.roster,
     myGuesses: state.guesses[viewer.id] ?? {},
+    // A player may know *its own* card id — it authored that answer, so this
+    // reveals nothing hidden. Lets the phone mark "your card" without matching
+    // on text (identical answers would collide) and never offer it for guessing.
+    yourCardId: state.cards.find((card) => card.authorId === viewer.id)?.id,
   };
 }
 

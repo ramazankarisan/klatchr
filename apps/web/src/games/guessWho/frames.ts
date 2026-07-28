@@ -36,6 +36,7 @@ export interface GuessPlayerView {
   cards: readonly GuessCard[];
   candidates: readonly string[];
   myGuesses: Readonly<Record<string, string>>;
+  yourCardId?: string; // this player's own card — mark it, never offer it for guessing
 }
 export interface RevealView {
   phase: 'reveal';

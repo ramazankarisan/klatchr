@@ -66,13 +66,18 @@ describe('redaction (G8–G10)', () => {
     for (const card of cardsOf(v)) {
       expect(keysOf(card).sort()).toEqual(['id', 'text']);
     }
-    expect(v).toMatchObject({ myGuesses: { c1: 'b' } });
+    expect(v).toMatchObject({ myGuesses: { c1: 'b' }, yourCardId: 'c0' }); // its own card only
     expect(keysOf(v)).not.toContain('guesses'); // no one else’s guesses
   });
 
   it('G9 a player who has not guessed sees an empty guess map', () => {
     const v = viewFor(guessState(), asPlayer('c'));
     expect(v).toMatchObject({ myGuesses: {} });
+  });
+
+  it('a player who authored no card has no own-card id', () => {
+    const v = viewFor(guessState(), asPlayer('z'));
+    expect((v as { yourCardId?: string }).yourCardId).toBeUndefined();
   });
 
   it('G10 the host screen leaks no authorship in guess (strictest)', () => {
@@ -82,6 +87,7 @@ describe('redaction (G8–G10)', () => {
     }
     expect(keysOf(v)).not.toContain('authors');
     expect(keysOf(v)).not.toContain('myGuesses');
+    expect(keysOf(v)).not.toContain('yourCardId'); // host authors nothing — no own-card id
     expect(v).toMatchObject({ guessed: ['a', 'b'] }); // progress only, not contents
   });
 

@@ -177,28 +177,27 @@ function GuessPhone({
   v,
   players,
   youId,
-  myAnswer,
   onGuess,
 }: {
   v: GuessPlayerView;
   players: readonly PublicPlayer[];
   youId: string;
-  myAnswer: string | null;
   onGuess: (cardId: string, author: string) => void;
 }): ReactNode {
   const [openCard, setOpenCard] = useState<string | null>(null);
-  const named = Object.keys(v.myGuesses).length;
   const candidates = v.candidates.filter((id) => id !== youId);
+  const guessable = v.cards.filter((card) => card.id !== v.yourCardId);
+  const named = guessable.filter((card) => v.myGuesses[card.id] !== undefined).length;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1 }}>
       <Kicker>
         Name the authors ·{' '}
         <Box component="span" sx={{ fontFamily: tokens.font.mono, color: tokens.color.markerDeep }}>
-          {named} of {candidates.length}
+          {named} of {guessable.length}
         </Box>
       </Kicker>
       {v.cards.map((card) => {
-        if (myAnswer !== null && card.text === myAnswer) {
+        if (card.id === v.yourCardId) {
           return (
             <Card key={card.id} text={card.text}>
               <Typography sx={{ fontSize: 12.5, color: tokens.color.teal, fontWeight: 700 }}>
@@ -208,16 +207,10 @@ function GuessPhone({
           );
         }
         const author = v.myGuesses[card.id];
+        // The picker wins when open, so a placed guess can be re-opened and changed.
         return (
           <Card key={card.id} text={card.text}>
-            {author !== undefined ? (
-              <Button
-                onClick={() => setOpenCard(openCard === card.id ? null : card.id)}
-                sx={{ alignSelf: 'flex-start', textTransform: 'none', p: 0 }}
-              >
-                <AuthorChip id={author} players={players} />
-              </Button>
-            ) : openCard === card.id ? (
+            {openCard === card.id ? (
               <AuthorPicker
                 candidates={candidates}
                 players={players}
@@ -226,6 +219,13 @@ function GuessPhone({
                   setOpenCard(null);
                 }}
               />
+            ) : author !== undefined ? (
+              <Button
+                onClick={() => setOpenCard(card.id)}
+                sx={{ alignSelf: 'flex-start', textTransform: 'none', p: 0 }}
+              >
+                <AuthorChip id={author} players={players} />
+              </Button>
             ) : (
               <Button
                 onClick={() => setOpenCard(card.id)}
@@ -295,7 +295,6 @@ export function PlayerView({
   view,
   players,
   youId,
-  myAnswer,
   onSubmit,
   onGuess,
 }: PlayerViewProps): ReactNode {
@@ -307,9 +306,7 @@ export function PlayerView({
     return <CollectPhone prompt={v.prompt} youSubmitted={v.youSubmitted} onSubmit={onSubmit} />;
   }
   if (v.phase === 'guess') {
-    return (
-      <GuessPhone v={v} players={players} youId={youId} myAnswer={myAnswer} onGuess={onGuess} />
-    );
+    return <GuessPhone v={v} players={players} youId={youId} onGuess={onGuess} />;
   }
   return <RevealPhone v={v} players={players} youId={youId} />;
 }
