@@ -12,10 +12,7 @@ const players: PublicPlayer[] = [
   { id: 'p3', nickname: 'Lena', spectator: false },
 ];
 
-function renderView(
-  view: unknown,
-  over: Partial<Parameters<typeof PlayerView>[0]> = {},
-): {
+function renderView(view: unknown): {
   onSubmit: ReturnType<typeof vi.fn>;
   onGuess: ReturnType<typeof vi.fn>;
 } {
@@ -23,15 +20,7 @@ function renderView(
   const onGuess = vi.fn();
   render(
     <ThemeProvider theme={theme}>
-      <PlayerView
-        view={view}
-        players={players}
-        youId="p1"
-        myAnswer={null}
-        onSubmit={onSubmit}
-        onGuess={onGuess}
-        {...over}
-      />
+      <PlayerView view={view} players={players} youId="p1" onSubmit={onSubmit} onGuess={onGuess} />
     </ThemeProvider>,
   );
   return { onSubmit, onGuess };
@@ -76,22 +65,43 @@ describe('guess', () => {
     ],
     candidates: ['p1', 'p2', 'p3'],
     myGuesses: {},
+    yourCardId: 'c1', // c1 is yours
   };
 
-  it('marks your own card and never offers it for guessing', () => {
-    renderView(guess, { myAnswer: 'Cereal is a soup.' });
+  it('marks your own card (by id) and never offers it for guessing', () => {
+    renderView(guess);
     expect(screen.getByText(/your card/i)).toBeTruthy();
-    // one guessable card (c0) -> exactly one "tap to name"
+    expect(screen.getAllByRole('button', { name: /tap to name/i })).toHaveLength(1); // only c0
+  });
+
+  it('does not collide when another player answered the same text', () => {
+    // c0 and c2 share text; only your own card (c0) is marked, the twin is guessable.
+    renderView({
+      ...guess,
+      cards: [
+        { id: 'c0', text: 'Pizza.' },
+        { id: 'c2', text: 'Pizza.' },
+      ],
+      yourCardId: 'c0',
+    });
+    expect(screen.getAllByText(/your card/i)).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: /tap to name/i })).toHaveLength(1);
   });
 
-  it('opens the author picker and guesses the chosen player, excluding yourself', async () => {
+  it('opens the picker, excludes yourself, and guesses the chosen player', async () => {
     const user = userEvent.setup();
-    const { onGuess } = renderView(guess, { myAnswer: 'Cereal is a soup.' });
+    const { onGuess } = renderView(guess);
     await user.click(screen.getByRole('button', { name: /tap to name/i }));
-    // picker excludes you (p1); shows the other seated players
-    expect(screen.queryByRole('button', { name: /^You$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^You$/ })).toBeNull(); // p1 excluded
     await user.click(screen.getByRole('button', { name: /marcus/i }));
     expect(onGuess).toHaveBeenCalledWith('c0', 'p2');
+  });
+
+  it('lets a placed guess be re-opened and changed', async () => {
+    const user = userEvent.setup();
+    const { onGuess } = renderView({ ...guess, myGuesses: { c0: 'p2' } });
+    await user.click(screen.getByRole('button', { name: /marcus/i })); // the placed guess chip
+    await user.click(screen.getByRole('button', { name: /lena/i })); // re-pick
+    expect(onGuess).toHaveBeenCalledWith('c0', 'p3');
   });
 });

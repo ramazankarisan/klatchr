@@ -75,9 +75,13 @@ tokens above.
 **Cycle 5.3c — approved &amp; built (2026-07-28).** Three screens shipped against
 the approved cards:
 - **Collect (phone):** an index-card answer field + *Tape it up*; locks to a
-  teal ✓ once submitted. The client keeps its own answer to mark "your card".
+  teal ✓ once submitted.
 - **Guess (phone):** the searchable author picker below the tapped card (see
-  below); one card at a time, `N of 11`, your own card marked and unpickable.
+  below); one card at a time, `N of` the guessable cards, and your own card
+  marked and unpickable. The guess view tells a player its **own** card id
+  (`yourCardId`) — self-authorship, so no leak — which is how the phone marks
+  "your card" without matching on text (identical answers would otherwise
+  collide). A placed guess can be re-opened and changed.
 - **Host scores (board):** a reveal-time standings scoreboard, ranked, leader in
   marker. **Round tally only** — a cross-round *running total* was in the sketch
   but is deferred: the engine scores a single round, so cumulative standings need
