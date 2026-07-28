@@ -9,6 +9,10 @@ import { type Browser, type Page, expect, test } from '@playwright/test';
  *   - guess:   authorship (who wrote which card) is secret until the reveal.
  * and that a dropped player resumes its slot on reconnect (server-minted token).
  *
+ * Scope: this proves *render-level* redaction (the secret/name is not on screen).
+ * The authoritative per-viewer proof is the game's G8–G10 unit redaction tests on
+ * `view()`; this whole-stack test confirms the wire + UI wiring around them.
+ *
  * Names are ≥5 letters so they can never be a substring of the random 4-letter
  * room code; secrets are distinctive so getByText can't match them by accident.
  */
