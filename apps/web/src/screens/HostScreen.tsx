@@ -10,8 +10,11 @@ import { useFrame } from '../useFrame.js';
 function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
   const gameId = frame.selectedGameId;
   if (frame.phase === 'LOBBY') {
-    // A game must be picked first (selectGame, sent from the picker); then start.
-    return { label: 'Start the round', actions: gameId === null ? [] : [{ type: 'startGame' }] };
+    // A game must be picked first (selectGame, from the picker), and the room
+    // must meet its minimum — otherwise core rejects startGame with no feedback.
+    const game = gameCatalog().find((g) => g.id === gameId);
+    const ready = game !== undefined && frame.players.length >= game.minPlayers;
+    return { label: 'Start the round', actions: ready ? [{ type: 'startGame' }] : [] };
   }
   const step = gameId === null ? null : (viewsFor(gameId)?.hostStep(frame.gameView) ?? null);
   if (step !== null && step.advance !== null) {
