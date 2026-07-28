@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import type { ReactNode } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { DymoCode, Phone } from '../components/paper.js';
 import { viewsFor } from '../games/registry.js';
 import { tokens } from '../tokens.js';
@@ -48,8 +48,45 @@ function youId(frame: ViewFrame): string {
   return frame.viewer.role === 'player' ? frame.viewer.id : '';
 }
 
+/** A collect phase this player has not yet answered — the moment to forget last round's answer. */
+function isFreshCollect(view: unknown): boolean {
+  return (
+    typeof view === 'object' &&
+    view !== null &&
+    'phase' in view &&
+    view.phase === 'collect' &&
+    'youSubmitted' in view &&
+    view.youSubmitted === false
+  );
+}
+
 export function PlayerScreen({ transport }: { transport: Transport }): ReactNode {
   const frame = useFrame(transport);
+  // The client keeps its own answer so the guess screen can mark "your card"
+  // (the view never reveals which card is yours — correct redaction).
+  const [myAnswer, setMyAnswer] = useState<string | null>(null);
+
+  const onSubmit = useCallback(
+    (text: string) => {
+      transport.send({ type: 'gameEvent', event: { type: 'submit', text } });
+      setMyAnswer(text);
+    },
+    [transport],
+  );
+  const onGuess = useCallback(
+    (cardId: string, author: string) => {
+      transport.send({ type: 'gameEvent', event: { type: 'guess', cardId, author } });
+    },
+    [transport],
+  );
+
+  const freshCollect = frame !== null && isFreshCollect(frame.gameView);
+  useEffect(() => {
+    if (freshCollect) {
+      setMyAnswer(null);
+    }
+  }, [freshCollect]);
+
   if (frame === null) {
     return (
       <Phone>
@@ -73,7 +110,14 @@ export function PlayerScreen({ transport }: { transport: Transport }): ReactNode
       ) : views === null ? (
         <Centered title="Waiting" body="The host is setting up." />
       ) : (
-        <views.Player view={frame.gameView} players={frame.players} youId={id} />
+        <views.Player
+          view={frame.gameView}
+          players={frame.players}
+          youId={id}
+          myAnswer={myAnswer}
+          onSubmit={onSubmit}
+          onGuess={onGuess}
+        />
       )}
     </Phone>
   );
