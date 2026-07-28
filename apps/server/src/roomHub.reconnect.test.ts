@@ -99,4 +99,16 @@ describe('disconnect grace + reap', () => {
     await flush();
     expect(hub.hasRoom(code)).toBe(false); // reaped
   });
+
+  it('cancels a pending reaper when the room closes under it (no timer into a dead session)', async () => {
+    const { deps, fireAll } = fakeTimerDeps();
+    const [hub, host, code] = await openWith(deps);
+    hub.disconnect(at(await seat(hub, code, 1), 0)); // player drops → reaper pending
+    hub.disconnect(host); // host drop closes the room while that reaper is still queued
+    await flush();
+    expect(hub.hasRoom(code)).toBe(false);
+    fireAll(); // the cancelled reaper must not fire a leave into the gone session
+    await flush();
+    expect(hub.hasRoom(code)).toBe(false);
+  });
 });
