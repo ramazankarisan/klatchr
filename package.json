@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "pnpm": {
     "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"],
     "overrides": {
@@ -14,6 +16,7 @@
     "*.{ts,tsx,cjs,js,json,jsonc}": "biome check --write --no-errors-on-unmatched"
   },
   "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"pnpm -C apps/server dev\" \"pnpm -C apps/web dev\"",
     "test": "vitest run",
     "test:core": "vitest run packages/core",
     "test:cov": "vitest run --coverage",
@@ -37,6 +40,7 @@
     "@playwright/test": "1.61.1",
     "@types/node": "22.20.1",
     "@vitest/coverage-v8": "2.1.9",
+    "concurrently": "10.0.4",
     "dependency-cruiser": "16.10.4",
     "husky": "9.1.7",
     "jscpd": "4.2.5",
