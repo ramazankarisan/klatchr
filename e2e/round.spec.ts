@@ -1,4 +1,4 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, type WebSocketRoute, expect, test } from '@playwright/test';
 
 /**
  * The whole-stack redaction proof that slipped from Cycle 4 (plan-5 §5.3d): a
@@ -31,8 +31,12 @@ const STEP = {
   reveal: 'Reveal the authors',
 } as const;
 
-async function openHost(browser: Browser): Promise<{ page: Page; code: string }> {
+/** Run once after the landing loads, before the socket opens — e.g. to install a WS proxy. */
+type Setup = (page: Page) => Promise<void>;
+
+async function openHost(browser: Browser, setup?: Setup): Promise<{ page: Page; code: string }> {
   const page = await (await browser.newContext()).newPage();
+  await setup?.(page); // before navigation so a WS proxy is live from the first socket
   await page.goto('/');
   await page.getByRole('button', { name: HOST.button }).click();
   const codeTape = page.locator('[aria-label^="room code"]');
@@ -42,6 +46,32 @@ async function openHost(browser: Browser): Promise<{ page: Page; code: string }>
   return { page, code: label.replace('room code ', '') };
 }
 
+/**
+ * Proxy this page's WebSocket through Playwright so a test can force a *real*
+ * client-side close (`drop`) — `context.setOffline` leaves an idle WS open, so it
+ * can't trigger the reconnect. Messages pass straight through to the real server;
+ * on reconnect the handler re-fires and re-proxies the new socket. Install before
+ * the socket opens (as the helper `setup`).
+ */
+async function interceptWs(page: Page): Promise<{ drop: () => Promise<void> }> {
+  let current: WebSocketRoute | null = null;
+  await page.routeWebSocket(
+    (url) => url.port === '8080',
+    (ws) => {
+      const server = ws.connectToServer();
+      ws.onMessage((m) => server.send(m));
+      server.onMessage((m) => ws.send(m));
+      current = ws;
+    },
+  );
+  return {
+    drop: async () => {
+      if (current === null) throw new Error('WS proxy never intercepted a socket');
+      current.close();
+    },
+  };
+}
+
 async function fillJoin(page: Page, code: string, name: string): Promise<void> {
   await page.getByRole('button', { name: 'Join a room' }).click();
   await page.getByLabel('Room code').fill(code);
@@ -49,8 +79,14 @@ async function fillJoin(page: Page, code: string, name: string): Promise<void> {
   await page.getByRole('button', { name: 'Join the room' }).click();
 }
 
-async function joinPlayer(browser: Browser, code: string, name: string): Promise<Page> {
+async function joinPlayer(
+  browser: Browser,
+  code: string,
+  name: string,
+  setup?: Setup,
+): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
+  await setup?.(page); // before navigation so a WS proxy is live from the first socket
   await page.goto('/');
   await fillJoin(page, code, name);
   await expect(page.getByRole('heading', { name: /You.re in/ })).toBeVisible();
@@ -143,4 +179,58 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   await expect(cyrus.getByText('Adalyn')).toBeVisible(); // the name that was hidden a moment ago
   await expect(host.page.getByText('Standings')).toBeVisible();
   await expect(host.page.getByText('Adalyn').first()).toBeVisible(); // author chip + standings row
+});
+
+/**
+ * 7.2 self-heal: a dropped socket reconnects itself — no manual re-join — showing
+ * a "Reconnecting…" indicator while it heals. We emulate a real network drop with
+ * `context.setOffline` (which closes the live WebSocket), on both a phone and the
+ * host board. The phone resumes its slot via its reconnect token; the host resumes
+ * the room via `resumeHost` + `hostToken` (7.1). Distinct from the reload+re-join
+ * above: here nothing is retyped, the transport re-handshakes on its own.
+ */
+test('a dropped socket heals itself with a reconnecting indicator (7.2)', async ({ browser }) => {
+  test.setTimeout(90_000);
+  let hostWs: { drop: () => Promise<void> } | undefined;
+  const host = await openHost(browser, async (page) => {
+    hostWs = await interceptWs(page);
+  });
+  const phones = new Map<string, Page>();
+  let adalynWs: { drop: () => Promise<void> } | undefined;
+  for (const p of PLAYERS) {
+    const setup =
+      p.name === 'Adalyn'
+        ? async (page: Page) => {
+            adalynWs = await interceptWs(page);
+          }
+        : undefined;
+    phones.set(p.name, await joinPlayer(browser, host.code, p.name, setup));
+  }
+  const phone = (name: string): Page => {
+    const page = phones.get(name);
+    if (page === undefined) throw new Error(`no phone for ${name}`);
+    return page;
+  };
+
+  await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  for (const p of PLAYERS) {
+    await submitAnswer(phone(p.name), p.secret);
+  }
+  await expect(host.page.getByText(/3 of 3 answered/)).toBeVisible();
+
+  // --- a phone's socket drops: it shows Reconnecting…, then heals on its own ---
+  const adalyn = phone('Adalyn');
+  await adalynWs?.drop();
+  await expect(adalyn.getByText(/Reconnecting/i)).toBeVisible();
+  // No re-join: the transport reconnects itself and resumes the same slot, so her
+  // taped answer survives and the indicator clears.
+  await expect(adalyn.getByText(/Reconnecting/i)).toHaveCount(0, { timeout: 20_000 });
+  await expect(adalyn.getByText(/Answer taped up/)).toBeVisible();
+
+  // --- the host board's socket drops: it reconnects via resumeHost (7.1), room intact ---
+  await hostWs?.drop();
+  await expect(host.page.getByText(/Reconnecting/i)).toBeVisible();
+  await expect(host.page.getByText(/Reconnecting/i)).toHaveCount(0, { timeout: 20_000 });
+  await expect(host.page.getByText(/3 of 3 answered/)).toBeVisible(); // same room, same round
 });

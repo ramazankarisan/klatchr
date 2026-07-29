@@ -5,6 +5,7 @@ import { viewsFor } from '../games/registry.js';
 import { tokens } from '../tokens.js';
 import type { Transport, ViewFrame } from '../transport/types.js';
 import { useFrame } from '../useFrame.js';
+import { useStatus } from '../useStatus.js';
 
 function Brand({ code, name }: { code: string; name: string }): ReactNode {
   return (
@@ -50,6 +51,7 @@ function youId(frame: ViewFrame): string {
 
 export function PlayerScreen({ transport }: { transport: Transport }): ReactNode {
   const frame = useFrame(transport);
+  const reconnecting = useStatus(transport) === 'reconnecting';
 
   // One opaque seam: the game view builds its own event; the transport wraps it
   // in a `play`. Adding a game needs no new callback here.
@@ -62,7 +64,7 @@ export function PlayerScreen({ transport }: { transport: Transport }): ReactNode
 
   if (frame === null) {
     return (
-      <Phone>
+      <Phone reconnecting={reconnecting}>
         <Centered title="Joining…" body="Finding your seat." />
       </Phone>
     );
@@ -71,7 +73,7 @@ export function PlayerScreen({ transport }: { transport: Transport }): ReactNode
   const me = frame.players.find((p) => p.id === id);
   const views = viewsFor(frame.selectedGameId);
   return (
-    <Phone>
+    <Phone reconnecting={reconnecting}>
       <Brand code={frame.code} name={me?.nickname ?? 'You'} />
       {frame.phase === 'LOBBY' ? (
         <Centered title="You’re in" body="Grab a seat — watch the board for the first prompt." />
