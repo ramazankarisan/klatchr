@@ -5,6 +5,7 @@ import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { playerColor, tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useFrame } from '../useFrame.js';
+import { useStatus } from '../useStatus.js';
 
 /** The host's one control button, resolved for any game from the current frame. */
 function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
@@ -133,9 +134,10 @@ function Lobby({
 
 export function HostScreen({ transport }: { transport: Transport }): ReactNode {
   const frame = useFrame(transport);
+  const reconnecting = useStatus(transport) === 'reconnecting';
   if (frame === null) {
     return (
-      <Board code="····" hint={<>Opening the room…</>}>
+      <Board code="····" hint={<>Opening the room…</>} reconnecting={reconnecting}>
         {null}
       </Board>
     );
@@ -144,7 +146,11 @@ export function HostScreen({ transport }: { transport: Transport }): ReactNode {
   const control = hostControl(frame);
   const showLobby = frame.phase === 'LOBBY' || views === null;
   return (
-    <Board code={frame.code} hint={<>Join at klatchr.app · punch in the code</>}>
+    <Board
+      code={frame.code}
+      hint={<>Join at klatchr.app · punch in the code</>}
+      reconnecting={reconnecting}
+    >
       {showLobby ? (
         <Lobby
           frame={frame}

@@ -123,6 +123,30 @@ No new tokens — all on the locked paper palette. Two invisible seam refactors 
 game's web module exports **step metadata** (per-phase label + advance action) to the view
 registry, so the host control bar is no longer hard-wired to Guess Who's three steps.
 
+## Cycle 7.2 — Reconnecting… indicator (approved 2026-07-29)
+
+Both surfaces now heal a dropped socket themselves (auto-reconnect + backoff, then
+re-handshake — a player re-sends `join { reconnectToken }`, a host re-sends
+`resumeHost { code, hostToken }` from 7.1). While it heals, a **Reconnecting…**
+indicator shows; it clears the instant the socket is **live** again. Sketched on the
+Klatchr design project (card `reconnecting`); the picked option:
+
+- **Reconnecting — masking-tape strip (A).** A full-width masking-tape strip clamps
+  the top of the board / phone (`RECONNECTING…`, mono, a pulsing marker dot), and the
+  content **dims to ~50%** behind it so nobody reads a stale state as live. Loud and
+  glanceable across a room; reuses the tape motif. (A quieter pinned-corner-chip
+  variant B is kept in the sketch.) **Non-blocking:** anything tapped during the blip
+  **queues and flushes** on reconnect — nothing is lost. The strip is a shared
+  `Board`/`Phone` `reconnecting` prop (one `ReconnectingTape`, both frames).
+- **State model.** Three connection states: `live` (no indicator — the game just
+  plays), `reconnecting` (strip shown, clears on re-handshake), `connecting` (the very
+  first open/join — keeps today's "Joining… / Opening the room…" placeholder,
+  untouched this cycle). Surfaced by the transport as a status stream alongside frames.
+- No new tokens — all on the locked paper palette (tape = marker stripes on card).
+- **Deferred:** restoring a host session across a *full page reload* (memory wiped) —
+  this cycle heals in-memory socket drops on a live page. Full-reload restore is a
+  later concern.
+
 ## Screens (Cycle 4)
 
 - Host: **lobby** (room code + joining players), **in-game** per phase,

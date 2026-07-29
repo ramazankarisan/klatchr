@@ -11,7 +11,7 @@ import {
   roomReduce,
 } from '@klatchr/core';
 import { games } from '@klatchr/games';
-import type { Action, PublicPlayer, Transport, ViewFrame } from './types.js';
+import type { Action, ConnStatus, PublicPlayer, Transport, ViewFrame } from './types.js';
 
 const HOST: Viewer = { role: 'host' };
 
@@ -213,6 +213,12 @@ class MockTransport implements Transport {
 
   subscribe(onFrame: (frame: ViewFrame) => void): () => void {
     return this.engine.subscribe(this.viewer, onFrame);
+  }
+
+  /** The in-browser mock has no socket to drop — it is always `live`. */
+  subscribeStatus(onStatus: (status: ConnStatus) => void): () => void {
+    onStatus('live');
+    return () => {};
   }
 
   send(action: Action): void {

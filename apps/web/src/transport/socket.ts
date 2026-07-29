@@ -1,12 +1,15 @@
 import type { Viewer } from '@klatchr/core';
 import { type ClientMessage, type ServerMessage, serverMessage } from '@klatchr/protocol';
-import type { Action, Transport, ViewFrame } from './types.js';
+import type { Action, ConnStatus, Transport, ViewFrame } from './types.js';
 
 /** The slice of the browser `WebSocket` we use — injectable so tests fake it. */
 export interface SocketLike {
   send(data: string): void;
   close(): void;
-  addEventListener(type: 'open' | 'message', listener: (event: { data: unknown }) => void): void;
+  addEventListener(
+    type: 'open' | 'message' | 'close' | 'error',
+    listener: (event: { data: unknown }) => void,
+  ): void;
 }
 
 type SocketFactory = (url: string) => SocketLike;
@@ -16,7 +19,22 @@ export type SocketInit =
   | { role: 'host'; nickname: string }
   | { role: 'player'; code: string; nickname: string; reconnectToken?: string };
 
+/** Deferred callback used for the reconnect backoff — injectable so tests drive it. */
+interface ReconnectClock {
+  schedule(callback: () => void, ms: number): () => void;
+}
+
 const defaultFactory: SocketFactory = (url) => new WebSocket(url);
+const defaultClock: ReconnectClock = {
+  schedule: (callback, ms) => {
+    const handle = setTimeout(callback, ms);
+    return () => clearTimeout(handle);
+  },
+};
+
+// Capped exponential backoff between reconnect attempts: 0.5s, 1s, 2s … up to 8s.
+const BASE_BACKOFF_MS = 500;
+const MAX_BACKOFF_MS = 8_000;
 
 /**
  * A single-viewer `Transport` over one native WebSocket. It opens (host) or
@@ -24,28 +42,44 @@ const defaultFactory: SocketFactory = (url) => new WebSocket(url);
  * (rule 2 — never `as`), and rebuilds the web `ViewFrame` from the wire frame
  * plus its own resolved viewer (host is known; a player's id arrives in
  * `joined`). Redaction already happened server-side; this only forwards.
+ *
+ * It heals itself (7.2): on a `close`/`error` it retries with capped exponential
+ * backoff, re-running its handshake — a player re-sends `join { reconnectToken }`,
+ * a host re-sends `resumeHost { code, hostToken }` (the secret captured from the
+ * `opened` ack). A `connecting | live | reconnecting` status rides alongside the
+ * frames so the UI can show a "Reconnecting…" indicator. Actions taken mid-drop
+ * queue and flush once the socket is back — nothing is lost.
  */
 export class SocketTransport implements Transport {
-  private readonly socket: SocketLike;
+  private socket: SocketLike;
   private readonly listeners = new Set<(frame: ViewFrame) => void>();
+  private readonly statusListeners = new Set<(status: ConnStatus) => void>();
   private viewer: Viewer;
   private code: string | null = null;
   private last: ViewFrame | null = null;
+  private status: ConnStatus = 'connecting';
   private readonly pending: ClientMessage[] = [];
   private open = false;
+  private attempt = 0;
+  private awaitingReconnect = false;
+  // The latest resume credentials, re-sent on every reconnect handshake. A player's
+  // token is seeded from init and refreshed by each `joined`; a host's is captured
+  // from the `opened` ack (undefined until then → the first handshake is `open`).
+  private reconnectToken: string | undefined;
+  private hostToken: string | undefined;
 
   /** Called with the fresh reconnect token whenever the server (re)issues one. */
   onReconnectToken: (token: string) => void = () => {};
 
   constructor(
-    url: string,
+    private readonly url: string,
     private readonly init: SocketInit,
-    factory: SocketFactory = defaultFactory,
+    private readonly factory: SocketFactory = defaultFactory,
+    private readonly clock: ReconnectClock = defaultClock,
   ) {
     this.viewer = init.role === 'host' ? { role: 'host' } : { role: 'player', id: '' };
-    this.socket = factory(url);
-    this.socket.addEventListener('open', () => this.handleOpen());
-    this.socket.addEventListener('message', (event) => this.handleMessage(event.data));
+    this.reconnectToken = init.role === 'player' ? init.reconnectToken : undefined;
+    this.socket = this.connect();
   }
 
   subscribe(onFrame: (frame: ViewFrame) => void): () => void {
@@ -58,6 +92,14 @@ export class SocketTransport implements Transport {
     };
   }
 
+  subscribeStatus(onStatus: (status: ConnStatus) => void): () => void {
+    this.statusListeners.add(onStatus);
+    onStatus(this.status);
+    return () => {
+      this.statusListeners.delete(onStatus);
+    };
+  }
+
   send(action: Action): void {
     if (this.code === null) {
       return; // no room yet — host controls only appear after the first frame
@@ -65,22 +107,57 @@ export class SocketTransport implements Transport {
     this.dispatch(this.toWire(action, this.code));
   }
 
+  /** Open a fresh socket and wire its lifecycle. Reused for the first connect and every retry. */
+  private connect(): SocketLike {
+    this.open = false;
+    const socket = this.factory(this.url);
+    socket.addEventListener('open', () => this.handleOpen());
+    socket.addEventListener('message', (event) => this.handleMessage(event.data));
+    socket.addEventListener('close', () => this.handleDrop());
+    socket.addEventListener('error', () => this.handleDrop());
+    this.socket = socket;
+    return socket;
+  }
+
   private handleOpen(): void {
     this.open = true;
+    this.attempt = 0;
+    this.awaitingReconnect = false;
+    this.setStatus('live');
     this.dispatch(this.handshake());
     for (const queued of this.pending.splice(0)) {
       this.dispatch(queued);
     }
   }
 
+  /** A dropped socket: flip to reconnecting and schedule a backed-off retry (once per drop). */
+  private handleDrop(): void {
+    if (this.awaitingReconnect) {
+      return; // close + error can both fire for one drop — schedule only once
+    }
+    this.open = false;
+    this.awaitingReconnect = true;
+    this.setStatus('reconnecting');
+    const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** this.attempt);
+    this.attempt += 1;
+    this.clock.schedule(() => {
+      this.awaitingReconnect = false;
+      this.connect();
+    }, delay);
+  }
+
   private handshake(): ClientMessage {
     if (this.init.role === 'host') {
-      return { type: 'open', nickname: this.init.nickname };
+      // Once the room is known, a reconnecting host resumes it with the secret
+      // (7.1); before the first `opened` it is a fresh open.
+      return this.code !== null && this.hostToken !== undefined
+        ? { type: 'resumeHost', code: this.code, hostToken: this.hostToken }
+        : { type: 'open', nickname: this.init.nickname };
     }
-    const { code, nickname, reconnectToken } = this.init;
-    return reconnectToken === undefined
+    const { code, nickname } = this.init;
+    return this.reconnectToken === undefined
       ? { type: 'join', code, nickname }
-      : { type: 'join', code, nickname, reconnectToken };
+      : { type: 'join', code, nickname, reconnectToken: this.reconnectToken };
   }
 
   private handleMessage(data: unknown): void {
@@ -104,7 +181,15 @@ export class SocketTransport implements Transport {
     if (message.type === 'joined') {
       this.viewer = { role: 'player', id: message.playerId };
       this.code = message.code;
+      this.reconnectToken = message.reconnectToken; // refresh the resume secret for the next retry
       this.onReconnectToken(message.reconnectToken);
+      return;
+    }
+    if (message.type === 'opened') {
+      // The host's open-ack (7.1): keep the code + secret so a later reconnect
+      // re-attaches this board via `resumeHost` instead of opening a new room.
+      this.code = message.code;
+      this.hostToken = message.hostToken;
       return;
     }
     if (message.type === 'frame') {
@@ -115,6 +200,16 @@ export class SocketTransport implements Transport {
       }
     }
     // 'error' is intentionally not rendered here — surfaced by the app later.
+  }
+
+  private setStatus(status: ConnStatus): void {
+    if (this.status === status) {
+      return;
+    }
+    this.status = status;
+    for (const listener of this.statusListeners) {
+      listener(status);
+    }
   }
 
   private toFrame(frame: Extract<ServerMessage, { type: 'frame' }>): ViewFrame {

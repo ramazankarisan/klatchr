@@ -32,6 +32,14 @@ export type Action =
   | { type: 'gameEvent'; event: unknown };
 
 /**
+ * The link's health, surfaced alongside frames (7.2). `connecting` is the first
+ * open/join; `live` once the socket is up and handshaken; `reconnecting` after a
+ * drop while the transport retries with backoff. The UI shows the "Reconnecting…"
+ * indicator only for `reconnecting`, and clears it on `live`.
+ */
+export type ConnStatus = 'connecting' | 'live' | 'reconnecting';
+
+/**
  * The seam the app is written against. Single-viewer: a transport is bound to
  * one connection (the host board, or one player's phone) at creation. A real
  * socket only ever *is* one viewer, and a player's id isn't known until the
@@ -42,5 +50,7 @@ export type Action =
 export interface Transport {
   /** Register for frames; the current frame arrives on subscribe. Returns an unsubscribe. */
   subscribe(onFrame: (frame: ViewFrame) => void): () => void;
+  /** Register for connection-status changes; the current status arrives on subscribe. */
+  subscribeStatus(onStatus: (status: ConnStatus) => void): () => void;
   send(action: Action): void;
 }

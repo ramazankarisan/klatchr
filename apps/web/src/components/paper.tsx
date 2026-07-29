@@ -9,6 +9,65 @@ const grain =
 
 export const kraftBg = { backgroundColor: tokens.color.kraft, backgroundImage: grain } as const;
 
+// While the socket heals (7.2) the surface behind the tape dims, so nobody reads a
+// stale state as live and stray taps don't land mid-drop (they queue in the transport).
+const dimWhileReconnecting = {
+  opacity: 0.5,
+  filter: 'saturate(0.85)',
+  pointerEvents: 'none',
+  transition: 'opacity 0.3s',
+} as const;
+
+/**
+ * Masking-tape "Reconnecting…" strip clamped to the top of a surface while the
+ * socket reconnects (7.2, design option A). Rendered as an `<output>` (implicit
+ * role `status`, polite live region) so assistive tech announces it and tests
+ * find it by role/text.
+ */
+function ReconnectingTape(): ReactNode {
+  return (
+    <Box
+      component="output"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+        py: 1,
+        px: 1.5,
+        fontFamily: tokens.font.mono,
+        fontWeight: 700,
+        fontSize: 13,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: tokens.color.markerDeep,
+        backgroundColor: tokens.color.card,
+        backgroundImage:
+          'repeating-linear-gradient(45deg, rgba(232,98,61,0.16) 0 12px, rgba(232,98,61,0.26) 12px 24px)',
+        borderBottom: '1px solid rgba(193,74,43,0.35)',
+        boxShadow: '0 3px 8px rgba(43,38,32,0.16)',
+        '@keyframes klatchrPulse': {
+          '0%,100%': { opacity: 1, transform: 'scale(1)' },
+          '50%': { opacity: 0.35, transform: 'scale(0.7)' },
+        },
+      }}
+    >
+      <Box
+        component="span"
+        aria-hidden
+        sx={{
+          width: 9,
+          height: 9,
+          borderRadius: '50%',
+          backgroundColor: tokens.color.marker,
+          animation: 'klatchrPulse 1.1s ease-in-out infinite',
+        }}
+      />
+      Reconnecting…
+    </Box>
+  );
+}
+
 /** Room code on label-maker (dymo) tape. */
 export function DymoCode({ code, small }: { code: string; small?: boolean }): ReactNode {
   return (
@@ -154,7 +213,8 @@ export function Board({
   code,
   hint,
   children,
-}: { code: string; hint?: ReactNode; children: ReactNode }): ReactNode {
+  reconnecting,
+}: { code: string; hint?: ReactNode; children: ReactNode; reconnecting?: boolean }): ReactNode {
   return (
     <Box
       sx={{
@@ -166,35 +226,41 @@ export function Board({
         color: tokens.color.ink,
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-          p: '16px 24px',
-          borderBottom: `2px dashed ${tokens.color.kraft2}`,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="overline" sx={{ color: tokens.color.inkSoft }}>
-            Room
-          </Typography>
-          <DymoCode code={code} />
+      {reconnecting ? <ReconnectingTape /> : null}
+      <Box sx={reconnecting ? dimWhileReconnecting : undefined}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            p: '16px 24px',
+            borderBottom: `2px dashed ${tokens.color.kraft2}`,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="overline" sx={{ color: tokens.color.inkSoft }}>
+              Room
+            </Typography>
+            <DymoCode code={code} />
+          </Box>
+          {hint ? (
+            <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft, textAlign: 'right' }}>
+              {hint}
+            </Typography>
+          ) : null}
         </Box>
-        {hint ? (
-          <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft, textAlign: 'right' }}>
-            {hint}
-          </Typography>
-        ) : null}
+        <Box sx={{ p: '28px' }}>{children}</Box>
       </Box>
-      <Box sx={{ p: '28px' }}>{children}</Box>
     </Box>
   );
 }
 
 /** A phone frame wrapping a portrait player screen. */
-export function Phone({ children }: { children: ReactNode }): ReactNode {
+export function Phone({
+  children,
+  reconnecting,
+}: { children: ReactNode; reconnecting?: boolean }): ReactNode {
   return (
     <Box
       sx={{
@@ -210,15 +276,26 @@ export function Phone({ children }: { children: ReactNode }): ReactNode {
         sx={{
           ...kraftBg,
           borderRadius: '22px',
-          p: '18px 16px 20px',
+          overflow: 'hidden',
           minHeight: 500,
           display: 'flex',
           flexDirection: 'column',
-          gap: 1.5,
           color: tokens.color.ink,
         }}
       >
-        {children}
+        {reconnecting ? <ReconnectingTape /> : null}
+        <Box
+          sx={{
+            p: '18px 16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            flex: 1,
+            ...(reconnecting ? dimWhileReconnecting : {}),
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   );
