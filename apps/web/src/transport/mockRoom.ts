@@ -221,6 +221,11 @@ class MockTransport implements Transport {
     return () => {};
   }
 
+  /** The mock plays the pure engine directly — no server, so no server errors. */
+  subscribeError(): () => void {
+    return () => {};
+  }
+
   send(action: Action): void {
     this.engine.send(this.viewer, action);
   }

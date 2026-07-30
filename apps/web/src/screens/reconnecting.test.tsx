@@ -22,6 +22,9 @@ class FakeTransport implements Transport {
       this.statusCbs.delete(onStatus);
     };
   }
+  subscribeError(): () => void {
+    return () => {};
+  }
   send(_action: Action): void {}
   drive(status: ConnStatus): void {
     this.status = status;
@@ -49,7 +52,7 @@ const tape = () => screen.queryByText(/reconnecting/i);
 describe('Reconnecting… indicator (7.2)', () => {
   it('shows the tape on the host board only while reconnecting, and clears on live', () => {
     const t = new FakeTransport(lobby({ role: 'host' }));
-    render(withTheme(<HostScreen transport={t} />));
+    render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
     expect(tape()).toBeNull(); // live → no indicator
 
     t.drive('reconnecting');
@@ -62,7 +65,7 @@ describe('Reconnecting… indicator (7.2)', () => {
 
   it('shows the tape on the player phone only while reconnecting', () => {
     const t = new FakeTransport(lobby({ role: 'player', id: 'p1' }));
-    render(withTheme(<PlayerScreen transport={t} />));
+    render(withTheme(<PlayerScreen transport={t} onExit={() => {}} />));
     expect(tape()).toBeNull();
 
     t.drive('reconnecting');

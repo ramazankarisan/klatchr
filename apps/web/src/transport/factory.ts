@@ -27,11 +27,47 @@ export function resolveWsUrl(
 
 const wsUrl = (): string | undefined => resolveWsUrl(import.meta.env.VITE_WS_URL, window.location);
 
-export function createHostTransport(nickname: string): Transport {
+const HOST_KEY = 'klatchr:host';
+
+/** The persisted host session (if any), so a full page reload can resume the room (8.1). */
+export function storedHostSession(): { code: string; hostToken: string } | null {
+  const raw = localStorage.getItem(HOST_KEY);
+  if (raw === null) {
+    return null;
+  }
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (typeof v === 'object' && v !== null && 'code' in v && 'hostToken' in v) {
+      const { code, hostToken } = v;
+      if (typeof code === 'string' && typeof hostToken === 'string') {
+        return { code, hostToken };
+      }
+    }
+  } catch {
+    // Corrupt entry — treat as no stored session.
+  }
+  return null;
+}
+
+/** Forget the host session (a resume failed, or the room ended) so it can't loop. */
+export function clearHostSession(): void {
+  localStorage.removeItem(HOST_KEY);
+}
+
+export function createHostTransport(
+  nickname: string,
+  resume?: { code: string; hostToken: string },
+): Transport {
   const url = wsUrl();
-  return url === undefined
-    ? mockHostTransport()
-    : new SocketTransport(url, { role: 'host', nickname });
+  if (url === undefined) {
+    return mockHostTransport();
+  }
+  const init: SocketInit =
+    resume === undefined ? { role: 'host', nickname } : { role: 'host', nickname, resume };
+  const transport = new SocketTransport(url, init);
+  // Persist the host session (code + secret) so a full reload resumes this room.
+  transport.onHostSession = (session) => localStorage.setItem(HOST_KEY, JSON.stringify(session));
+  return transport;
 }
 
 export function createPlayerTransport(code: string, nickname: string): Transport {

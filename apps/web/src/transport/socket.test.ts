@@ -262,3 +262,43 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
     expect(n.lastDelay()).toBe(1000);
   });
 });
+
+describe('SocketTransport (errors + host resume, 8.1)', () => {
+  it('surfaces a server error to subscribers instead of dropping it', () => {
+    const f = fakeSocket();
+    const t = new SocketTransport(
+      'ws://x',
+      { role: 'player', code: 'ZZZZ', nickname: 'Ada' },
+      () => f.socket,
+    );
+    const seen: Array<{ code: string; message?: string }> = [];
+    t.subscribeError((e) => seen.push(e));
+    f.open();
+    f.emit({ type: 'error', code: 'ZZZZ', message: 'NO_SUCH_ROOM' });
+    expect(seen).toEqual([{ code: 'ZZZZ', message: 'NO_SUCH_ROOM' }]);
+  });
+
+  it('captures the host session from `opened` for a full-reload resume', () => {
+    const f = fakeSocket();
+    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket);
+    let session: { code: string; hostToken: string } | null = null;
+    t.onHostSession = (s) => {
+      session = s;
+    };
+    f.open();
+    f.emit({ type: 'opened', code: 'WXYZ', hostToken: 'htok' });
+    expect(session).toEqual({ code: 'WXYZ', hostToken: 'htok' });
+  });
+
+  it('resumes as host on the first handshake when seeded with a stored session', () => {
+    const f = fakeSocket();
+    new SocketTransport(
+      'ws://x',
+      { role: 'host', nickname: 'S', resume: { code: 'WXYZ', hostToken: 'htok' } },
+      () => f.socket,
+    );
+    f.open();
+    // First message is resumeHost, not a fresh open — the reloaded board re-attaches.
+    expect(f.last()).toEqual({ type: 'resumeHost', code: 'WXYZ', hostToken: 'htok' });
+  });
+});

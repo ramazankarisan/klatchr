@@ -1,6 +1,6 @@
 import type { Viewer } from '@klatchr/core';
 import { type ClientMessage, type ServerMessage, serverMessage } from '@klatchr/protocol';
-import type { Action, ConnStatus, Transport, ViewFrame } from './types.js';
+import type { Action, ConnStatus, Transport, TransportError, ViewFrame } from './types.js';
 
 /** The slice of the browser `WebSocket` we use — injectable so tests fake it. */
 export interface SocketLike {
@@ -16,7 +16,10 @@ type SocketFactory = (url: string) => SocketLike;
 
 /** How this connection identifies itself to the server. */
 export type SocketInit =
-  | { role: 'host'; nickname: string }
+  // `resume` (from a persisted host session) makes the very first handshake a
+  // `resumeHost` instead of `open` — so a reloaded host re-attaches its own room
+  // rather than opening a new one (8.1).
+  | { role: 'host'; nickname: string; resume?: { code: string; hostToken: string } }
   | { role: 'player'; code: string; nickname: string; reconnectToken?: string };
 
 /** Deferred callback used for the reconnect backoff — injectable so tests drive it. */
@@ -54,6 +57,7 @@ export class SocketTransport implements Transport {
   private socket: SocketLike;
   private readonly listeners = new Set<(frame: ViewFrame) => void>();
   private readonly statusListeners = new Set<(status: ConnStatus) => void>();
+  private readonly errorListeners = new Set<(error: TransportError) => void>();
   private viewer: Viewer;
   private code: string | null = null;
   private last: ViewFrame | null = null;
@@ -70,6 +74,8 @@ export class SocketTransport implements Transport {
 
   /** Called with the fresh reconnect token whenever the server (re)issues one. */
   onReconnectToken: (token: string) => void = () => {};
+  /** Called with the host's resume credentials each time the server acks `opened`. */
+  onHostSession: (session: { code: string; hostToken: string }) => void = () => {};
 
   constructor(
     private readonly url: string,
@@ -79,6 +85,11 @@ export class SocketTransport implements Transport {
   ) {
     this.viewer = init.role === 'host' ? { role: 'host' } : { role: 'player', id: '' };
     this.reconnectToken = init.role === 'player' ? init.reconnectToken : undefined;
+    if (init.role === 'host' && init.resume !== undefined) {
+      // Seed the resume credentials so the first handshake is `resumeHost`, not `open`.
+      this.code = init.resume.code;
+      this.hostToken = init.resume.hostToken;
+    }
     this.socket = this.connect();
   }
 
@@ -97,6 +108,13 @@ export class SocketTransport implements Transport {
     onStatus(this.status);
     return () => {
       this.statusListeners.delete(onStatus);
+    };
+  }
+
+  subscribeError(onError: (error: TransportError) => void): () => void {
+    this.errorListeners.add(onError);
+    return () => {
+      this.errorListeners.delete(onError);
     };
   }
 
@@ -187,9 +205,11 @@ export class SocketTransport implements Transport {
     }
     if (message.type === 'opened') {
       // The host's open-ack (7.1): keep the code + secret so a later reconnect
-      // re-attaches this board via `resumeHost` instead of opening a new room.
+      // re-attaches this board via `resumeHost` instead of opening a new room, and
+      // hand it to the app to persist for a full-reload resume (8.1).
       this.code = message.code;
       this.hostToken = message.hostToken;
+      this.onHostSession({ code: message.code, hostToken: message.hostToken });
       return;
     }
     if (message.type === 'frame') {
@@ -198,8 +218,19 @@ export class SocketTransport implements Transport {
       for (const listener of this.listeners) {
         listener(this.last);
       }
+      return;
     }
-    // 'error' is intentionally not rendered here — surfaced by the app later.
+    if (message.type === 'error') {
+      // Surface it (8.1): a bad code / full room / closed room used to vanish here,
+      // leaving the UI on an endless spinner. The screens map it to copy + a way back.
+      const error: TransportError =
+        message.message === undefined
+          ? { code: message.code }
+          : { code: message.code, message: message.message };
+      for (const listener of this.errorListeners) {
+        listener(error);
+      }
+    }
   }
 
   private setStatus(status: ConnStatus): void {

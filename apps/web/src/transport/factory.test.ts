@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { resolveWsUrl } from './factory.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { clearHostSession, resolveWsUrl, storedHostSession } from './factory.js';
 
 /**
  * The single-service (7.3) `same-origin` sentinel: the prod build sets
@@ -26,5 +26,24 @@ describe('resolveWsUrl', () => {
 
   it('leaves undefined as undefined (→ the mock transport)', () => {
     expect(resolveWsUrl(undefined, { protocol: 'http:', host: 'x' })).toBeUndefined();
+  });
+});
+
+describe('host session persistence (8.1)', () => {
+  afterEach(() => localStorage.clear());
+
+  it('round-trips a stored host session and clears it', () => {
+    expect(storedHostSession()).toBeNull();
+    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ', hostToken: 'htok' }));
+    expect(storedHostSession()).toEqual({ code: 'WXYZ', hostToken: 'htok' });
+    clearHostSession();
+    expect(storedHostSession()).toBeNull();
+  });
+
+  it('ignores a corrupt or wrong-shaped entry', () => {
+    localStorage.setItem('klatchr:host', 'not json');
+    expect(storedHostSession()).toBeNull();
+    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ' })); // missing hostToken
+    expect(storedHostSession()).toBeNull();
   });
 });

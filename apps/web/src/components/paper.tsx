@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { tokens } from '../tokens.js';
 
@@ -204,6 +204,62 @@ export function Stamp(): ReactNode {
       }}
     >
       Said it
+    </Box>
+  );
+}
+
+/**
+ * The full-screen recover card (8.1, design option A): a dead-end error —
+ * bad code, full room, closed room, failed host-rejoin — becomes a clear message
+ * plus a way back, instead of an endless spinner. Rendered inside a `Phone`/`Board`.
+ */
+export function Recover({
+  title,
+  body,
+  actionLabel,
+  onAction,
+}: { title: string; body: string; actionLabel: string; onAction: () => void }): ReactNode {
+  return (
+    <Box
+      role="alert"
+      sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        gap: 1.5,
+        py: 4,
+      }}
+    >
+      <Box
+        aria-hidden
+        sx={{
+          width: 52,
+          height: 52,
+          borderRadius: '50%',
+          border: `2px solid ${tokens.color.bad}`,
+          backgroundColor: 'rgba(192,57,43,0.12)',
+          color: tokens.color.bad,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 26,
+          fontWeight: 800,
+        }}
+      >
+        !
+      </Box>
+      <Typography variant="h3" sx={{ fontSize: 22 }}>
+        {title}
+      </Typography>
+      <Typography sx={{ color: tokens.color.inkSoft, fontSize: 14, maxWidth: '28ch' }}>
+        {body}
+      </Typography>
+      <Button variant="contained" size="large" sx={{ mt: 1 }} onClick={onAction}>
+        {actionLabel}
+      </Button>
     </Box>
   );
 }

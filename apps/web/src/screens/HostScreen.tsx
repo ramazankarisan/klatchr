@@ -1,11 +1,15 @@
 import { Box, Button, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
-import { Board, NameTag } from '../components/paper.js';
+import { Board, NameTag, Recover } from '../components/paper.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { playerColor, tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
-import { useFrame } from '../useFrame.js';
-import { useStatus } from '../useStatus.js';
+import { useScreen } from '../useScreen.js';
+
+/** Where players go to join — this host's own origin (rule 6: never a baked host). */
+function joinHost(): string {
+  return typeof window === 'undefined' ? '' : window.location.host;
+}
 
 /** The host's one control button, resolved for any game from the current frame. */
 function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
@@ -132,9 +136,22 @@ function Lobby({
   );
 }
 
-export function HostScreen({ transport }: { transport: Transport }): ReactNode {
-  const frame = useFrame(transport);
-  const reconnecting = useStatus(transport) === 'reconnecting';
+export function HostScreen({
+  transport,
+  onExit,
+}: { transport: Transport; onExit: () => void }): ReactNode {
+  const { frame, reconnecting, recover } = useScreen(transport, onExit, 'Back to start');
+
+  // A dead room (failed resume, closed room) recovers to the landing instead of a
+  // stuck "Opening the room…" board.
+  if (recover !== null) {
+    return (
+      <Board code="····">
+        <Recover {...recover} />
+      </Board>
+    );
+  }
+
   if (frame === null) {
     return (
       <Board code="····" hint={<>Opening the room…</>} reconnecting={reconnecting}>
@@ -148,7 +165,7 @@ export function HostScreen({ transport }: { transport: Transport }): ReactNode {
   return (
     <Board
       code={frame.code}
-      hint={<>Join at klatchr.app · punch in the code</>}
+      hint={<>Join at {joinHost()} · punch in the code</>}
       reconnecting={reconnecting}
     >
       {showLobby ? (
