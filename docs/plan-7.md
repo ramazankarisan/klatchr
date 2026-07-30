@@ -142,10 +142,15 @@ own machine, and no paid service.** The fit that satisfies all three:
   Public, always-on, free (verify-card only, never billed), not the user's
   machine. Coolify vs Dokploy is a small sub-choice at 7.4 (both fit). Plain
   VM + Caddy and Render-free are documented fallbacks.
-- **D2 — prod server runtime** (7.3): inside the Docker image, **compile to
-  `node dist`** (leaner, no dev runner in prod) rather than shipping `tsx`.
-  Recommend the build; decide the exact bundler (tsc vs esbuild) when writing
-  the Dockerfile.
+- **D2 — prod server runtime** (7.3): **DECIDED — ship `tsx` in the image**, not
+  a compiled `node dist`. The workspace has no per-package JS build step (deps are
+  consumed as TS via `tsx`), and a true `node dist` would need to bundle the server
+  *plus* the workspace TS while externalising npm deps — and NestJS bundles poorly
+  (dynamic requires, reflect-metadata). `tsx src/index.ts` runs the same in the
+  container as in dev, resolving workspace TS identically; the transpile-on-start
+  cost is negligible for an in-memory party server. Swappable later without touching
+  the deploy. (Deviation from the original recommendation — recorded per the
+  working-style rule: say when a plan point turns out unworkable.)
 - **D3 — host-token home** (7.1): server-side (recommend, keeps `core` pure) vs.
   a `core` `room.hostToken` (mirrors `room.tokens`). Decide when implementing.
 - **D4 — new deps?** Aim for **none**: node `http` (built-in) for static+upgrade,
