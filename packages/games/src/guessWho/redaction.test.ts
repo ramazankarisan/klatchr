@@ -107,4 +107,26 @@ describe('redaction (G8–G10)', () => {
       ],
     });
   });
+
+  it('F9 a player sees their OWN guesses at reveal, never another player’s', () => {
+    const v = viewFor({ ...guessState(), phase: 'reveal' }, asPlayer('a'));
+    expect(v).toMatchObject({ myGuesses: { c1: 'b' } }); // a's own guess
+    // b guessed { c0: 'a' } — that must not appear anywhere in a's reveal view.
+    const others = viewFor({ ...guessState(), phase: 'reveal' }, asPlayer('b'));
+    expect((v as { myGuesses: Record<string, string> }).myGuesses).not.toEqual(
+      (others as { myGuesses: Record<string, string> }).myGuesses,
+    );
+    expect(keysOf(v)).not.toContain('guesses'); // no full guess map ever
+  });
+
+  it('F9 a player who guessed nothing sees an empty guess map at reveal', () => {
+    const v = viewFor({ ...guessState(), phase: 'reveal' }, asPlayer('c'));
+    expect(v).toMatchObject({ myGuesses: {} });
+  });
+
+  it('the host reveal carries no per-player guesses (shared screen)', () => {
+    const v = viewFor({ ...guessState(), phase: 'reveal' }, HOST);
+    expect(keysOf(v)).not.toContain('myGuesses');
+    expect(keysOf(v)).not.toContain('guesses');
+  });
 });
