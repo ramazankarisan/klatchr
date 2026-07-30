@@ -82,10 +82,12 @@ the approved cards:
   (`yourCardId`) — self-authorship, so no leak — which is how the phone marks
   "your card" without matching on text (identical answers would otherwise
   collide). A placed guess can be re-opened and changed.
-- **Host scores (board):** a reveal-time standings scoreboard, ranked, leader in
-  marker. **Round tally only** — a cross-round *running total* was in the sketch
-  but is deferred: the engine scores a single round, so cumulative standings need
-  platform-level accumulation that does not exist yet.
+- **Host scores (board):** a reveal-time round standings scoreboard, ranked,
+  leader in marker — **plus** a cross-round **cumulative** `SessionStandings` and a
+  round-counter pill (Cycle 10, S6). The room accumulates each round's scores; the
+  board shows both the round result and the running total, and a **game-over screen**
+  with **End game** / **Change game** exits (the host is no longer stuck looping
+  rounds). See the `cycle-10` design card.
 
 **Guess interaction (phone).** You never pick an author from 50. Guess Who seats
 **12 players per round** (`guessWho.maxPlayers = 12`; the rest of a large room

@@ -130,7 +130,8 @@ Do not build these. If any seems necessary, stop and ask.
 | 4 | `apps/web` + E2E | Join, lobby, game view, scores, host screen; Playwright multi-context test |
 
 (Cycles ran past this original table: 5 wiring, 6 a second game, 7 production +
-deploy, 8 post-launch UX, 9 session scoring — see `docs/plan-5.md` … `plan-9.md`.)
+deploy, 8 post-launch UX, 9 session scoring (absorbed into the Cycle-10
+post-play-test bundle) — see `docs/plan-5.md` … `plan-10.md`.)
 
 ### Budget
 

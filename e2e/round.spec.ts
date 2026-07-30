@@ -93,6 +93,19 @@ async function joinPlayer(
   return page;
 }
 
+/** Seat all PLAYERS as phones and return an accessor by name. */
+async function joinAllPlayers(browser: Browser, code: string): Promise<(name: string) => Page> {
+  const phones = new Map<string, Page>();
+  for (const p of PLAYERS) {
+    phones.set(p.name, await joinPlayer(browser, code, p.name));
+  }
+  return (name: string): Page => {
+    const page = phones.get(name);
+    if (page === undefined) throw new Error(`no phone for ${name}`);
+    return page;
+  };
+}
+
 async function submitAnswer(page: Page, text: string): Promise<void> {
   await page.getByLabel('Your answer').fill(text);
   await page.getByRole('button', { name: 'Tape it up' }).click();
@@ -103,15 +116,7 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   browser,
 }) => {
   const host = await openHost(browser);
-  const phones = new Map<string, Page>();
-  for (const p of PLAYERS) {
-    phones.set(p.name, await joinPlayer(browser, host.code, p.name));
-  }
-  const phone = (name: string): Page => {
-    const page = phones.get(name);
-    if (page === undefined) throw new Error(`no phone for ${name}`);
-    return page;
-  };
+  const phone = await joinAllPlayers(browser, host.code);
 
   // --- host picks a game, then starts once all three are seated (min 3) ---
   // Roster copy derives from the picked game's cap now (8.2), not a hardcoded 50:
@@ -180,7 +185,8 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   await host.page.getByRole('button', { name: STEP.reveal }).click();
   await expect(cyrus.getByText(/Round done/)).toBeVisible();
   await expect(cyrus.getByText('Adalyn')).toBeVisible(); // the name that was hidden a moment ago
-  await expect(host.page.getByText('Standings')).toBeVisible();
+  // Two standings at reveal now (the round tally + the cumulative session tally, 10.4).
+  await expect(host.page.getByText('Standings').first()).toBeVisible();
   await expect(host.page.getByText('Adalyn').first()).toBeVisible(); // author chip + standings row
 });
 
@@ -283,4 +289,44 @@ test('a host page reload resumes the same room, game intact (8.1)', async ({ bro
   );
   await expect(host.page.getByRole('button', { name: HOST.button })).toHaveCount(0);
   await expect(host.page.getByText(/selected/i)).toBeVisible();
+});
+
+/**
+ * Cycle-10 over the wire: a player skips answering yet still guesses; the board
+ * shows a round counter and, at reveal, a cumulative session standings; and the
+ * host can change game back to the picker (the exits that didn't exist before).
+ */
+test('a skipper still guesses, the board keeps a running tally, and the host can change game (10)', async ({
+  browser,
+}) => {
+  const host = await openHost(browser);
+  const phone = await joinAllPlayers(browser, host.code);
+
+  await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  await expect(host.page.getByText(/round 1/i)).toBeVisible(); // round counter on the board
+
+  // Two answer; Cyrus skips — no card taped, but he'll still guess.
+  await submitAnswer(phone('Adalyn'), PLAYERS[0].secret);
+  await submitAnswer(phone('Bowen'), PLAYERS[1].secret);
+  await phone('Cyrus')
+    .getByRole('button', { name: /skip — i.ll just guess/i })
+    .click();
+  await expect(phone('Cyrus').getByText(/skipped/i)).toBeVisible();
+  await expect(host.page.getByText(/2 of 3 answered/)).toBeVisible(); // the skip taped no card
+
+  // Show the cards → the skipper can still name authors on the two taped answers.
+  await host.page.getByRole('button', { name: STEP.show }).click();
+  await expect(
+    phone('Cyrus')
+      .getByRole('button', { name: /tap to name/i })
+      .first(),
+  ).toBeVisible();
+
+  // Reveal → game-over screen: cumulative standings + a way back to pick another game.
+  await host.page.getByRole('button', { name: STEP.reveal }).click();
+  await expect(host.page.getByText(/standings so far/i)).toBeVisible();
+  await expect(host.page.getByText(/game over/i)).toBeVisible();
+  await host.page.getByRole('button', { name: /change game/i }).click();
+  await expect(host.page.getByText(/choose tonight.s game/i)).toBeVisible();
 });

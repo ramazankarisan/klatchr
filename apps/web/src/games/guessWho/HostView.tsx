@@ -82,8 +82,8 @@ function RevealCards({
 /**
  * The reveal scoreboard on the shared screen. Public by nature (everyone sees
  * the board), so no leak — and shown only at reveal, so mid-round scores never
- * spoil it. Round tally only: the engine scores a single round; cross-round
- * running totals need platform-level accumulation that does not exist yet.
+ * spoil it. This is the *round* tally; the cross-round cumulative total rides
+ * alongside it as the platform-level `SessionStandings` (S6, Cycle 10).
  */
 function Standings({
   scores,
