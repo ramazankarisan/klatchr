@@ -147,6 +147,39 @@ Klatchr design project (card `reconnecting`); the picked option:
   this cycle heals in-memory socket drops on a live page. Full-reload restore is a
   later concern.
 
+## Cycle 8 — post-launch UX (approved 2026-07-30)
+
+Fixes found play-testing the live app. Sketched on the Klatchr design project (card
+`cycle-8-ux`); all `apps/web`, no core/games/protocol/server change. Picked options:
+
+- **Player = full-viewport (retire the bezel from production).** The `Phone` phone-bezel
+  chrome is **no longer the real layout** — the player surface fills the viewport: a
+  fluid column, `max-width ~480px` centered, `min-height:100dvh`, same kraft/paper look,
+  thumb-reachable primary action. The `Phone`/`Board` bezel components survive **only in
+  the design-surface mockups**, never in the shipped app.
+- **Host board scales to the shared screen.** Its own wide container (not the `lg` cap)
+  and a projector-scale type ramp — prompt `clamp(28px, 4.4vw, 52px)`, a large room code
+  on dymo tape, readable across a room.
+- **Error / dead-end pattern — full-screen recover (option A).** A bad code, full room,
+  closed room, or failed host-rejoin **replaces the screen** with a message (an outlined
+  `!` mark in `color.bad`, a human title like “No room ‘ZZZZ’”, a one-line reason) and a
+  recover button (“Try another code” / “Back”). One pattern for every failure — never an
+  infinite spinner. Backed by a new `error` channel on the web `Transport` seam.
+- **Name-tag font — clean display (option B).** `font.hand` is **retired for name-tags**;
+  names use `font.display` **bold** (crisp, legible, zero download). This removes the
+  Comic Sans fallback. (`font.hand` may still exist as a token but is no longer applied
+  to participant names / tallies / the winner spotlight.)
+- **No hardcoded host or cap (rule 6).** The board's join hint is derived from
+  `window.location.host` (or shows only the code), not “klatchr.app”; player-count copy
+  (“/ N”, spectator “N seats”) is derived from the selected game's `maxPlayers`, not a
+  literal 50/12.
+- **Mechanical, no separate sketch:** disabled-“Start” reason text, tap targets ≥44px,
+  one `h1` per screen (heading order), room-code input hints
+  (`autoCapitalize/inputMode/autoFocus`) — ride along in 8.2 against these tokens.
+
+New token: `color.bad = #c0392b` (error mark/outline — used only for failure states,
+never decoratively).
+
 ## Screens (Cycle 4)
 
 - Host: **lobby** (room code + joining players), **in-game** per phase,
