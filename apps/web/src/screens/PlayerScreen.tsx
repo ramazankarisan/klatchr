@@ -1,11 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import { type ReactNode, useCallback } from 'react';
-import { DymoCode, Phone } from '../components/paper.js';
+import { DymoCode, Phone, Recover } from '../components/paper.js';
 import { viewsFor } from '../games/registry.js';
 import { tokens } from '../tokens.js';
 import type { Transport, ViewFrame } from '../transport/types.js';
-import { useFrame } from '../useFrame.js';
-import { useStatus } from '../useStatus.js';
+import { useScreen } from '../useScreen.js';
 
 function Brand({ code, name }: { code: string; name: string }): ReactNode {
   return (
@@ -49,9 +48,11 @@ function youId(frame: ViewFrame): string {
   return frame.viewer.role === 'player' ? frame.viewer.id : '';
 }
 
-export function PlayerScreen({ transport }: { transport: Transport }): ReactNode {
-  const frame = useFrame(transport);
-  const reconnecting = useStatus(transport) === 'reconnecting';
+export function PlayerScreen({
+  transport,
+  onExit,
+}: { transport: Transport; onExit: () => void }): ReactNode {
+  const { frame, reconnecting, recover } = useScreen(transport, onExit, 'Try another code');
 
   // One opaque seam: the game view builds its own event; the transport wraps it
   // in a `play`. Adding a game needs no new callback here.
@@ -61,6 +62,16 @@ export function PlayerScreen({ transport }: { transport: Transport }): ReactNode
     },
     [transport],
   );
+
+  // A fatal error (bad code, full room, closed room) takes over the screen with a
+  // way back — never the endless "Joining…" spinner. Non-fatal errors map to null.
+  if (recover !== null) {
+    return (
+      <Phone>
+        <Recover {...recover} />
+      </Phone>
+    );
+  }
 
   if (frame === null) {
     return (

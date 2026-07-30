@@ -14,6 +14,16 @@ function renderApp(): void {
 }
 
 describe('App', () => {
+  afterEach(() => localStorage.clear()); // a stored host session must not leak across tests
+
+  it('resumes a stored host session on load, skipping the landing (8.1)', () => {
+    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ', hostToken: 'htok' }));
+    renderApp();
+    // Straight onto the host board, not the "Host a room" landing.
+    expect(screen.getByText(/choose tonight.s game/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /host a room/i })).toBeNull();
+  });
+
   it('opens on the landing with host and join actions', () => {
     renderApp();
     expect(screen.getByRole('heading', { name: /klatchr/i })).toBeTruthy();

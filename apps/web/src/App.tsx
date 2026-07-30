@@ -4,7 +4,12 @@ import { kraftBg } from './components/paper.js';
 import { HostScreen } from './screens/HostScreen.js';
 import { PlayerScreen } from './screens/PlayerScreen.js';
 import { tokens } from './tokens.js';
-import { createHostTransport, createPlayerTransport } from './transport/factory.js';
+import {
+  clearHostSession,
+  createHostTransport,
+  createPlayerTransport,
+  storedHostSession,
+} from './transport/factory.js';
 import type { Transport } from './transport/types.js';
 
 type Screen =
@@ -75,7 +80,19 @@ function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }):
 }
 
 export function App(): ReactNode {
-  const [screen, setScreen] = useState<Screen>({ mode: 'landing' });
+  // On load, resume a persisted host session (8.1) — a reloaded host re-attaches its
+  // own room via `resumeHost` instead of dropping back to the landing.
+  const [screen, setScreen] = useState<Screen>(() => {
+    const resume = storedHostSession();
+    return resume === null
+      ? { mode: 'landing' }
+      : { mode: 'host', transport: createHostTransport('Host', resume) };
+  });
+
+  const toLanding = (): void => {
+    clearHostSession(); // a failed resume / closed room must not resume again
+    setScreen({ mode: 'landing' });
+  };
 
   return (
     <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
@@ -92,9 +109,9 @@ export function App(): ReactNode {
             }
           />
         ) : screen.mode === 'host' ? (
-          <HostScreen transport={screen.transport} />
+          <HostScreen transport={screen.transport} onExit={toLanding} />
         ) : (
-          <PlayerScreen transport={screen.transport} />
+          <PlayerScreen transport={screen.transport} onExit={() => setScreen({ mode: 'join' })} />
         )}
       </Container>
     </Box>

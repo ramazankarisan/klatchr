@@ -40,6 +40,18 @@ export type Action =
 export type ConnStatus = 'connecting' | 'live' | 'reconnecting';
 
 /**
+ * A server-reported error, surfaced to the UI (8.1). The wire `error` carries the
+ * room `code` (or empty) and a `message` identifier (`NO_SUCH_ROOM`, `ROOM_FULL`,
+ * `EMPTY_NICKNAME`, `ROOM_CLOSED`, `BAD_HOST_TOKEN`, …). Until now these were
+ * dropped, stranding a mistyped join on an endless spinner; the screens now map the
+ * identifier to human copy and a way back.
+ */
+export interface TransportError {
+  code: string;
+  message?: string;
+}
+
+/**
  * The seam the app is written against. Single-viewer: a transport is bound to
  * one connection (the host board, or one player's phone) at creation. A real
  * socket only ever *is* one viewer, and a player's id isn't known until the
@@ -52,5 +64,7 @@ export interface Transport {
   subscribe(onFrame: (frame: ViewFrame) => void): () => void;
   /** Register for connection-status changes; the current status arrives on subscribe. */
   subscribeStatus(onStatus: (status: ConnStatus) => void): () => void;
+  /** Register for server-reported errors (bad code, full room, closed room, …). */
+  subscribeError(onError: (error: TransportError) => void): () => void;
   send(action: Action): void;
 }

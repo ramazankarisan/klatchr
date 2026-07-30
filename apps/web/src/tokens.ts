@@ -14,6 +14,7 @@ export const tokens = {
     markerDeep: '#C14A2B',
     teal: '#2E8B7B',
     dymo: '#34302A',
+    bad: '#C0392B', // failure states only (error mark / outline) — never decorative
   },
   players: ['#E8623D', '#E0A32E', '#2E8B7B', '#3E7CB1', '#8A5A83', '#6E7B3E', '#F2996E', '#55707A'],
   font: {
