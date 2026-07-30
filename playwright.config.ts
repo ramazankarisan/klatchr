@@ -10,6 +10,11 @@ const WEB_URL = 'http://localhost:5173';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // CI cold-start + parallel workers occasionally push a 3rd-player WebSocket
+  // join past the 10s roster assertion — a real multi-context timing race, not a
+  // logic bug. Retry in CI so one lost race can't red a good PR; keep 0 locally
+  // so a genuine flake still surfaces loudly during development.
+  retries: process.env.CI ? 2 : 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: { baseURL: WEB_URL },

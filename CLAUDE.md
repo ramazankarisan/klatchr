@@ -199,10 +199,12 @@ is wrong — stop and say so rather than special-casing the game in core.
   cycle's acceptance rows (in its plan file) drive the unit loop; the browser
   E2E confirms the whole stack at cycle end. It is not part of `pnpm gate`; it
   runs in CI on every PR and via `pnpm e2e` locally.
-- **E2E gotcha:** kill any stale server on `:8080` before `pnpm e2e`. Playwright
-  reuses an already-running server outside CI (`reuseExistingServer`), so a
-  stale process makes the suite test *old* code — and the failure then looks
-  like a real regression when it is not.
+- **E2E gotcha:** kill any stale server on **`:8080` (ws) and `:5173` (web)**
+  before `pnpm e2e`. Playwright reuses an already-running server outside CI
+  (`reuseExistingServer`), so a stale process makes the suite test *old* code —
+  and a stale `:5173` from `pnpm dev` even serves the **mock** transport, which
+  fails the whole real-socket round. The failure then looks like a real
+  regression when it is not.
 
 ## Working style
 
