@@ -88,3 +88,8 @@ One consolidated design-surface sketch, approved before any web code:
   copy is seats-vs-waiting; rejoin shows "resuming as \<name\>"; host keepalive holds
   an idle-but-alive tab; join + host are responsive and render 50 compactly.
 - One PR, ordered commits; reviewed green; merged; deployed to the VM.
+
+**Docs checked (2026-07-31):** design.md (host-scores note now describes the
+cumulative `SessionStandings` + game-over exits), SPEC.md (plan range → plan-10),
+plan-9 (marked absorbed here), and a stale "no cross-round total" code comment in
+guessWho HostView — all updated to the shipped reality.

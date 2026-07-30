@@ -1,5 +1,11 @@
 # plan-9 — Cycle 9: session scoring + the 50-player host
 
+> **ABSORBED into `plan-10` (2026-07-31).** After a live play-test, session
+> scoring, the end-game/final-standings screen, the round counter, and the
+> compact 50-player roster were built as part of the one-PR Cycle-10
+> post-play-test bundle rather than as a standalone cycle. This file is kept for
+> its design rationale (Features 1–2, decisions D1–D4, all carried into plan-10).
+
 The post-launch UX cycle (plan-8) is complete — 8.0–8.2 plus the cycle-end E2E
 all shipped. Two deferred features remain, both about **the room at scale over
 time**:
