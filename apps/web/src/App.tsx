@@ -9,6 +9,7 @@ import {
   createHostTransport,
   createPlayerTransport,
   storedHostSession,
+  storedNick,
 } from './transport/factory.js';
 import type { Transport } from './transport/types.js';
 
@@ -48,6 +49,9 @@ function Landing({ onHost, onJoin }: { onHost: () => void; onJoin: () => void })
 function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }): ReactNode {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  // F1: if this code has a saved session, a rejoin resumes it and keeps the old
+  // name — say so rather than silently swallowing whatever they type now.
+  const resuming = code.length === 4 ? storedNick(code) : null;
   return (
     <Box
       component="form"
@@ -77,6 +81,15 @@ function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }):
         }}
       />
       <TextField label="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+      {resuming !== null ? (
+        <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft }}>
+          Resuming as{' '}
+          <Box component="span" sx={{ fontWeight: 700, color: tokens.color.ink }}>
+            {resuming}
+          </Box>{' '}
+          — your seat &amp; score are saved.
+        </Typography>
+      ) : null}
       <Button
         type="submit"
         variant="contained"

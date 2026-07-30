@@ -46,4 +46,20 @@ describe('results board', () => {
     expect(screen.getByText('Most likely')).toBeTruthy(); // the winner stamp (exact — not the prompt)
     expect(screen.getByText(/3 votes/i)).toBeTruthy(); // winner's count
   });
+
+  it('F5 spotlights co-winners when the top vote is tied', () => {
+    renderHost({
+      phase: 'results',
+      prompt: 'Most likely to nap at their desk?',
+      tally: [
+        { playerId: 'p1', points: 3 },
+        { playerId: 'p2', points: 3 },
+        { playerId: 'p3', points: 1 },
+      ],
+    });
+    expect(screen.getAllByText('Most likely')).toHaveLength(2); // both tied leaders spotlighted
+    // both names appear (spotlight + tally row); the loser is not spotlighted
+    expect(screen.getAllByText('Ada').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bo').length).toBeGreaterThan(0);
+  });
 });

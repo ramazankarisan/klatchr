@@ -23,6 +23,35 @@ function Brand({ code, name }: { code: string; name: string }): ReactNode {
   );
 }
 
+/** A thin round-counter + your session rank on the phone (S6). */
+function SessionLine({ frame, id }: { frame: ViewFrame; id: string }): ReactNode {
+  if (frame.round < 1) {
+    return null;
+  }
+  const mine = frame.sessionScores.find((s) => s.playerId === id)?.points ?? 0;
+  const rank = 1 + frame.sessionScores.filter((s) => s.points > mine).length;
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontFamily: tokens.font.mono,
+        fontSize: 12,
+        fontWeight: 700,
+        color: tokens.color.markerDeep,
+      }}
+    >
+      <Box component="span">Round {frame.round}</Box>
+      {frame.sessionScores.length > 0 ? (
+        <Box component="span">
+          #{rank} of {frame.sessionScores.length} · {mine} pts
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
 function Centered({ title, body }: { title: string; body: string }): ReactNode {
   return (
     <Box
@@ -88,6 +117,7 @@ export function PlayerScreen({
   return (
     <Phone reconnecting={reconnecting}>
       <Brand code={frame.code} name={me?.nickname ?? 'You'} />
+      <SessionLine frame={frame} id={id} />
       {frame.phase === 'LOBBY' ? (
         <Centered title="You’re in" body="Grab a seat — watch the board for the first prompt." />
       ) : me?.spectator === true ? (

@@ -1,10 +1,34 @@
 import { Box, Button, Typography } from '@mui/material';
-import type { ReactNode } from 'react';
-import { Board, NameTag, Recover } from '../components/paper.js';
+import { type ReactNode, useEffect, useState } from 'react';
+import { Board, Recover } from '../components/paper.js';
+import { SessionStandings } from '../components/standings.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { playerColor, tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
+
+/** A small round-counter pill for the board header (S6). */
+function RoundPill({ round, over }: { round: number; over: boolean }): ReactNode {
+  return (
+    <Box
+      component="span"
+      sx={{
+        fontFamily: tokens.font.mono,
+        fontSize: { xs: 12, md: 14 },
+        fontWeight: 700,
+        color: tokens.color.markerDeep,
+        backgroundColor: '#f4e7d5',
+        border: '1px solid #e6d6bd',
+        borderRadius: 999,
+        px: 1.5,
+        py: 0.5,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {over ? `Game over · ${round} ${round === 1 ? 'round' : 'rounds'}` : `Round ${round}`}
+    </Box>
+  );
+}
 
 /** Where players go to join — this host's own origin (rule 6: never a baked host). */
 function joinHost(): string {
@@ -122,13 +146,16 @@ function Lobby({
   frame,
   onSelect,
 }: { frame: ViewFrame; onSelect: (id: string) => void }): ReactNode {
-  // Cap comes from the picked game (8.2) — never a hardcoded 50. Before a game is
-  // picked there's no cap to show, so it's just the count.
+  // Cap comes from the picked game (8.2) — never a hardcoded 50. Over the seat cap
+  // it reads seats-vs-waiting (X2), not a nonsensical "15 / 12".
   const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
+  const n = frame.players.length;
   const roster =
     game === undefined
-      ? `${frame.players.length} in the room`
-      : `${frame.players.length} / ${game.maxPlayers} in the room`;
+      ? `${n} in the room`
+      : n > game.maxPlayers
+        ? `${game.maxPlayers} playing · ${n - game.maxPlayers} waiting`
+        : `${n} / ${game.maxPlayers} in the room`;
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
@@ -143,16 +170,37 @@ function Lobby({
       </Box>
       <GamePicker games={gameCatalog()} selectedId={frame.selectedGameId} onSelect={onSelect} />
       {frame.players.length > 0 ? (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-            gap: 1.25,
-            mt: 2.5,
-          }}
-        >
+        // Compact chips, not big tiles — reads at 50 (plan-9 §F2). Waiting players dimmed.
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2.5 }}>
           {frame.players.map((p) => (
-            <NameTag key={p.id} name={p.nickname} color={playerColor(p.id, frame.players)} />
+            <Box
+              key={p.id}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                fontSize: 13,
+                fontWeight: 600,
+                backgroundColor: tokens.color.card,
+                border: '1px solid #eaddc6',
+                borderRadius: 999,
+                px: 1.25,
+                py: 0.5,
+                opacity: p.spectator ? 0.5 : 1,
+              }}
+            >
+              <Box
+                component="span"
+                sx={{
+                  width: 11,
+                  height: 11,
+                  borderRadius: '50%',
+                  backgroundColor: playerColor(p.id, frame.players),
+                }}
+              />
+              {p.nickname}
+              {p.spectator ? ' · waiting' : ''}
+            </Box>
           ))}
         </Box>
       ) : null}
@@ -165,6 +213,14 @@ export function HostScreen({
   onExit,
 }: { transport: Transport; onExit: () => void }): ReactNode {
   const { frame, reconnecting, recover } = useScreen(transport, onExit, 'Back to start');
+  // "Change game" re-opens the picker at the game-over screen; forget it once we leave.
+  const [picking, setPicking] = useState(false);
+  const phase = frame?.phase;
+  useEffect(() => {
+    if (phase !== 'SCORES') {
+      setPicking(false);
+    }
+  }, [phase]);
 
   // A dead room (failed resume, closed room) recovers to the landing instead of a
   // stuck "Opening the room…" board.
@@ -186,21 +242,26 @@ export function HostScreen({
   const views = viewsFor(frame.selectedGameId);
   const control = hostControl(frame);
   const hint = startHint(frame);
-  const showLobby = frame.phase === 'LOBBY' || views === null;
+  const send = (action: Action): void => transport.send(action);
+  const over = frame.phase === 'SCORES'; // the round finished — game-over screen
+  const showPicker = frame.phase === 'LOBBY' || picking || views === null;
   return (
     <Board
       code={frame.code}
       hint={<>Join at {joinHost()} · punch in the code</>}
+      badge={frame.round > 0 ? <RoundPill round={frame.round} over={over} /> : undefined}
       reconnecting={reconnecting}
     >
-      {showLobby ? (
-        <Lobby
-          frame={frame}
-          onSelect={(id) => transport.send({ type: 'selectGame', gameId: id })}
-        />
+      {showPicker ? (
+        <Lobby frame={frame} onSelect={(id) => send({ type: 'selectGame', gameId: id })} />
       ) : (
         <views.Host view={frame.gameView} players={frame.players} />
       )}
+      {over && !picking && frame.sessionScores.length > 0 ? (
+        <Box sx={{ mt: 3 }}>
+          <SessionStandings scores={frame.sessionScores} players={frame.players} />
+        </Box>
+      ) : null}
       <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Button
           variant="contained"
@@ -208,12 +269,27 @@ export function HostScreen({
           disabled={control.actions.length === 0}
           onClick={() => {
             for (const action of control.actions) {
-              transport.send(action);
+              send(action);
             }
           }}
         >
           {control.label}
         </Button>
+        {over && !picking ? (
+          <Button variant="outlined" size="large" color="inherit" onClick={() => setPicking(true)}>
+            Change game
+          </Button>
+        ) : null}
+        {frame.phase === 'IN_GAME' ? (
+          <Button
+            variant="text"
+            size="large"
+            color="inherit"
+            onClick={() => send({ type: 'endGame' })}
+          >
+            End game
+          </Button>
+        ) : null}
         {hint !== null ? (
           <Typography sx={{ color: tokens.color.inkSoft, fontSize: 15 }}>{hint}</Typography>
         ) : null}

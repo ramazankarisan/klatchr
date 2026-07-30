@@ -22,6 +22,11 @@ export interface ViewFrame {
   selectedGameId: string | null;
   gameView: unknown;
   scores: readonly Score[] | null;
+  // Cross-round session tally + the current round number (S6). Unlike per-round
+  // `scores`, `sessionScores` is non-secret (past revealed rounds only), so the UI
+  // may show cumulative standings any time.
+  sessionScores: readonly Score[];
+  round: number;
 }
 
 /** A host control, a forwarded game event, or a player action — the outbound wire. */

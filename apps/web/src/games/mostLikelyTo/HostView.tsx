@@ -88,7 +88,7 @@ function WinnerSpotlight({
         border: '1px solid #e8dcc6',
         borderRadius: `${tokens.radius.card}px`,
         p: '14px 16px',
-        mb: 2.5,
+        flex: '1 1 240px',
       }}
     >
       <Box
@@ -140,13 +140,19 @@ function ResultsBoard({
   v,
   players,
 }: { v: ResultsView; players: readonly PublicPlayer[] }): ReactNode {
-  const top = [...v.tally].sort((a, b) => b.points - a.points)[0];
-  const winner = top !== undefined && top.points > 0 ? top : undefined;
+  // F5: a tie has co-winners — spotlight everyone at the top count, not just the
+  // first in roster order.
+  const max = Math.max(0, ...v.tally.map((t) => t.points));
+  const winners = max > 0 ? v.tally.filter((t) => t.points === max) : [];
   return (
     <Box>
       <HostKicker>{v.prompt}</HostKicker>
-      {winner !== undefined ? (
-        <WinnerSpotlight id={winner.playerId} points={winner.points} players={players} />
+      {winners.length > 0 ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2.5 }}>
+          {winners.map((w) => (
+            <WinnerSpotlight key={w.playerId} id={w.playerId} points={w.points} players={players} />
+          ))}
+        </Box>
       ) : null}
       <Box sx={{ maxWidth: 620 }}>
         <TallyBars rows={v.tally} players={players} height={26} />

@@ -79,6 +79,8 @@ const lobbyFrame = (code: string) => ({
   selectedGameId: null,
   gameView: null,
   scores: null,
+  sessionScores: [],
+  round: 0,
 });
 
 describe('SocketTransport (host)', () => {

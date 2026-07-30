@@ -116,38 +116,6 @@ export function DymoCode({ code, small }: { code: string; small?: boolean }): Re
   );
 }
 
-/** A name-tag sticker in the player's marker color. Names use `font.display`
- * bold (8.2, design option B) — crisp and download-free, never the Comic Sans
- * fallback the old `font.hand` reached for on most phones. */
-export function NameTag({ name, color }: { name: string; color: string }): ReactNode {
-  return (
-    <Box
-      sx={{
-        backgroundColor: tokens.color.card,
-        borderRadius: `${tokens.radius.control}px`,
-        overflow: 'hidden',
-        boxShadow: '1px 2px 5px rgba(43,38,32,0.14)',
-        border: '1px solid #ece2d0',
-      }}
-    >
-      <Box sx={{ height: 6, backgroundColor: color }} />
-      <Box
-        sx={{
-          fontFamily: tokens.font.display,
-          fontWeight: 800,
-          fontSize: 17,
-          px: 1,
-          pt: 0.75,
-          pb: 1,
-          color: tokens.color.ink,
-        }}
-      >
-        {name}
-      </Box>
-    </Box>
-  );
-}
-
 /** An index card taped to the board: answer text, optional revealed author. */
 export function IndexCard({ children }: { children: ReactNode }): ReactNode {
   return (
@@ -270,9 +238,16 @@ export function Recover({
 export function Board({
   code,
   hint,
+  badge,
   children,
   reconnecting,
-}: { code: string; hint?: ReactNode; children: ReactNode; reconnecting?: boolean }): ReactNode {
+}: {
+  code: string;
+  hint?: ReactNode;
+  badge?: ReactNode;
+  children: ReactNode;
+  reconnecting?: boolean;
+}): ReactNode {
   return (
     <Box sx={{ width: '100%', maxWidth: 1280, mx: 'auto' }}>
       <Box
@@ -303,6 +278,7 @@ export function Board({
                 Room
               </Typography>
               <DymoCode code={code} />
+              {badge}
             </Box>
             {hint ? (
               <Typography

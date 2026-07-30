@@ -38,6 +38,9 @@ const defaultClock: ReconnectClock = {
 // Capped exponential backoff between reconnect attempts: 0.5s, 1s, 2s … up to 8s.
 const BASE_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 8_000;
+// Keepalive cadence (F3): ping this often while connected so a quiet lobby's socket
+// isn't reaped by an idle intermediary. Its own timer, not the reconnect clock.
+const KEEPALIVE_MS = 25_000;
 
 /**
  * A single-viewer `Transport` over one native WebSocket. It opens (host) or
@@ -71,6 +74,7 @@ export class SocketTransport implements Transport {
   // from the `opened` ack (undefined until then → the first handshake is `open`).
   private reconnectToken: string | undefined;
   private hostToken: string | undefined;
+  private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 
   /** Called with the fresh reconnect token whenever the server (re)issues one. */
   onReconnectToken: (token: string) => void = () => {};
@@ -146,6 +150,21 @@ export class SocketTransport implements Transport {
     for (const queued of this.pending.splice(0)) {
       this.dispatch(queued);
     }
+    this.startKeepalive();
+  }
+
+  /** Ping on a fixed cadence while connected (F3). Started once; the interval
+   * outlives reconnects and only sends while the socket is open. */
+  private startKeepalive(): void {
+    if (this.keepaliveTimer !== null) {
+      return;
+    }
+    const ping: ClientMessage = { type: 'ping' };
+    this.keepaliveTimer = setInterval(() => {
+      if (this.open) {
+        this.socket.send(JSON.stringify(ping));
+      }
+    }, KEEPALIVE_MS);
   }
 
   /** A dropped socket: flip to reconnecting and schedule a backed-off retry (once per drop). */
@@ -252,6 +271,8 @@ export class SocketTransport implements Transport {
       selectedGameId: frame.selectedGameId,
       gameView: frame.gameView,
       scores: frame.scores,
+      sessionScores: frame.sessionScores,
+      round: frame.round,
     };
   }
 
