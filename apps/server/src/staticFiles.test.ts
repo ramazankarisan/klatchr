@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -86,5 +86,16 @@ describe('createStaticHandler', () => {
   it('400s a malformed percent-encoded url', async () => {
     const res = await hit(handler, '/%ZZ');
     expect(res.status).toBe(400);
+  });
+
+  it('refuses a symlink inside dist that points outside it', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'klatchr-outside-'));
+    await writeFile(join(outside, 'passwd'), 'ESCAPED');
+    await symlink(join(outside, 'passwd'), join(dir, 'leak.txt'));
+    const res = await hit(handler, '/leak.txt');
+    // Passes the plain path check (the link sits in dist) but realpath resolves out.
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain('ESCAPED');
+    await rm(outside, { recursive: true, force: true });
   });
 });

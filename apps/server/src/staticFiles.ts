@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { readFile, realpath } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 
@@ -30,7 +31,15 @@ const MIME: Record<string, string> = {
 export function createStaticHandler(
   distDir: string,
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  const root = normalize(distDir);
+  // Canonicalise the root once (resolve any symlinks in its own path, e.g. macOS
+  // /tmp → /private/tmp) so the per-request real-path containment check compares
+  // like with like. Fall back to a plain normalise if the dir isn't there yet.
+  let root: string;
+  try {
+    root = realpathSync(normalize(distDir));
+  } catch {
+    root = normalize(distDir);
+  }
   const index = join(root, 'index.html');
   return (req, res) => {
     void serve(root, index, req, res);
@@ -52,7 +61,8 @@ async function serve(
     return;
   }
   const target = normalize(join(root, urlPath));
-  // Confine to the dist root: a resolved path that escapes it is a traversal attempt.
+  // First guard (cheap, no fs): a normalised path that escapes the root is a `..`
+  // traversal attempt — refuse before touching disk.
   if (target !== root && !target.startsWith(root + sep)) {
     res.writeHead(403);
     res.end();
@@ -60,12 +70,22 @@ async function serve(
   }
   // Extension → concrete asset; no extension → an SPA route served the index shell.
   const file = extname(target) === '' ? index : target;
+  // Second guard: resolve symlinks and re-check containment, so a link *inside*
+  // dist can't point out of it (a missing file throws here → 404).
+  let real: string;
   try {
-    const body = await readFile(file);
-    res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
-    res.end(body);
+    real = await realpath(file);
   } catch {
     res.writeHead(404);
     res.end('Not found');
+    return;
   }
+  if (real !== root && !real.startsWith(root + sep)) {
+    res.writeHead(403);
+    res.end();
+    return;
+  }
+  const body = await readFile(real);
+  res.writeHead(200, { 'content-type': MIME[extname(real)] ?? 'application/octet-stream' });
+  res.end(body);
 }
