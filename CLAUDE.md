@@ -176,5 +176,15 @@ is wrong — stop and say so rather than special-casing the game in core.
   fit. Redaction tests (G8–G10) are written first, before the game logic.
 - One cycle per session. Start a fresh session for the next cycle and load
   only the package that cycle touches, plus its plan file.
+- **Docs checkpoint.** Documentation is part of the work, not an afterthought.
+  Sweep every tracked markdown file (CLAUDE.md, README.md, SPEC.md, design.md,
+  `docs/`) and fix anything the work just made stale:
+  - always at the end of a cycle, before the PR that closes it;
+  - mid-cycle, immediately after any stage that changes deployment, the
+    protocol, the Game interface, or the design system — these invalidate
+    docs fastest, so they don't wait for cycle end.
+  A stage is not done while a doc it invalidated still says the old thing.
+  Record the sweep in the plan file (a one-line "docs checked" note per
+  checkpoint) so the next session can trust the docs without re-verifying.
 - When something in this file turns out to be wrong or unworkable, say so and
   propose a change. Do not silently work around it.
