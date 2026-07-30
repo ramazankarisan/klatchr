@@ -1,47 +1,9 @@
 import { MAX_PLAYERS } from './bounds.js';
-import type { AnyGame } from './game.js';
-import { stubGame, stubGameDeps, stubRoomDeps } from './game.testkit.js';
-import type { Player, Viewer } from './ids.js';
-import { createRegistry } from './registry.js';
+import { stubGame, stubRoomDeps } from './game.testkit.js';
+import type { Player } from './ids.js';
 import { err, ok } from './result.js';
 import { createRoom, roomReduce } from './room.js';
-import type { ReduceContext, Room } from './roomTypes.js';
-
-const HOST: Viewer = { role: 'host' };
-const asPlayer = (id: string): Viewer => ({ role: 'player', id });
-
-function ctxWith(games: AnyGame[] = [stubGame()]): ReduceContext {
-  return {
-    registry: createRegistry(games),
-    roomDeps: stubRoomDeps(),
-    gameDeps: stubGameDeps(),
-  };
-}
-
-function player(id: string): Player {
-  return { id, nickname: id, joinedDuringGame: false, spectator: false };
-}
-
-function room(overrides: Partial<Room> = {}): Room {
-  return {
-    code: 'AAAA',
-    hostId: 'host',
-    phase: 'LOBBY',
-    players: [],
-    tokens: {},
-    selectedGameId: null,
-    gameState: null,
-    closed: false,
-    ...overrides,
-  };
-}
-
-function expectErr(result: ReturnType<typeof roomReduce>, code: string): void {
-  expect(result.ok).toBe(false);
-  if (!result.ok) {
-    expect(result.error.code).toBe(code);
-  }
-}
+import { HOST, asPlayer, ctxWith, expectErr, player, room } from './room.testkit.js';
 
 describe('createRoom', () => {
   it('opens a LOBBY with a code, a host, and no players', () => {
