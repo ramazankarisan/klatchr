@@ -15,6 +15,7 @@ describe('clientMessage', () => {
     { type: 'play', code: 'WXYZ', event: { kind: 'submit', text: 'hi' } },
     { type: 'leave', code: 'WXYZ' },
     { type: 'resumeHost', code: 'WXYZ', hostToken: 'htok_secret_1' },
+    { type: 'ping' },
   ];
 
   it.each(cases)('round-trips $type', (msg) => {
@@ -50,6 +51,8 @@ describe('serverMessage', () => {
       selectedGameId: null,
       gameView: null,
       scores: null,
+      sessionScores: [],
+      round: 0,
     },
     {
       type: 'frame',
@@ -62,6 +65,11 @@ describe('serverMessage', () => {
       selectedGameId: 'guessWho',
       gameView: { phase: 'reveal', cards: [] },
       scores: [{ playerId: 'p_1', points: 2 }],
+      sessionScores: [
+        { playerId: 'p_1', points: 5 },
+        { playerId: 'p_2', points: 3 },
+      ],
+      round: 2,
     },
     { type: 'error', code: 'ROOM_FULL' },
     { type: 'error', code: 'GAME_REJECTED', message: 'not your turn' },
@@ -85,6 +93,8 @@ describe('serverMessage', () => {
         selectedGameId: null,
         gameView: null,
         scores: null,
+        sessionScores: [],
+        round: 0,
       }).success,
     ).toBe(false);
   });
@@ -99,6 +109,8 @@ describe('serverMessage', () => {
         selectedGameId: 'guessWho',
         gameView: null,
         scores: [{ playerId: 'p_1', points: 'lots' }],
+        sessionScores: [],
+        round: 1,
       }).success,
     ).toBe(false);
   });

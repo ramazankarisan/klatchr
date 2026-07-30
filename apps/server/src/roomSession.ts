@@ -308,7 +308,7 @@ export class RoomSession {
   }
 
   private frameFor(viewer: Viewer): ServerMessage {
-    const { code, phase, players, selectedGameId } = this.room;
+    const { code, phase, players, selectedGameId, sessionScores, round } = this.room;
     const game = this.gameFor(viewer);
     return {
       type: 'frame',
@@ -320,6 +320,13 @@ export class RoomSession {
       // to always carry a gameView (null when no game is live).
       gameView: game.view ?? null,
       scores: game.scores,
+      // Cross-round tally (S6) — non-secret (past revealed rounds only), sent to every
+      // viewer as a Score[] so the board can show cumulative standings + a round counter.
+      sessionScores: Object.entries(sessionScores).map(([playerId, points]) => ({
+        playerId,
+        points,
+      })),
+      round,
     };
   }
 

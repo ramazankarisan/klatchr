@@ -69,6 +69,8 @@ export class RoomHub {
         session.leave(conn);
         return;
       }
+      case 'ping':
+        return; // keepalive (F3): the traffic is the point; nothing to do
     }
   }
 

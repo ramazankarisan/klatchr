@@ -57,6 +57,10 @@ export const clientMessage = z.discriminatedUnion('type', [
     event: z.unknown().refine((v) => v !== undefined, 'a play must carry an event'),
   }),
   z.object({ type: z.literal('leave'), code: roomCode }),
+  // A connection-level keepalive (F3): the client pings periodically so an idle
+  // lobby's socket isn't reaped by an intermediary while the host is still there.
+  // Carries nothing — the server just needs the traffic; it no-ops.
+  z.object({ type: z.literal('ping') }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessage>;
 
@@ -77,6 +81,11 @@ export const serverMessage = z.discriminatedUnion('type', [
     // already redacted per viewer in packages/games; opaque but present (null when no game)
     gameView: z.unknown().refine((v) => v !== undefined, 'a frame must carry a gameView'),
     scores: z.array(score).nullable(),
+    // Cross-round session tally + which round we're in (S6). Session totals are made
+    // only of already-revealed past rounds, so — unlike per-round `scores` — they carry
+    // no hidden info and are safe to show any time. `round` counts rounds started.
+    sessionScores: z.array(score),
+    round: z.number(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string().optional() }),
 ]);
