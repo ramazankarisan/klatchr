@@ -6,6 +6,7 @@ import { normaliseNickname } from './nickname.js';
 import { type Result, err, ok } from './result.js';
 import { generateRoomCode } from './roomCode.js';
 import type { Phase, ReduceContext, Room, RoomError, RoomEvent } from './roomTypes.js';
+import { foldScores, seatWindow } from './rounds.js';
 
 export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set()): Room {
   return {
@@ -17,6 +18,8 @@ export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set(
     selectedGameId: null,
     gameState: null,
     closed: false,
+    sessionScores: {},
+    round: 0,
   };
 }
 
@@ -48,7 +51,7 @@ export function roomReduce(
     case 'gameEvent':
       return gameEvent(room, event.event, ctx);
     case 'endGame':
-      return endGame(room, actor);
+      return endGame(room, actor, ctx);
   }
 }
 
@@ -130,16 +133,11 @@ function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, 
   if (room.players.length < game.minPlayers) {
     return err({ code: 'BELOW_MIN_PLAYERS' }); // P3
   }
-  // E2 seat-and-spectate: the first game.maxPlayers (join order) play this
-  // round; any overflow spectates. init only ever sees the active seats.
-  const seated = room.players.map((p, i) => ({
-    ...p,
-    spectator: i >= game.maxPlayers,
-    joinedDuringGame: false,
-  }));
+  const round = room.round + 1;
+  const seated = seatWindow(room.players, game.maxPlayers, round); // E2 + X1 rotation
   const active = seated.filter((p) => !p.spectator);
   const gameState = game.init(active, ctx.gameDeps);
-  return ok({ ...room, phase: 'IN_GAME', gameState, players: seated });
+  return ok({ ...room, phase: 'IN_GAME', gameState, players: seated, round });
 }
 
 function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room, RoomError> {
@@ -154,11 +152,16 @@ function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room,
   if (!result.ok) {
     return err({ code: 'GAME_REJECTED', message: result.error.code });
   }
-  const phase: Phase = game.isComplete(result.value) ? 'SCORES' : 'IN_GAME';
-  return ok({ ...room, gameState: result.value, phase });
+  const complete = game.isComplete(result.value);
+  const phase: Phase = complete ? 'SCORES' : 'IN_GAME';
+  // Fold the round into the session tally on entry to SCORES (S6, terminal → once).
+  const sessionScores = complete
+    ? foldScores(room.sessionScores, game.scores(result.value))
+    : room.sessionScores;
+  return ok({ ...room, gameState: result.value, phase, sessionScores });
 }
 
-function endGame(room: Room, actor: Viewer): Result<Room, RoomError> {
+function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
   const hostError = requireHost(actor);
   if (hostError !== null) {
     return err(hostError);
@@ -166,7 +169,14 @@ function endGame(room: Room, actor: Viewer): Result<Room, RoomError> {
   if (room.phase !== 'IN_GAME') {
     return err({ code: 'WRONG_PHASE' });
   }
-  return ok({ ...room, phase: 'SCORES' }); // host abort
+  const game = activeGame(room, ctx);
+  if (game === undefined) {
+    return err({ code: 'GAME_NOT_REGISTERED' });
+  }
+  // Host abort still counts (D1): fold the partial round's scores at the moment
+  // of the abort, same as a natural completion.
+  const sessionScores = foldScores(room.sessionScores, game.scores(room.gameState));
+  return ok({ ...room, phase: 'SCORES', sessionScores });
 }
 
 function requireHost(actor: Viewer): RoomError | null {

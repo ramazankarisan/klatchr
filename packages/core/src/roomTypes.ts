@@ -16,6 +16,13 @@ export interface Room {
   selectedGameId: string | null;
   gameState: unknown;
   closed: boolean;
+  // Cross-round session tally (S6): playerId -> cumulative points. The room folds
+  // each round's `game.scores` into this on entry to SCORES; games never see it —
+  // scoring the *night* is a platform concern, not a per-game one. Keyed by id so a
+  // leaver/rejoiner keeps their total (D2).
+  sessionScores: Readonly<Record<string, number>>;
+  // How many rounds have been started this session (each `startGame` is a round).
+  round: number;
 }
 
 export type RoomErrorCode =
