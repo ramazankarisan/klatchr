@@ -1,0 +1,13 @@
+# Rebuilt inside the image — never copy host artifacts in.
+node_modules
+**/node_modules
+apps/web/dist
+dist
+# Test / tooling output, VCS, local scratch.
+.git
+coverage
+test-results
+playwright-report
+.playwright
+*.log
+.DS_Store

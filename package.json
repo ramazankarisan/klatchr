@@ -17,6 +17,8 @@
   },
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"pnpm -C apps/server dev\" \"pnpm -C apps/web dev\"",
+    "build": "pnpm -C apps/web build",
+    "start": "WEB_DIST=$PWD/apps/web/dist pnpm -C apps/server start",
     "test": "vitest run",
     "test:core": "vitest run packages/core",
     "test:cov": "vitest run --coverage",

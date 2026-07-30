@@ -8,7 +8,24 @@ import type { Transport } from './types.js';
  * `MockEngine` otherwise (RTL tests run with no server). One transport per
  * surface, bound to its viewer.
  */
-const wsUrl = (): string | undefined => import.meta.env.VITE_WS_URL;
+
+// In a single-service deploy (7.3) the client talks to its *own* origin, so the
+// prod build sets `VITE_WS_URL=same-origin` rather than baking a host — the URL
+// still comes *from* `VITE_WS_URL` (rule 6 holds), we just expand it at runtime to
+// `ws(s)://<this-host>` (wss under https). Any other value is used verbatim.
+const SAME_ORIGIN = 'same-origin';
+export function resolveWsUrl(
+  raw: string | undefined,
+  loc: { protocol: string; host: string },
+): string | undefined {
+  if (raw === undefined || raw !== SAME_ORIGIN) {
+    return raw;
+  }
+  const scheme = loc.protocol === 'https:' ? 'wss' : 'ws';
+  return `${scheme}://${loc.host}`;
+}
+
+const wsUrl = (): string | undefined => resolveWsUrl(import.meta.env.VITE_WS_URL, window.location);
 
 export function createHostTransport(nickname: string): Transport {
   const url = wsUrl();
