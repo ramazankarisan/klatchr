@@ -109,7 +109,7 @@ export function App(): ReactNode {
   // shrank the board on a TV and pinned the player to a fake-phone column).
   if (screen.mode === 'landing' || screen.mode === 'join') {
     return (
-      <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
+      <Box sx={{ ...kraftBg, minHeight: '100dvh' }}>
         <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
           {screen.mode === 'landing' ? (
             <Landing
@@ -129,7 +129,7 @@ export function App(): ReactNode {
   }
 
   return (
-    <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
+    <Box sx={{ ...kraftBg, minHeight: '100dvh' }}>
       {screen.mode === 'host' ? (
         <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 5 } }}>
           <HostScreen transport={screen.transport} onExit={toLanding} />
