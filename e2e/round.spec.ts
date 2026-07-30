@@ -114,8 +114,11 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   };
 
   // --- host picks a game, then starts once all three are seated (min 3) ---
-  await expect(host.page.getByText(/3 \/ 50 in the room/)).toBeVisible();
+  // Roster copy derives from the picked game's cap now (8.2), not a hardcoded 50:
+  // before a game is picked there is no cap, and after it reads the game's maxPlayers.
+  await expect(host.page.getByText(/^3 in the room$/)).toBeVisible(); // no game → no cap
   await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  await expect(host.page.getByText(/3 \/ 12 in the room/)).toBeVisible();
   await host.page.getByRole('button', { name: STEP.start }).click();
 
   // --- collect: everyone writes a secret answer ---
@@ -233,4 +236,51 @@ test('a dropped socket heals itself with a reconnecting indicator (7.2)', async 
   await expect(host.page.getByText(/Reconnecting/i)).toBeVisible();
   await expect(host.page.getByText(/Reconnecting/i)).toHaveCount(0, { timeout: 20_000 });
   await expect(host.page.getByText(/3 of 3 answered/)).toBeVisible(); // same room, same round
+});
+
+/**
+ * 8.1/8.2 dead-end recovery: a mistyped room code used to strand a player on an
+ * endless "Joining…" spinner (the error frame was silently dropped). Now the real
+ * server's `NO_SUCH_ROOM` surfaces as a recover card with a way back to the join
+ * form — proven end-to-end over the socket, since the mock never errors.
+ */
+test('a mistyped room code shows a recover card, never an endless spinner (8.1)', async ({
+  browser,
+}) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/');
+  await fillJoin(page, 'ZZZZ', 'Adalyn'); // no room ever had this code
+
+  // A recover alert with human copy — not a stuck spinner.
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByText(/no room/i)).toBeVisible();
+  await expect(page.getByText(/Joining/)).toHaveCount(0);
+
+  // The way back returns to the join form, ready for another code.
+  await page.getByRole('button', { name: /try another code/i }).click();
+  await expect(page.getByRole('heading', { name: /grab a name-tag/i })).toBeVisible();
+});
+
+/**
+ * 8.1 host survival: a host reload used to abandon the live room (only the player
+ * token was persisted), so the board dropped back to the landing and the room was
+ * reaped. Now the host session (code + `hostToken`) is persisted and the client
+ * auto-`resumeHost`s on load — a full page reload lands back on the same room, its
+ * picked game intact, without retyping anything.
+ */
+test('a host page reload resumes the same room, game intact (8.1)', async ({ browser }) => {
+  const host = await openHost(browser);
+  await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  await expect(host.page.getByText(/selected/i)).toBeVisible(); // game picked
+
+  await host.page.reload(); // closes the socket + wipes in-memory state; only localStorage survives
+
+  // Auto-resumed: same room code, not bounced to the landing, and the picked game
+  // survived (the server held the room; the client re-attached via resumeHost).
+  await expect(host.page.locator('[aria-label^="room code"]')).toHaveAttribute(
+    'aria-label',
+    `room code ${host.code}`,
+  );
+  await expect(host.page.getByRole('button', { name: HOST.button })).toHaveCount(0);
+  await expect(host.page.getByText(/selected/i)).toBeVisible();
 });
