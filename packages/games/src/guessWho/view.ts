@@ -13,7 +13,7 @@ export function viewFor(state: GWState, viewer: Viewer): unknown {
     case 'guess':
       return guessView(state, viewer);
     case 'reveal':
-      return revealView(state);
+      return revealView(state, viewer);
   }
 }
 
@@ -50,6 +50,12 @@ function guessView(state: GWState, viewer: Viewer) {
   };
 }
 
-function revealView(state: GWState) {
-  return { phase: 'reveal', prompt: state.prompt, cards: state.cards, scores: tally(state) };
+function revealView(state: GWState, viewer: Viewer) {
+  const base = { phase: 'reveal', prompt: state.prompt, cards: state.cards, scores: tally(state) };
+  if (viewer.role === 'host') {
+    return base; // the shared screen shows the truth, never any one player's guesses
+  }
+  // F9: hand a player back *their own* guesses so the phone can show what they
+  // guessed vs the truth per card. Only this viewer's — never anyone else's.
+  return { ...base, myGuesses: state.guesses[viewer.id] ?? {} };
 }
