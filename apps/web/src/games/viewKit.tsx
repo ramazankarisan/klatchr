@@ -29,10 +29,15 @@ export function HostKicker({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
-/** A big board prompt. */
+/** A big board prompt. On the shared screen it scales with the viewport (8.2) so
+ * it reads across a room — clamped so it never gets tiny on a phone-mirrored board
+ * nor overflows a wide projector. */
 export function Prompt({ text }: { text: string }): ReactNode {
   return (
-    <Typography variant="h2" sx={{ fontSize: { xs: 24, sm: 34 }, maxWidth: '20ch' }}>
+    <Typography
+      variant="h2"
+      sx={{ fontSize: 'clamp(28px, 4.4vw, 52px)', lineHeight: 1.05, maxWidth: '18ch' }}
+    >
       {text}
     </Typography>
   );
@@ -100,6 +105,8 @@ function NameChip({
         borderRadius: 999,
         border: '1px solid #e6d9c1',
         gap: 0.75,
+        minHeight: 44, // ≥44px tap target (8.2)
+        px: 1.75,
         color: selected ? tokens.color.card : tokens.color.ink,
         backgroundColor: selected ? tokens.color.ink : 'transparent',
         '&:hover': { backgroundColor: selected ? tokens.color.ink : undefined },
@@ -243,7 +250,9 @@ export function TallyBars({
         const win = i === 0 && r.points > 0;
         return (
           <Box key={r.playerId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontFamily: tokens.font.hand, fontSize: 18, width: 96 }}>
+            <Typography
+              sx={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, width: 96 }}
+            >
               {nameOf(r.playerId, players)}
             </Typography>
             <Box

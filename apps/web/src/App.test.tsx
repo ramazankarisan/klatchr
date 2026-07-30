@@ -27,6 +27,7 @@ describe('App', () => {
   it('opens on the landing with host and join actions', () => {
     renderApp();
     expect(screen.getByRole('heading', { name: /klatchr/i })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1); // one h1 (8.2 a11y)
     expect(screen.getByRole('button', { name: /host a room/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /join a room/i })).toBeTruthy();
   });
@@ -35,6 +36,7 @@ describe('App', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: /join a room/i }));
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1); // one h1 on the join form
 
     const code = screen.getByLabelText(/room code/i);
     await user.type(code, 'plum');

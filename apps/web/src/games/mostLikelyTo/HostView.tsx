@@ -114,7 +114,8 @@ function WinnerSpotlight({
           display: 'flex',
           alignItems: 'center',
           gap: 1.25,
-          fontFamily: tokens.font.hand,
+          fontFamily: tokens.font.display,
+          fontWeight: 900,
           fontSize: 30,
         }}
       >

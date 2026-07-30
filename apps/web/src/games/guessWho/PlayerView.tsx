@@ -137,7 +137,7 @@ function GuessPhone({
             ) : author !== undefined ? (
               <Button
                 onClick={() => setOpenCard(card.id)}
-                sx={{ alignSelf: 'flex-start', textTransform: 'none', p: 0 }}
+                sx={{ alignSelf: 'flex-start', textTransform: 'none', px: 0.5, minHeight: 44 }}
               >
                 <NameLabel id={author} players={players} />
               </Button>
@@ -148,7 +148,8 @@ function GuessPhone({
                   alignSelf: 'flex-start',
                   textTransform: 'none',
                   color: tokens.color.inkSoft,
-                  p: 0,
+                  px: 0.5,
+                  minHeight: 44,
                 }}
               >
                 ＋ Tap to name who said it

@@ -49,7 +49,7 @@ consideration); the design-gallery chrome is theme-aware.
 | color.players[8] | `#E8623D #E0A32E #2E8B7B #3E7CB1 #8A5A83 #6E7B3E #F2996E #55707A` | one marker per person |
 | font.display | `"Helvetica Neue", Arial, system-ui` 900 | headings + prompts |
 | font.body | `ui-sans-serif, system-ui` | running text, buttons |
-| font.hand | `"Bradley Hand","Segoe Print","Comic Sans MS", cursive` | **name-tags + tape only** — seasoning, never body |
+| font.hand | `"Bradley Hand","Segoe Print","Comic Sans MS", cursive` | ~~name-tags~~ **retired from the shipped app (Cycle 8, option B — Comic Sans fell back on most phones)**; token retained, applied nowhere |
 | font.mono | `ui-monospace, "SF Mono", Menlo` | room code (on dymo tape), data |
 | space | `4 · 8 · 12 · 16 · 24 · 32 · 48` | 4/8-based scale |
 | radius.card | `6px` | index cards, tally |
@@ -59,12 +59,12 @@ consideration); the design-gallery chrome is theme-aware.
 | elevation.board | `0 22px 50px -30px rgba(43,38,32,.5)` | the board panel |
 
 **Component style.** Room code = mono on dark dymo tape. Name-tag = colored band
-+ hand-lettered name. Index card = ruled cream, a strip of tape at top, slight
-hand-placed rotation (±1.5° max). Reveal = teal outlined "Said it" stamp,
-rotated. Primary button = marker-red pill; disabled/waiting reuses it dimmed. A
-✓ tick marks who has answered. MUI is the component library (fixed stack); these
-tokens map to an MUI theme (`theme.palette`, `theme.typography`, `shape`,
-`shadows`).
++ **display-bold name** (Cycle 8, option B — was hand-lettered). Index card =
+ruled cream, a strip of tape at top, slight hand-placed rotation (±1.5° max).
+Reveal = teal outlined "Said it" stamp, rotated. Primary button = marker-red
+pill; disabled/waiting reuses it dimmed. MUI is the component library (fixed
+stack); these tokens map to an MUI theme (`theme.palette`, `theme.typography`,
+`shape`, `shadows`).
 
 **Design system:** the claude.ai/design **Klatchr** project — a *Foundations*
 card (the two surfaces, palette, type, component kit) plus one card per
