@@ -246,8 +246,8 @@ export function TallyBars({
   const max = Math.max(1, ...ranked.map((r) => r.points));
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {ranked.map((r, i) => {
-        const win = i === 0 && r.points > 0;
+      {ranked.map((r) => {
+        const win = r.points === max && r.points > 0; // all tied leaders (F5 co-winners)
         return (
           <Box key={r.playerId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography

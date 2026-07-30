@@ -70,6 +70,14 @@ export function createHostTransport(
   return transport;
 }
 
+const nickKey = (code: string): string => `klatchr:nick:${code}`;
+
+/** The name a prior session joined this code with (F1), so the join form can say
+ * "resuming as <name>" instead of silently ignoring a freshly-typed one. */
+export function storedNick(code: string): string | null {
+  return localStorage.getItem(nickKey(code));
+}
+
 export function createPlayerTransport(code: string, nickname: string): Transport {
   const url = wsUrl();
   if (url === undefined) {
@@ -82,7 +90,11 @@ export function createPlayerTransport(code: string, nickname: string): Transport
       ? { role: 'player', code, nickname }
       : { role: 'player', code, nickname, reconnectToken: stored };
   const transport = new SocketTransport(url, init);
-  // E3: persist the resume secret so a refresh/reconnect resumes the same slot.
-  transport.onReconnectToken = (token) => localStorage.setItem(key, token);
+  // E3: persist the resume secret + the name so a refresh resumes the same slot,
+  // and the join form can show "resuming as <name>" next time (F1).
+  transport.onReconnectToken = (token) => {
+    localStorage.setItem(key, token);
+    localStorage.setItem(nickKey(code), nickname);
+  };
   return transport;
 }

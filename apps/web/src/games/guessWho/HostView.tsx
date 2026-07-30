@@ -168,6 +168,16 @@ export const HostView = gameHostView(asHostView, (v, players) => {
       <Box>
         <HostKicker>Guess who said it — on your phones</HostKicker>
         <Prompt text={v.prompt} />
+        <Typography
+          sx={{
+            mt: 2,
+            fontFamily: tokens.font.mono,
+            fontWeight: 700,
+            color: tokens.color.markerDeep,
+          }}
+        >
+          {v.guessed.length} of {v.candidates.length} have guessed
+        </Typography>
         <GuessCards cards={v.cards} />
       </Box>
     );

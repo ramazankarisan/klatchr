@@ -118,6 +118,12 @@ class MockEngine {
       // Scores are a reveal-time fact — never shipped during collect/guess, or a
       // player would learn whether their guesses were right before the reveal.
       scores: live && room.phase === 'SCORES' ? game.scores(room.gameState) : null,
+      // Session tally (S6) — the mock runs the real engine, so it accumulates too.
+      sessionScores: Object.entries(room.sessionScores).map(([playerId, points]) => ({
+        playerId,
+        points,
+      })),
+      round: room.round,
     };
   }
 

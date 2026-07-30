@@ -46,6 +46,9 @@ export interface RevealView {
   prompt: string;
   cards: readonly { id: string; text: string; authorId: string }[];
   scores: readonly { playerId: string; points: number }[];
+  // F9: the *viewer's own* guesses (cardId -> guessed authorId). Present for a
+  // player, absent for the host (shared screen). Lets the phone show your pick vs. truth.
+  myGuesses?: Readonly<Record<string, string>>;
 }
 
 type HostGameView = CollectHostView | GuessHostView | RevealView;

@@ -49,6 +49,15 @@ describe('collect', () => {
     expect(screen.getByText(/answer taped up/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your answer/i)).toBeNull();
   });
+
+  it('F12 lets you skip the answer and still guess, without submitting a card', async () => {
+    const user = userEvent.setup();
+    const { onEvent } = renderView(collect);
+    await user.click(screen.getByRole('button', { name: /skip — i.ll just guess/i }));
+    expect(screen.getByText(/skipped — you.ll still guess/i)).toBeTruthy();
+    expect(screen.queryByLabelText(/your answer/i)).toBeNull(); // form gone
+    expect(onEvent).not.toHaveBeenCalled(); // no blank card submitted
+  });
 });
 
 describe('guess', () => {
@@ -68,6 +77,11 @@ describe('guess', () => {
     renderView(guess);
     expect(screen.getByText(/your card/i)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /tap to name/i })).toHaveLength(1); // only c0
+  });
+
+  it('F8 shows the prompt while guessing', () => {
+    renderView(guess);
+    expect(screen.getByText(/hill you.ll die on/i)).toBeTruthy(); // the question, on the phone
   });
 
   it('does not collide when another player answered the same text', () => {
@@ -99,5 +113,24 @@ describe('guess', () => {
     await user.click(screen.getByRole('button', { name: /marcus/i })); // the placed guess chip
     await user.click(screen.getByRole('button', { name: /lena/i })); // re-pick
     expect(onEvent).toHaveBeenCalledWith({ type: 'guess', cardId: 'c0', author: 'p3' });
+  });
+});
+
+describe('reveal', () => {
+  it('F9 shows the truth plus what you guessed per card, and marks your own', () => {
+    renderView({
+      phase: 'reveal',
+      prompt: 'A hill you’ll die on?',
+      cards: [
+        { id: 'c0', text: 'Tabs.', authorId: 'p2' }, // you guessed Marcus → right
+        { id: 'c1', text: 'Cereal soup.', authorId: 'p3' }, // you guessed Marcus → wrong
+        { id: 'c2', text: 'Yours.', authorId: 'p1' }, // your own card
+      ],
+      scores: [{ playerId: 'p1', points: 1 }],
+      myGuesses: { c0: 'p2', c1: 'p2' },
+    });
+    expect(screen.getAllByText(/you guessed marcus/i)).toHaveLength(2);
+    expect(screen.getByText(/your card/i)).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy(); // the personal score headline
   });
 });

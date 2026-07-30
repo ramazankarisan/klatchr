@@ -1,5 +1,6 @@
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
+import { nameOf } from '../../players.js';
 import { tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
 import { NameLabel, NamePicker, PlayerKicker, PlayerResults, gamePlayerView } from '../viewKit.js';
@@ -11,17 +12,21 @@ function CollectPhone({
   onSubmit,
 }: { prompt: string; youSubmitted: boolean; onSubmit: (text: string) => void }): ReactNode {
   const [text, setText] = useState('');
+  // F12: a player can skip taping a card and still guess others this round. Skipping
+  // is local (no blank card is submitted); the frame just never sees a draft for them.
+  const [skipped, setSkipped] = useState(false);
   const trimmed = text.trim();
+  const done = youSubmitted || skipped;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
       <PlayerKicker>Your answer · secret</PlayerKicker>
-      <Typography variant="h3" sx={{ fontSize: 23, lineHeight: 1.08 }}>
+      <Typography variant="h3" component="h2" sx={{ fontSize: 23, lineHeight: 1.08 }}>
         {prompt}
       </Typography>
       <Typography sx={{ color: tokens.color.inkSoft, fontSize: 14 }}>
         Nobody sees who wrote it — until the reveal.
       </Typography>
-      {youSubmitted ? (
+      {done ? (
         <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box
             sx={{
@@ -32,7 +37,7 @@ function CollectPhone({
               fontWeight: 600,
             }}
           >
-            ✓ Answer taped up
+            {youSubmitted ? '✓ Answer taped up' : '✓ Skipped — you’ll still guess'}
           </Box>
           <Button variant="contained" disabled fullWidth>
             Waiting for the room…
@@ -62,6 +67,14 @@ function CollectPhone({
             disabled={trimmed === ''}
           >
             Tape it up
+          </Button>
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={() => setSkipped(true)}
+            sx={{ color: tokens.color.inkSoft, minHeight: 44 }}
+          >
+            Skip — I’ll just guess this round
           </Button>
         </Box>
       )}
@@ -111,6 +124,22 @@ function GuessPhone({
           {named} of {guessable.length}
         </Box>
       </PlayerKicker>
+      {/* F8: keep the question in front of the guesser — it's otherwise only on the board. */}
+      <Box
+        sx={{
+          backgroundColor: '#f4e7d5',
+          border: '1px solid #e6d6bd',
+          borderRadius: `${tokens.radius.card}px`,
+          p: '8px 10px',
+          fontSize: 13,
+          color: tokens.color.inkSoft,
+        }}
+      >
+        <Box component="span" sx={{ fontWeight: 700, color: tokens.color.ink }}>
+          Q:
+        </Box>{' '}
+        {v.prompt}
+      </Box>
       {v.cards.map((card) => {
         if (card.id === v.yourCardId) {
           return (
@@ -171,11 +200,35 @@ function RevealPhone({
   return (
     <PlayerResults value={points} unit="correct this round">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        {v.cards.map((card) => (
-          <Card key={card.id} text={`“${card.text}”`}>
-            <NameLabel id={card.authorId} players={players} />
-          </Card>
-        ))}
+        {v.cards.map((card) => {
+          const own = card.authorId === youId;
+          const mine = v.myGuesses?.[card.id];
+          return (
+            <Card key={card.id} text={`“${card.text}”`}>
+              <NameLabel id={card.authorId} players={players} />
+              {/* F9: your own pick vs. the truth for each card */}
+              {own ? (
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: tokens.color.teal }}>
+                  ✎ your card
+                </Typography>
+              ) : mine !== undefined ? (
+                <Typography
+                  sx={{
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: mine === card.authorId ? tokens.color.teal : tokens.color.bad,
+                  }}
+                >
+                  {mine === card.authorId ? '✓' : '✕'} you guessed {nameOf(mine, players)}
+                </Typography>
+              ) : (
+                <Typography sx={{ fontSize: 12.5, color: tokens.color.inkSoft }}>
+                  — you didn’t name this one
+                </Typography>
+              )}
+            </Card>
+          );
+        })}
       </Box>
     </PlayerResults>
   );
