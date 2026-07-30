@@ -1,5 +1,12 @@
 # plan-7 — Cycle 7: production readiness
 
+> **Superseded where it discusses the 7.4 deploy target.** This plan proposed a
+> self-hosted PaaS (Coolify/Dokploy) on an Oracle **ARM** VM behind Traefik. The
+> ARM shape was permanently out of capacity, so the app actually shipped on an
+> Oracle **E2.1.Micro (AMD)** with plain **Docker + Caddy**, no PaaS panel. For
+> the real, current deploy see **`docs/deploy.md`** — it is authoritative; the
+> 7.4 section below is kept only as the historical plan.
+
 Klatchr runs a full two-game round today, but only on `localhost` (`pnpm dev` =
 `tsx` server + `vite` web), and only survives a clean network. Cycle 7 turns it
 into something you can run in an actual room: a **host that survives a reload**,

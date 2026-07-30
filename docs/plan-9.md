@@ -1,7 +1,8 @@
 # plan-9 — Cycle 9: session scoring + the 50-player host
 
-With the post-launch UX cycle (plan-8) done, two deferred features remain, both
-about **the room at scale over time**:
+The post-launch UX cycle (plan-8) is complete — 8.0–8.2 plus the cycle-end E2E
+all shipped. Two deferred features remain, both about **the room at scale over
+time**:
 
 1. **Session scoring (S6)** — a running leaderboard across rounds, not just this
    round. The engine scores one round; the *night* has no cumulative tally. This is

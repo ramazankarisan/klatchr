@@ -33,6 +33,14 @@ jobs:
       - name: Gate wall (pnpm gate)
         run: pnpm gate
 
+      # E2E is deliberately out of `pnpm gate` (too slow per-commit); it runs
+      # here on every PR and push to main so a broken handshake can't merge green.
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E (Playwright, multi-context round)
+        run: pnpm e2e
+
       - name: Vulnerability audit (prod deps)
         run: pnpm audit --prod --audit-level=high
 

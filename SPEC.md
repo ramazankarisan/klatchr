@@ -2,6 +2,13 @@
 
 Input for the RPI cycles. This is *what* to build, not *how*.
 
+> **This is the original v1 spec, kept as the founding intent.** The platform has
+> since shipped past it — the deltas that matter: room bound is **50**, not 12;
+> the second game is **Most Likely To**, not the "Year Guesser" placeholder below;
+> each game sets its own `minPlayers` of **3**; the app is **deployed and live**
+> (`docs/deploy.md`); and **reconnect tokens / host resume shipped** (Cycle 7).
+> Where a line below contradicts that, the code and `docs/deploy.md` win.
+
 ## The platform
 
 A host opens a room on a laptop or TV. The host screen shows a four-letter
@@ -19,16 +26,16 @@ several games behind one shell.
 
 ```ts
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS = 12;
+export const MAX_PLAYERS = 50; // was 12 in the original spec; widened to 50 (E1)
 ```
 
 Platform-wide bounds, exported from `packages/core`. A game may narrow them
 via its own `minPlayers` / `maxPlayers`, never widen them. `apps/server` and
 `apps/web` import the constants; neither hardcodes a number of its own.
 
-At exactly 2 players some games are degenerate. That is accepted deliberately
-so a full round can be exercised with two browser windows during development
-and in the Playwright E2E test.
+Both shipped games narrow `minPlayers` to **3** (a 2-player round is
+degenerate), so the Playwright E2E exercises a real round with **three** phone
+contexts, not two.
 
 ## Room state machine
 
@@ -108,8 +115,10 @@ Do not build these. If any seems necessary, stop and ask.
 - Host-authored prompts
 - Host playing along
 - Host reassignment when the host disconnects
-- Deployment (localhost only)
-- Reconnect tokens, spectator chat, avatars, sounds, animations
+- ~~Deployment (localhost only)~~ — **shipped in Cycle 7**; live at
+  `https://klatchr.duckdns.org`, see `docs/deploy.md`
+- ~~Reconnect tokens~~ (**shipped in Cycle 7** — host resume + player reconnect);
+  spectator chat, avatars, sounds, animations remain out of scope
 
 ## Cycles
 
@@ -118,7 +127,10 @@ Do not build these. If any seems necessary, stop and ask.
 | 1 | `packages/core` | Room lifecycle, `Game` interface, registry. P1–P7. 100% covered |
 | 2 | `packages/games/guess-who-said-it` | Full game module. G1–G10. 100% covered |
 | 3 | `packages/protocol` + `apps/server` | Zod schemas, NestJS WS gateway, room registry, per-player view dispatch |
-| 4 | `apps/web` + E2E | Join, lobby, game view, scores, host screen; Playwright two-context test |
+| 4 | `apps/web` + E2E | Join, lobby, game view, scores, host screen; Playwright multi-context test |
+
+(Cycles ran past this original table: 5 wiring, 6 a second game, 7 production +
+deploy, 8 post-launch UX, 9 session scoring — see `docs/plan-5.md` … `plan-9.md`.)
 
 ### Budget
 
@@ -136,16 +148,18 @@ pre-commit wall (no Python), orchestrated by `pnpm gate` on husky. Phases:
 biome (lint+format) · dead code (knip) · duplication (jscpd) · purity +
 bypass-directive bash gates · type-coverage · **dependency-cruiser** (enforces
 the one-way dep direction + core/games import purity) · tsc · vitest (100%
-core/games) · playwright (verify, end of cycle 4). Secrets: gitleaks. Dropped
-as Python: the `pre-commit` framework and semgrep. Building cycle-1 code under
-the wall from commit 1 is the point — the gates are the backpressure.
+core/games). Secrets: gitleaks. E2E (playwright) runs in CI and at cycle end,
+not in `pnpm gate`. Dropped as Python: the `pre-commit` framework and semgrep.
+Building cycle-1 code under the wall from commit 1 is the point — the gates are
+the backpressure.
 
 **Cutline at 6:15.** If the WebSocket layer is still fighting you, ship
 host-screen mode: one screen, the host clicks through phases, no realtime.
 `core` and `games` do not change — that is the point of the boundary. Write
 the descope up in the retro.
 
-**A second game is not a v1 goal.** If cycle 3 finishes early, add Year
-Guesser (one prompt, one number per player, closest wins — roughly 40 lines)
-purely to prove the `Game` interface holds without touching `core`. Its value
-is as evidence for the seam, not as a feature.
+**A second game is not a v1 goal.** If cycle 3 finishes early, add a tiny second
+game purely to prove the `Game` interface holds without touching `core`. (This
+shipped in Cycle 6 as **Most Likely To** — the original placeholder here was a
+"Year Guesser"; the specific game never mattered, the seam did.) Its value is as
+evidence for the seam, not as a feature.

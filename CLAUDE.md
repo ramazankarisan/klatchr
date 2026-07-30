@@ -2,8 +2,8 @@
 
 A party-game platform for teams. A host opens a room on a shared screen,
 players join on their phones with a four-letter room code, and the group plays
-a short game together. The platform hosts many games; the first is
-Guess Who Said It.
+a short game together. The platform hosts many games; two ship today —
+**Guess Who Said It** and **Most Likely To**.
 
 The platform is the product. Games are modules that plug into it.
 
@@ -22,8 +22,13 @@ pnpm gate           # full pre-commit wall — all phases, fail_fast
 
 Run `pnpm gate` before claiming any task is done. It runs the phased wall
 (syntax → format → dead code → static analysis → types → module architecture →
-build → tests → e2e) and fails fast. A task is not complete until the wall is
-green. Do not report success on the basis of code you have written but not run.
+tests) and fails fast. A task is not complete until the wall is green.
+Do not report success on the basis of code you have written but not run.
+
+The end-to-end suite (`pnpm e2e`) is **not** part of `pnpm gate` — it is too
+slow to run on every commit. It runs in CI on every pull request (the
+unbypassable server-side wall) and at cycle end as verification. Run it locally
+whenever you touch the socket handshake, a game flow, or the host/player wiring.
 
 ## Structure
 
@@ -49,6 +54,14 @@ core  <-  games  <-  protocol  <-  server
 modules by injection, not by importing them. `server` and `web` never import
 each other.
 
+## Deployment
+
+Klatchr is live at `https://klatchr.duckdns.org` — a single Docker container on
+a free-tier Oracle VM behind Caddy (auto Let's-Encrypt → public `wss://`).
+**`docs/deploy.md` is the authoritative runbook** (host, redeploy steps, TLS);
+it is the source of truth, not the historical plan-7 deploy notes. Rooms are
+in-memory (rule 7), so a redeploy drops any live rooms — that is acceptable.
+
 ## The Game interface
 
 Every game implements this. It lives in `packages/core`.
@@ -66,23 +79,30 @@ type RosterEvent =
   | { type: 'playerJoined'; player: Player }
   | { type: 'playerLeft'; id: PlayerId };
 
+// Which social settings a game suits — drives the picker. Omitted ⇒ every one.
+type GameContext = 'teams' | 'strangers';
+
 interface Game<TState, TEvent> {
   id: string;
   name: string;         // display name for the game picker
   description: string;  // one-line blurb for the game picker
+  contexts?: readonly GameContext[];
   minPlayers: number;
   maxPlayers: number;
-  init(players: Player[], deps: GameDeps, config?: unknown): TState;
+  init(players: readonly Player[], deps: GameDeps, config?: unknown): TState;
   reduce(state: TState, event: TEvent | RosterEvent): Result<TState, GameError>;
   view(state: TState, viewer: Viewer): unknown;
   scores(state: TState): Score[];
   isComplete(state: TState): boolean;
 }
+
+// The type-erased form the registry and room hold games as.
+type AnyGame = Game<unknown, unknown>;
 ```
 
 `GameDeps` carries everything non-deterministic — a random source, a clock —
 so that games stay pure and tests stay reproducible. `config` is reserved for
-games that need setup (rounds, category); Guess Who ignores it.
+games that need setup (rounds, category); both current games ignore it.
 
 **`view()` is a redaction boundary, not a convenience.** It returns what one
 specific viewer is allowed to see. The server sends `view(state, viewer)` and
@@ -107,6 +127,17 @@ see the host); the server forwards an `advance` only from the host connection.
 Adding a game means adding a directory under `packages/games` and registering
 it. It must not require a change to `packages/core`. If it does, the interface
 is wrong — stop and say so rather than special-casing the game in core.
+
+**New-game checklist** (touches only `packages/games` + `apps/web`):
+
+1. `packages/games/src/<game>/` — the pure `Game` module and its `state`,
+   `events`, `reduce`, `view`, `scores`.
+2. Register it in `packages/games/src/index.ts` (the `games` array). No `core`
+   edit — if you need one, the interface is wrong (see above).
+3. A unit test for **every** transition, including the rejections (rule 4).
+4. A `redaction.test.ts` covering **both** viewers, player and host (§ Testing).
+   The gate refuses a game directory that has none.
+5. A web view under `apps/web` — design-sketched and approved first (rule 9).
 
 ## Hard rules
 
@@ -156,15 +187,22 @@ is wrong — stop and say so rather than special-casing the game in core.
   `view(state, { role: 'player', id })` for a player in a hidden-information
   phase contains no field that would reveal another player's hidden data. Cover
   the host viewer too — `view(state, { role: 'host' })` on the shared screen is
-  the strictest case, since everyone sees it.
+  the strictest case, since everyone sees it. A gate phase
+  (`.hooks/check-redaction-tests.sh`) refuses any game directory that ships no
+  `redaction.test.ts`, so the presence of the test is enforced, not just asked.
 - Tests are behavioural: assert on returned state, views and scores, not on
   internal helper calls.
 - `apps/web` tests use React Testing Library, query by role and label, never
   by test id or class name.
-- E2E uses two Playwright browser contexts in one test to exercise a real
-  two-player round. E2E is written at the **end of Cycle 4 as verification**,
-  not as a red-green driver — the acceptance rows (P1–P7, G1–G10) drive the
-  unit loop; the browser E2E confirms the whole stack once web exists.
+- E2E uses multiple Playwright browser contexts in one test to exercise a real
+  multi-player round. It is **verification, not a red-green driver** — each
+  cycle's acceptance rows (in its plan file) drive the unit loop; the browser
+  E2E confirms the whole stack at cycle end. It is not part of `pnpm gate`; it
+  runs in CI on every PR and via `pnpm e2e` locally.
+- **E2E gotcha:** kill any stale server on `:8080` before `pnpm e2e`. Playwright
+  reuses an already-running server outside CI (`reuseExistingServer`), so a
+  stale process makes the suite test *old* code — and the failure then looks
+  like a real regression when it is not.
 
 ## Working style
 
