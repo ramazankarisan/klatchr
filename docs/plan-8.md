@@ -87,6 +87,9 @@ session of N rounds that ends on a final leaderboard. They belong with **plan-9
 
 ## Stages (each its own session + PR, green gate; visible changes design-gated)
 
+**Status (2026-07-30):** 8.0 ✅ (f840113) · 8.1 ✅ (fe8c258, PR #21) · 8.2 ✅
+(88d2425, PR #22) · cycle-end E2E ✅ (b09cabb, PR #24). **Cycle 8 COMPLETE.**
+
 - **8.0 — design pass (rule 9).** One consolidated set of sketches on the Klatchr
   design project: the **responsive player** (full-viewport) and **host board**
   (projector-scale) layouts; the **error / dead-end / empty states** (bad code, full

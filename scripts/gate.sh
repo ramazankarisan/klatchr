@@ -10,6 +10,7 @@ step "1 · no-todos";           bash .hooks/check-no-todos.sh
 step "2 · bypass-directives";  bash .hooks/check-bypass-directives.sh
 step "3 · purity (core/games)"; bash .hooks/check-purity.sh
 step "3b · max-lines";          bash .hooks/check-max-lines.sh
+step "3c · redaction tests";    bash .hooks/check-redaction-tests.sh
 
 step "4 · gitleaks (secrets)"
 if command -v gitleaks >/dev/null 2>&1; then
