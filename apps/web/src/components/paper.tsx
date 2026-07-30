@@ -68,6 +68,30 @@ function ReconnectingTape(): ReactNode {
   );
 }
 
+// Take an element out of the visual flow but keep it for assistive tech — the
+// standard clip-rect technique, used for each surface's single page `<h1>` (8.2 a11y).
+const srOnly = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+} as const;
+
+/** The one visually-hidden `<h1>` a surface owns, so every screen has exactly one
+ * top-level heading without a giant title competing with the design (8.2 a11y). */
+function ScreenTitle({ children }: { children: ReactNode }): ReactNode {
+  return (
+    <Box component="h1" sx={srOnly}>
+      {children}
+    </Box>
+  );
+}
+
 /** Room code on label-maker (dymo) tape. */
 export function DymoCode({ code, small }: { code: string; small?: boolean }): ReactNode {
   return (
@@ -78,7 +102,7 @@ export function DymoCode({ code, small }: { code: string; small?: boolean }): Re
         fontFamily: tokens.font.mono,
         fontWeight: 700,
         letterSpacing: '0.24em',
-        fontSize: small ? 13 : { xs: 24, sm: 34 },
+        fontSize: small ? 13 : { xs: 24, sm: 34, md: 42 },
         color: '#f3ece0',
         backgroundColor: tokens.color.dymo,
         px: small ? 1 : 2,
@@ -92,18 +116,10 @@ export function DymoCode({ code, small }: { code: string; small?: boolean }): Re
   );
 }
 
-/** A hand-lettered name-tag sticker in the player's marker color. */
-export function NameTag({
-  name,
-  color,
-  band = 'Hello, I’m',
-  answered,
-}: {
-  name: string;
-  color: string;
-  band?: string;
-  answered?: boolean;
-}): ReactNode {
+/** A name-tag sticker in the player's marker color. Names use `font.display`
+ * bold (8.2, design option B) — crisp and download-free, never the Comic Sans
+ * fallback the old `font.hand` reached for on most phones. */
+export function NameTag({ name, color }: { name: string; color: string }): ReactNode {
   return (
     <Box
       sx={{
@@ -117,34 +133,17 @@ export function NameTag({
       <Box sx={{ height: 6, backgroundColor: color }} />
       <Box
         sx={{
-          fontFamily: tokens.font.hand,
+          fontFamily: tokens.font.display,
+          fontWeight: 800,
           fontSize: 17,
           px: 1,
           pt: 0.75,
           pb: 1,
           color: tokens.color.ink,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 0.75,
         }}
       >
-        <Box component="span">{name}</Box>
-        {answered ? (
-          <Box
-            component="span"
-            sx={{
-              color: tokens.color.teal,
-              fontFamily: tokens.font.body,
-              fontWeight: 800,
-              fontSize: 12,
-            }}
-          >
-            ✓
-          </Box>
-        ) : null}
+        {name}
       </Box>
-      <Box sx={{ display: 'none' }}>{band}</Box>
     </Box>
   );
 }
@@ -264,7 +263,10 @@ export function Recover({
   );
 }
 
-/** The host shared-screen board: a top bar with the room code, then content. */
+/** The host shared-screen board (8.2): its own wide, centered container so it
+ * fills a TV/projector — not the phone-sized `lg` cap it used to inherit — with a
+ * projector-scale room code and a generous content pad. A top bar carries the code
+ * and join hint; the game's board sits below. */
 export function Board({
   code,
   hint,
@@ -272,47 +274,60 @@ export function Board({
   reconnecting,
 }: { code: string; hint?: ReactNode; children: ReactNode; reconnecting?: boolean }): ReactNode {
   return (
-    <Box
-      sx={{
-        ...kraftBg,
-        border: `1px solid ${tokens.color.kraft2}`,
-        borderRadius: 2,
-        overflow: 'hidden',
-        boxShadow: '0 22px 50px -30px rgba(43,38,32,0.5)',
-        color: tokens.color.ink,
-      }}
-    >
-      {reconnecting ? <ReconnectingTape /> : null}
-      <Box sx={reconnecting ? dimWhileReconnecting : undefined}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            p: '16px 24px',
-            borderBottom: `2px dashed ${tokens.color.kraft2}`,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="overline" sx={{ color: tokens.color.inkSoft }}>
-              Room
-            </Typography>
-            <DymoCode code={code} />
+    <Box sx={{ width: '100%', maxWidth: 1280, mx: 'auto' }}>
+      <Box
+        sx={{
+          ...kraftBg,
+          border: `1px solid ${tokens.color.kraft2}`,
+          borderRadius: 2,
+          overflow: 'hidden',
+          boxShadow: '0 22px 50px -30px rgba(43,38,32,0.5)',
+          color: tokens.color.ink,
+        }}
+      >
+        <ScreenTitle>Klatchr — host board</ScreenTitle>
+        {reconnecting ? <ReconnectingTape /> : null}
+        <Box sx={reconnecting ? dimWhileReconnecting : undefined}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              p: { xs: '16px 24px', md: '20px 40px' },
+              borderBottom: `2px dashed ${tokens.color.kraft2}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2.5 } }}>
+              <Typography variant="overline" sx={{ color: tokens.color.inkSoft }}>
+                Room
+              </Typography>
+              <DymoCode code={code} />
+            </Box>
+            {hint ? (
+              <Typography
+                sx={{
+                  fontSize: { xs: 13, md: 16 },
+                  color: tokens.color.inkSoft,
+                  textAlign: 'right',
+                }}
+              >
+                {hint}
+              </Typography>
+            ) : null}
           </Box>
-          {hint ? (
-            <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft, textAlign: 'right' }}>
-              {hint}
-            </Typography>
-          ) : null}
+          <Box sx={{ p: { xs: '24px', md: '40px' } }}>{children}</Box>
         </Box>
-        <Box sx={{ p: '28px' }}>{children}</Box>
       </Box>
     </Box>
   );
 }
 
-/** A phone frame wrapping a portrait player screen. */
+/** The player surface (8.2): full-viewport, not a fake phone. The mockup bezel is
+ * retired from production — a real phone doesn't need a phone drawn inside it. It's a
+ * fluid column capped at a comfortable reading width, centered, filling the viewport
+ * height so the primary action stays thumb-reachable. The kraft ground comes from the
+ * app root behind it. The `Phone`/`Board` bezels live on only in the design mockups. */
 export function Phone({
   children,
   reconnecting,
@@ -320,38 +335,28 @@ export function Phone({
   return (
     <Box
       sx={{
-        width: 300,
-        flex: '0 0 auto',
-        backgroundColor: '#ded2bd',
-        borderRadius: '30px',
-        p: '11px',
-        boxShadow: '0 22px 46px -26px rgba(43,38,32,0.6)',
+        width: '100%',
+        maxWidth: 480,
+        mx: 'auto',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        color: tokens.color.ink,
       }}
     >
+      <ScreenTitle>Klatchr</ScreenTitle>
+      {reconnecting ? <ReconnectingTape /> : null}
       <Box
         sx={{
-          ...kraftBg,
-          borderRadius: '22px',
-          overflow: 'hidden',
-          minHeight: 500,
+          p: { xs: '20px 18px 28px', sm: '24px 22px 32px' },
           display: 'flex',
           flexDirection: 'column',
-          color: tokens.color.ink,
+          gap: 1.5,
+          flex: 1,
+          ...(reconnecting ? dimWhileReconnecting : {}),
         }}
       >
-        {reconnecting ? <ReconnectingTape /> : null}
-        <Box
-          sx={{
-            p: '18px 16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1.5,
-            flex: 1,
-            ...(reconnecting ? dimWhileReconnecting : {}),
-          }}
-        >
-          {children}
-        </Box>
+        {children}
       </Box>
     </Box>
   );

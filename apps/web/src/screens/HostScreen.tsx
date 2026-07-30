@@ -29,6 +29,23 @@ function hostControl(frame: ViewFrame): { label: string; actions: readonly Actio
   return { label: 'New round', actions: gameId === null ? [] : [{ type: 'startGame' }] };
 }
 
+/** Why "Start the round" is disabled in the lobby (8.2) — no game picked, or too few
+ * players for the picked game — so the host isn't left tapping a dead button. Null when
+ * ready, or not in the lobby (the control speaks for itself elsewhere). */
+function startHint(frame: ViewFrame): string | null {
+  if (frame.phase !== 'LOBBY') {
+    return null;
+  }
+  const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
+  if (game === undefined) {
+    return 'Pick a game to begin.';
+  }
+  const need = game.minPlayers - frame.players.length;
+  return need > 0
+    ? `Need ${need} more ${need === 1 ? 'player' : 'players'} (min ${game.minPlayers}).`
+    : null;
+}
+
 function GamePicker({
   games,
   selectedId,
@@ -105,6 +122,13 @@ function Lobby({
   frame,
   onSelect,
 }: { frame: ViewFrame; onSelect: (id: string) => void }): ReactNode {
+  // Cap comes from the picked game (8.2) — never a hardcoded 50. Before a game is
+  // picked there's no cap to show, so it's just the count.
+  const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
+  const roster =
+    game === undefined
+      ? `${frame.players.length} in the room`
+      : `${frame.players.length} / ${game.maxPlayers} in the room`;
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
@@ -114,7 +138,7 @@ function Lobby({
         <Typography
           sx={{ fontFamily: tokens.font.mono, color: tokens.color.markerDeep, fontWeight: 700 }}
         >
-          {frame.players.length} / 50 in the room
+          {roster}
         </Typography>
       </Box>
       <GamePicker games={gameCatalog()} selectedId={frame.selectedGameId} onSelect={onSelect} />
@@ -161,6 +185,7 @@ export function HostScreen({
   }
   const views = viewsFor(frame.selectedGameId);
   const control = hostControl(frame);
+  const hint = startHint(frame);
   const showLobby = frame.phase === 'LOBBY' || views === null;
   return (
     <Board
@@ -176,7 +201,7 @@ export function HostScreen({
       ) : (
         <views.Host view={frame.gameView} players={frame.players} />
       )}
-      <Box sx={{ mt: 4 }}>
+      <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Button
           variant="contained"
           size="large"
@@ -189,6 +214,9 @@ export function HostScreen({
         >
           {control.label}
         </Button>
+        {hint !== null ? (
+          <Typography sx={{ color: tokens.color.inkSoft, fontSize: 15 }}>{hint}</Typography>
+        ) : null}
       </Box>
     </Board>
   );

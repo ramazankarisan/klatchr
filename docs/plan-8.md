@@ -121,5 +121,7 @@ restart (rule 7).
   live room; `pnpm gate` green; RTL covers each path.
 - **8.2** — player fills the viewport (no phone-in-phone) and the host board scales
   for a projector, against the approved sketch; no hardcoded host or player cap; tap
-  targets ≥44px; one `h1` per screen; `pnpm gate` green.
+  targets ≥44px; one `h1` per screen; `pnpm gate` green. **Docs checked (2026-07-30):**
+  design.md `font.hand` + name-tag component style updated to the shipped display-bold /
+  retired-bezel reality; no other tracked markdown made stale by this stage.
 - **cycle** — `pnpm e2e` green including the new error-recover and host-reload flows.

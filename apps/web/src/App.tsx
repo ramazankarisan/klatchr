@@ -57,14 +57,24 @@ function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }):
       }}
       sx={{ ...column, gap: 2.5, maxWidth: 360 }}
     >
-      <Typography variant="h2" sx={{ fontSize: 32 }}>
+      <Typography variant="h2" component="h1" sx={{ fontSize: 32 }}>
         Grab a name-tag
       </Typography>
       <TextField
         label="Room code"
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
-        slotProps={{ htmlInput: { maxLength: 4 } }}
+        autoFocus
+        slotProps={{
+          htmlInput: {
+            maxLength: 4,
+            autoCapitalize: 'characters',
+            autoComplete: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+            inputMode: 'text',
+          },
+        }}
       />
       <TextField label="Your name" value={name} onChange={(e) => setName(e.target.value)} />
       <Button
@@ -94,26 +104,39 @@ export function App(): ReactNode {
     setScreen({ mode: 'landing' });
   };
 
+  // Landing/join are narrow forms (a phone-sized container); the host board and the
+  // player surface own their own width and fill the viewport (8.2 — no `lg` cap that
+  // shrank the board on a TV and pinned the player to a fake-phone column).
+  if (screen.mode === 'landing' || screen.mode === 'join') {
+    return (
+      <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
+        <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
+          {screen.mode === 'landing' ? (
+            <Landing
+              onHost={() => setScreen({ mode: 'host', transport: createHostTransport('Host') })}
+              onJoin={() => setScreen({ mode: 'join' })}
+            />
+          ) : (
+            <JoinForm
+              onJoin={(code, name) =>
+                setScreen({ mode: 'player', transport: createPlayerTransport(code, name) })
+              }
+            />
+          )}
+        </Container>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ ...kraftBg, minHeight: '100vh' }}>
-      <Container maxWidth="lg" sx={{ py: { xs: 4, sm: 6 } }}>
-        {screen.mode === 'landing' ? (
-          <Landing
-            onHost={() => setScreen({ mode: 'host', transport: createHostTransport('Host') })}
-            onJoin={() => setScreen({ mode: 'join' })}
-          />
-        ) : screen.mode === 'join' ? (
-          <JoinForm
-            onJoin={(code, name) =>
-              setScreen({ mode: 'player', transport: createPlayerTransport(code, name) })
-            }
-          />
-        ) : screen.mode === 'host' ? (
+      {screen.mode === 'host' ? (
+        <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 5 } }}>
           <HostScreen transport={screen.transport} onExit={toLanding} />
-        ) : (
-          <PlayerScreen transport={screen.transport} onExit={() => setScreen({ mode: 'join' })} />
-        )}
-      </Container>
+        </Box>
+      ) : (
+        <PlayerScreen transport={screen.transport} onExit={() => setScreen({ mode: 'join' })} />
+      )}
     </Box>
   );
 }

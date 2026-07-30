@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { type ReactNode, useCallback } from 'react';
 import { DymoCode, Phone, Recover } from '../components/paper.js';
-import { viewsFor } from '../games/registry.js';
+import { gameCatalog, viewsFor } from '../games/registry.js';
 import { tokens } from '../tokens.js';
 import type { Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
@@ -83,6 +83,8 @@ export function PlayerScreen({
   const id = youId(frame);
   const me = frame.players.find((p) => p.id === id);
   const views = viewsFor(frame.selectedGameId);
+  // Seat count comes from the running game (8.2), never a hardcoded 12.
+  const seats = gameCatalog().find((g) => g.id === frame.selectedGameId)?.maxPlayers;
   return (
     <Phone reconnecting={reconnecting}>
       <Brand code={frame.code} name={me?.nickname ?? 'You'} />
@@ -91,7 +93,7 @@ export function PlayerScreen({
       ) : me?.spectator === true ? (
         <Centered
           title="You’re up next round"
-          body="This round is full (12 seats). You’ll be dealt in when the host starts again."
+          body={`This round is full${seats !== undefined ? ` (${seats} seats)` : ''}. You’ll be dealt in when the host starts again.`}
         />
       ) : views === null ? (
         <Centered title="Waiting" body="The host is setting up." />
