@@ -125,3 +125,7 @@ restart (rule 7).
   design.md `font.hand` + name-tag component style updated to the shipped display-bold /
   retired-bezel reality; no other tracked markdown made stale by this stage.
 - **cycle** — `pnpm e2e` green including the new error-recover and host-reload flows.
+  **DONE (2026-07-30).** All four E2E green: the full redaction round (roster copy
+  now asserts the game-derived cap, 8.2), the 7.2 self-heal, the new bad-code →
+  recover-card flow, and the new host-reload → same-room-resumed flow. Cycle-end docs
+  checkpoint: no tracked markdown left stale by the E2E stage.
