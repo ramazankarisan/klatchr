@@ -49,6 +49,41 @@ describe('endGame — session fold', () => {
   });
 });
 
+describe('per-game reset (B2) + leave prune (B6)', () => {
+  it('changing to a different game resets round + session tally', () => {
+    const start = room({
+      phase: 'SCORES',
+      selectedGameId: 'stub',
+      round: 3,
+      sessionScores: { a: 9 },
+    });
+    const games = [stubGame(), stubGame({ id: 'other' })];
+    const r = roomReduce(start, { type: 'selectGame', gameId: 'other' }, HOST, ctxWith(games));
+    expect(r.ok && r.value).toMatchObject({ selectedGameId: 'other', round: 0, sessionScores: {} });
+  });
+
+  it('re-selecting the same game keeps round + tally', () => {
+    const start = room({
+      phase: 'SCORES',
+      selectedGameId: 'stub',
+      round: 3,
+      sessionScores: { a: 9 },
+    });
+    const r = roomReduce(start, { type: 'selectGame', gameId: 'stub' }, HOST, ctxWith());
+    expect(r.ok && r.value).toMatchObject({ round: 3, sessionScores: { a: 9 } });
+  });
+
+  it('prunes a leaving player from the session tally', () => {
+    const start = room({
+      players: [player('a'), player('b')],
+      tokens: { a: 'sa', b: 'sb' },
+      sessionScores: { a: 5, b: 3 },
+    });
+    const r = roomReduce(start, { type: 'leave' }, asPlayer('a'), ctxWith());
+    expect(r.ok && r.value.sessionScores).toEqual({ b: 3 }); // a's ghost entry gone
+  });
+});
+
 describe('session scoring (S6)', () => {
   it('folds the round scores into the session tally on entry to SCORES', () => {
     const g = scoringGame([

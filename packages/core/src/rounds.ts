@@ -21,6 +21,11 @@ export function seatWindow(
   }));
 }
 
+/** A copy of `record` without `key` — used to drop a leaver's token + session score. */
+export function omit<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+}
+
 /** Add a round's scores onto the running session tally, keyed by playerId (S6). */
 export function foldScores(
   base: Readonly<Record<string, number>>,
