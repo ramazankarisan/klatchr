@@ -1,7 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { type ReactNode, useCallback } from 'react';
 import { DymoCode, Phone, Recover } from '../components/paper.js';
+import { SessionStandings } from '../components/standings.js';
 import { gameCatalog, viewsFor } from '../games/registry.js';
+import { GameLabel } from '../games/viewKit.js';
 import { tokens } from '../tokens.js';
 import type { Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
@@ -28,8 +30,10 @@ function SessionLine({ frame, id }: { frame: ViewFrame; id: string }): ReactNode
   if (frame.round < 1) {
     return null;
   }
-  const mine = frame.sessionScores.find((s) => s.playerId === id)?.points ?? 0;
-  const rank = 1 + frame.sessionScores.filter((s) => s.points > mine).length;
+  // Rank only among players still in the room (B6) — no ghost inflates "of N".
+  const scores = frame.sessionScores.filter((s) => frame.players.some((p) => p.id === s.playerId));
+  const mine = scores.find((s) => s.playerId === id)?.points ?? 0;
+  const rank = 1 + scores.filter((s) => s.points > mine).length;
   return (
     <Box
       sx={{
@@ -43,9 +47,9 @@ function SessionLine({ frame, id }: { frame: ViewFrame; id: string }): ReactNode
       }}
     >
       <Box component="span">Round {frame.round}</Box>
-      {frame.sessionScores.length > 0 ? (
+      {scores.length > 0 ? (
         <Box component="span">
-          #{rank} of {frame.sessionScores.length} · {mine} pts
+          #{rank} of {scores.length} · {mine} pts
         </Box>
       ) : null}
     </Box>
@@ -112,12 +116,42 @@ export function PlayerScreen({
   const id = youId(frame);
   const me = frame.players.find((p) => p.id === id);
   const views = viewsFor(frame.selectedGameId);
+  const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
   // Seat count comes from the running game (8.2), never a hardcoded 12.
-  const seats = gameCatalog().find((g) => g.id === frame.selectedGameId)?.maxPlayers;
+  const seats = game?.maxPlayers;
+  const play = (): ReactNode =>
+    views === null ? null : (
+      <views.Player view={frame.gameView} players={frame.players} youId={id} onEvent={onEvent} />
+    );
+  const header = (
+    <>
+      <Brand code={frame.code} name={me?.nickname ?? 'You'} />
+      <GameLabel name={game?.name} />
+      <SessionLine frame={frame} id={id} />
+    </>
+  );
+
+  // B1: at SCORES the round is over. A natural finish left the game on reveal/results
+  // (its terminal step) — keep showing it, that's your result. A host abort left it
+  // mid-round, so show a "that's a wrap" instead of the stale form. Overall either way.
+  if (frame.phase === 'SCORES') {
+    const terminal = views !== null && views.hostStep(frame.gameView).advance === null;
+    const anyScores = frame.sessionScores.some((s) =>
+      frame.players.some((p) => p.id === s.playerId),
+    );
+    return (
+      <Phone reconnecting={reconnecting}>
+        {header}
+        {terminal ? play() : <Centered title="That’s a wrap!" body="The host ended the round." />}
+        {anyScores ? (
+          <SessionStandings scores={frame.sessionScores} players={frame.players} title="Overall" />
+        ) : null}
+      </Phone>
+    );
+  }
   return (
     <Phone reconnecting={reconnecting}>
-      <Brand code={frame.code} name={me?.nickname ?? 'You'} />
-      <SessionLine frame={frame} id={id} />
+      {header}
       {frame.phase === 'LOBBY' ? (
         <Centered title="You’re in" body="Grab a seat — watch the board for the first prompt." />
       ) : me?.spectator === true ? (
@@ -128,7 +162,7 @@ export function PlayerScreen({
       ) : views === null ? (
         <Centered title="Waiting" body="The host is setting up." />
       ) : (
-        <views.Player view={frame.gameView} players={frame.players} youId={id} onEvent={onEvent} />
+        play()
       )}
     </Phone>
   );

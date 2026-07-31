@@ -19,7 +19,11 @@ export function SessionStandings({
   players: readonly PublicPlayer[];
   title?: string;
 }): ReactNode {
-  const ranked = [...scores].sort((a, b) => b.points - a.points);
+  // Only rank players still in the room (B6): a left player's tally is pruned
+  // server-side, but guard the render too so a ghost id never shows as a "(left)" row.
+  const ranked = scores
+    .filter((s) => players.some((p) => p.id === s.playerId))
+    .sort((a, b) => b.points - a.points);
   return (
     <Box>
       <Typography

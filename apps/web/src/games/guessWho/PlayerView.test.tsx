@@ -27,6 +27,7 @@ describe('collect', () => {
     phase: 'collect',
     prompt: 'A hill you’ll die on?',
     youSubmitted: false,
+    youSkipped: false,
     submittedCount: 0,
     total: 3,
   };
@@ -50,13 +51,18 @@ describe('collect', () => {
     expect(screen.queryByLabelText(/your answer/i)).toBeNull();
   });
 
-  it('F12 lets you skip the answer and still guess, without submitting a card', async () => {
+  it('F12/B4 skip sends a skip event (not a blank card) so the host sees it', async () => {
     const user = userEvent.setup();
     const { onEvent } = renderView(collect);
     await user.click(screen.getByRole('button', { name: /skip — i.ll just guess/i }));
+    expect(onEvent).toHaveBeenCalledWith({ type: 'skip' }); // server-driven, host counts it
+    expect(onEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'submit' }));
+  });
+
+  it('B4 shows the locked skipped state from the frame (survives a reload)', () => {
+    renderView({ ...collect, youSkipped: true });
     expect(screen.getByText(/skipped — you.ll still guess/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your answer/i)).toBeNull(); // form gone
-    expect(onEvent).not.toHaveBeenCalled(); // no blank card submitted
   });
 });
 

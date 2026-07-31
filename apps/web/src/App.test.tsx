@@ -58,7 +58,7 @@ describe('App', () => {
     expect(await screen.findByText(/answered/i)).toBeTruthy();
 
     await user.click(await screen.findByRole('button', { name: /show the cards/i }));
-    expect(await screen.findByText(/guess who said it/i)).toBeTruthy();
+    expect(await screen.findByText(/guess who said it — on your phones/i)).toBeTruthy();
 
     await user.click(await screen.findByRole('button', { name: /reveal the authors/i }));
     expect(await screen.findByText(/the authors are/i)).toBeTruthy();

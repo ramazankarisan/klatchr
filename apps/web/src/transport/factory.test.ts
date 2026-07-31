@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearHostSession, resolveWsUrl, storedHostSession } from './factory.js';
+import { clearHostSession, resolveWsUrl, storedHostSession, storedNick } from './factory.js';
 
 /**
  * The single-service (7.3) `same-origin` sentinel: the prod build sets
@@ -45,5 +45,16 @@ describe('host session persistence (8.1)', () => {
     expect(storedHostSession()).toBeNull();
     localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ' })); // missing hostToken
     expect(storedHostSession()).toBeNull();
+  });
+});
+
+describe('storedNick (B6 — the resume hint)', () => {
+  afterEach(() => localStorage.clear());
+
+  it('reads the stored nickname per room code', () => {
+    expect(storedNick('WXYZ')).toBeNull();
+    localStorage.setItem('klatchr:nick:WXYZ', 'Ada');
+    expect(storedNick('WXYZ')).toBe('Ada');
+    expect(storedNick('ZZZZ')).toBeNull(); // scoped to the code
   });
 });

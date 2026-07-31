@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Board, Recover } from '../components/paper.js';
 import { SessionStandings } from '../components/standings.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
+import { GameLabel } from '../games/viewKit.js';
 import { playerColor, tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
@@ -45,11 +46,16 @@ function hostControl(frame: ViewFrame): { label: string; actions: readonly Actio
     const ready = game !== undefined && frame.players.length >= game.minPlayers;
     return { label: 'Start the round', actions: ready ? [{ type: 'startGame' }] : [] };
   }
-  const step = gameId === null ? null : (viewsFor(gameId)?.hostStep(frame.gameView) ?? null);
-  if (step !== null && step.advance !== null) {
-    return { label: step.label, actions: [{ type: 'gameEvent', event: step.advance }] };
+  if (frame.phase === 'IN_GAME') {
+    // Mid-round: the game's own advance step (never terminal here — the terminal
+    // phase flips the room to SCORES). Only IN_GAME, so an aborted SCORES (gameState
+    // left mid-round) never surfaces a stale "Show the results" that the server rejects (B5).
+    const step = gameId === null ? null : (viewsFor(gameId)?.hostStep(frame.gameView) ?? null);
+    if (step !== null && step.advance !== null) {
+      return { label: step.label, actions: [{ type: 'gameEvent', event: step.advance }] };
+    }
   }
-  // Terminal phase (reveal/results): run it back with the same selected game.
+  // SCORES (natural finish or host abort): run it back with the same game.
   return { label: 'New round', actions: gameId === null ? [] : [{ type: 'startGame' }] };
 }
 
@@ -240,11 +246,15 @@ export function HostScreen({
     );
   }
   const views = viewsFor(frame.selectedGameId);
-  const control = hostControl(frame);
-  const hint = startHint(frame);
   const send = (action: Action): void => transport.send(action);
   const over = frame.phase === 'SCORES'; // the round finished — game-over screen
   const showPicker = frame.phase === 'LOBBY' || picking || views === null;
+  // While the picker is open (incl. "Change game" at SCORES) the primary control is
+  // a lobby "Start the round" for the (re)picked game — not the old game's step (B5).
+  const controlFrame = showPicker ? { ...frame, phase: 'LOBBY' as const } : frame;
+  const control = hostControl(controlFrame);
+  const hint = startHint(controlFrame);
+  const gameName = gameCatalog().find((g) => g.id === frame.selectedGameId)?.name;
   return (
     <Board
       code={frame.code}
@@ -255,7 +265,12 @@ export function HostScreen({
       {showPicker ? (
         <Lobby frame={frame} onSelect={(id) => send({ type: 'selectGame', gameId: id })} />
       ) : (
-        <views.Host view={frame.gameView} players={frame.players} />
+        <Box>
+          <Box sx={{ mb: 1 }}>
+            <GameLabel name={gameName} />
+          </Box>
+          <views.Host view={frame.gameView} players={frame.players} />
+        </Box>
       )}
       {over && !picking && frame.sessionScores.length > 0 ? (
         <Box sx={{ mt: 3 }}>
