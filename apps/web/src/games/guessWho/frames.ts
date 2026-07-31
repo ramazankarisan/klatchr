@@ -23,6 +23,7 @@ interface CollectPlayerView {
   phase: 'collect';
   prompt: string;
   youSubmitted: boolean;
+  youSkipped: boolean; // B4: you chose to skip — locked, but you still guess
   submittedCount: number;
   total: number;
 }

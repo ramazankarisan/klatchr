@@ -11,6 +11,28 @@ import type { PlayerViewProps } from './viewProps.js';
  * here and every game's Host/Player view composes them — no per-game re-styling.
  */
 
+/** The running game's name, shown on the board + phone so players always know what
+ * they're playing (B3). Null before a game is picked. */
+export function GameLabel({ name }: { name: string | undefined }): ReactNode {
+  if (name === undefined) {
+    return null;
+  }
+  return (
+    <Typography
+      sx={{
+        fontFamily: tokens.font.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: tokens.color.markerDeep,
+      }}
+    >
+      {name}
+    </Typography>
+  );
+}
+
 /** Small eyebrow above a phone's content. */
 export function PlayerKicker({ children }: { children: ReactNode }): ReactNode {
   return (

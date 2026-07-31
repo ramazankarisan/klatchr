@@ -102,4 +102,50 @@ describe('session UI — round, standings, and the host exits (10)', () => {
     expect(screen.getByText(/round 2/i)).toBeTruthy();
     expect(screen.getByText(/#2 of 2/i)).toBeTruthy(); // b is second with 4 pts
   });
+
+  it('B1 the player gets a game-over screen + overall standings at SCORES', () => {
+    // Host aborted mid-round → SCORES with a stale gameView the game can't advance.
+    const t = new FrameTransport(
+      frame({
+        phase: 'SCORES',
+        viewer: { role: 'player', id: 'a' },
+        selectedGameId: null, // no view registered → not terminal → the "wrap" branch
+        round: 2,
+        sessionScores: [
+          { playerId: 'a', points: 7 },
+          { playerId: 'b', points: 4 },
+        ],
+      }),
+    );
+    render(withTheme(<PlayerScreen transport={t} onExit={() => {}} />));
+    expect(screen.getByText(/that.s a wrap/i)).toBeTruthy();
+    expect(screen.getByText(/overall/i)).toBeTruthy(); // the cumulative standings
+  });
+
+  it('B6 a ghost score id (not on the roster) never shows on the board or rank', () => {
+    // 2 players, but 3 score entries — the 3rd id 'ghost' left. No "(left)" row, count = 2.
+    const t = new FrameTransport(
+      frame({
+        phase: 'SCORES',
+        viewer: { role: 'player', id: 'b' },
+        selectedGameId: null,
+        round: 2,
+        sessionScores: [
+          { playerId: 'a', points: 7 },
+          { playerId: 'b', points: 4 },
+          { playerId: 'ghost-0123456789', points: 9 },
+        ],
+      }),
+    );
+    render(withTheme(<PlayerScreen transport={t} onExit={() => {}} />));
+    expect(screen.queryByText(/ghost-0123456789/)).toBeNull(); // no raw id
+    expect(screen.queryByText(/\(left\)/)).toBeNull(); // filtered, not labelled
+    expect(screen.getByText(/#2 of 2/i)).toBeTruthy(); // ghost excluded from the count
+  });
+
+  it('B3 the host board shows the running game name in-game', () => {
+    const t = new FrameTransport(frame({ phase: 'IN_GAME', gameView: { phase: 'collect' } }));
+    render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
+    expect(screen.getByText('Guess Who Said It')).toBeTruthy(); // the game-name label
+  });
 });

@@ -9,14 +9,21 @@ import { type GuessPlayerView, type RevealView, asPlayerView } from './frames.js
 function CollectPhone({
   prompt,
   youSubmitted,
+  youSkipped,
   onSubmit,
-}: { prompt: string; youSubmitted: boolean; onSubmit: (text: string) => void }): ReactNode {
+  onSkip,
+}: {
+  prompt: string;
+  youSubmitted: boolean;
+  youSkipped: boolean;
+  onSubmit: (text: string) => void;
+  onSkip: () => void;
+}): ReactNode {
   const [text, setText] = useState('');
-  // F12: a player can skip taping a card and still guess others this round. Skipping
-  // is local (no blank card is submitted); the frame just never sees a draft for them.
-  const [skipped, setSkipped] = useState(false);
   const trimmed = text.trim();
-  const done = youSubmitted || skipped;
+  // B4: skip is now a real event the host sees — `youSkipped` comes from the frame,
+  // not local state, so a reload keeps the skipped state and the host counts you done.
+  const done = youSubmitted || youSkipped;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
       <PlayerKicker>Your answer · secret</PlayerKicker>
@@ -71,7 +78,7 @@ function CollectPhone({
           <Button
             variant="text"
             color="inherit"
-            onClick={() => setSkipped(true)}
+            onClick={onSkip}
             sx={{ color: tokens.color.inkSoft, minHeight: 44 }}
           >
             Skip — I’ll just guess this round
@@ -240,7 +247,9 @@ export const PlayerView = gamePlayerView(asPlayerView, (v, { players, youId, onE
       <CollectPhone
         prompt={v.prompt}
         youSubmitted={v.youSubmitted}
+        youSkipped={v.youSkipped}
         onSubmit={(text) => onEvent({ type: 'submit', text })}
+        onSkip={() => onEvent({ type: 'skip' })}
       />
     );
   }

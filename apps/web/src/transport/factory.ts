@@ -89,12 +89,14 @@ export function createPlayerTransport(code: string, nickname: string): Transport
     stored === null
       ? { role: 'player', code, nickname }
       : { role: 'player', code, nickname, reconnectToken: stored };
-  const transport = new SocketTransport(url, init);
-  // E3: persist the resume secret + the name so a refresh resumes the same slot,
-  // and the join form can show "resuming as <name>" next time (F1).
-  transport.onReconnectToken = (token) => {
-    localStorage.setItem(key, token);
+  // Record the name only on a FRESH join — the server keeps that name and ignores
+  // any name typed on a later resume, so overwriting it here would make the stored
+  // nick drift to the last-typed one (B6). On a resume we keep the original.
+  if (stored === null) {
     localStorage.setItem(nickKey(code), nickname);
-  };
+  }
+  const transport = new SocketTransport(url, init);
+  // E3: persist the resume secret so a refresh resumes the same slot.
+  transport.onReconnectToken = (token) => localStorage.setItem(key, token);
   return transport;
 }
