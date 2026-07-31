@@ -11,6 +11,7 @@ function collectState(): GWState {
     prompt: 'A prompt?',
     roster: ['a', 'b', 'c'],
     drafts: { a: 'apples', b: 'bananas' },
+    skipped: [],
     cards: [],
     guesses: {},
   };
@@ -22,6 +23,7 @@ function guessState(): GWState {
     prompt: 'A prompt?',
     roster: ['a', 'b', 'c'],
     drafts: { a: 'apples', b: 'bananas', c: 'cherries' },
+    skipped: [],
     cards: [
       { id: 'c0', text: 'apples', authorId: 'a' },
       { id: 'c1', text: 'bananas', authorId: 'b' },

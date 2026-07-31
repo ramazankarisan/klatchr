@@ -18,15 +18,17 @@ export function viewFor(state: GWState, viewer: Viewer): unknown {
 }
 
 function collectView(state: GWState, viewer: Viewer) {
-  const submitted = Object.keys(state.drafts);
-  const progress = { submittedCount: submitted.length, total: state.roster.length };
+  // Resolved = answered OR skipped (B4) — the host counts both as "done".
+  const resolved = [...new Set([...Object.keys(state.drafts), ...state.skipped])];
+  const progress = { submittedCount: resolved.length, total: state.roster.length };
   if (viewer.role === 'host') {
-    return { phase: 'collect', prompt: state.prompt, submitted, ...progress }; // who, never the text
+    return { phase: 'collect', prompt: state.prompt, submitted: resolved, ...progress }; // who, never the text
   }
   return {
     phase: 'collect',
     prompt: state.prompt,
-    youSubmitted: submitted.includes(viewer.id),
+    youSubmitted: viewer.id in state.drafts,
+    youSkipped: state.skipped.includes(viewer.id),
     ...progress,
   };
 }
