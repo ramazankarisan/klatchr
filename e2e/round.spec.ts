@@ -184,7 +184,9 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   // --- reveal: authorship becomes public, proving the redaction was phase-gated ---
   await host.page.getByRole('button', { name: STEP.reveal }).click();
   await expect(cyrus.getByText(/Round done/)).toBeVisible();
-  await expect(cyrus.getByText('Adalyn')).toBeVisible(); // the name that was hidden a moment ago
+  // The reveal now also carries the overall standings (B1), so a name can appear both
+  // as an author chip and a standings row — first() is enough to prove it's revealed.
+  await expect(cyrus.getByText('Adalyn').first()).toBeVisible(); // hidden a moment ago
   // Two standings at reveal now (the round tally + the cumulative session tally, 10.4).
   await expect(host.page.getByText('Standings').first()).toBeVisible();
   await expect(host.page.getByText('Adalyn').first()).toBeVisible(); // author chip + standings row
@@ -313,7 +315,8 @@ test('a skipper still guesses, the board keeps a running tally, and the host can
     .getByRole('button', { name: /skip — i.ll just guess/i })
     .click();
   await expect(phone('Cyrus').getByText(/skipped/i)).toBeVisible();
-  await expect(host.page.getByText(/2 of 3 answered/)).toBeVisible(); // the skip taped no card
+  // B4: skip is a real event now — the host counts the skipper as done (no card taped).
+  await expect(host.page.getByText(/3 of 3 answered/)).toBeVisible();
 
   // Show the cards → the skipper can still name authors on the two taped answers.
   await host.page.getByRole('button', { name: STEP.show }).click();
@@ -329,4 +332,36 @@ test('a skipper still guesses, the board keeps a running tally, and the host can
   await expect(host.page.getByText(/game over/i)).toBeVisible();
   await host.page.getByRole('button', { name: /change game/i }).click();
   await expect(host.page.getByText(/choose tonight.s game/i)).toBeVisible();
+});
+
+/**
+ * B1/B5: the host ends a round mid-vote. The player must learn it's over (not sit on
+ * the vote form), and the host's control must recover to a working "New round" (not a
+ * dead step that the server rejects).
+ */
+test('host ends a round mid-play → the player sees game-over and the host can restart (B1/B5)', async ({
+  browser,
+}) => {
+  const host = await openHost(browser);
+  const phone = await joinAllPlayers(browser, host.code);
+
+  await host.page.getByRole('button', { name: /most likely to/i }).click();
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  await expect(
+    phone('Adalyn')
+      .getByText(/most likely/i)
+      .first(),
+  ).toBeVisible(); // mid-vote
+
+  // Host aborts mid-vote (nobody voted yet).
+  await host.page.getByRole('button', { name: /end game/i }).click();
+
+  // The player no longer sits on the vote form — it's a wrap, with the overall standings.
+  await expect(phone('Adalyn').getByText(/that.s a wrap/i)).toBeVisible();
+  await expect(phone('Adalyn').getByText(/overall/i)).toBeVisible();
+
+  // The host control recovered to a working "New round" (not a rejected stale step).
+  await expect(host.page.getByRole('button', { name: /new round/i })).toBeVisible();
+  await host.page.getByRole('button', { name: /new round/i }).click();
+  await expect(host.page.getByText(/everyone.s voting/i)).toBeVisible(); // a fresh round ran
 });
