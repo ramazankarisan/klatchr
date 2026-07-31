@@ -6,7 +6,7 @@ import { normaliseNickname } from './nickname.js';
 import { type Result, err, ok } from './result.js';
 import { generateRoomCode } from './roomCode.js';
 import type { Phase, ReduceContext, Room, RoomError, RoomEvent } from './roomTypes.js';
-import { foldScores, seatWindow } from './rounds.js';
+import { foldScores, omit, seatWindow } from './rounds.js';
 
 export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set()): Room {
   return {
@@ -89,11 +89,12 @@ function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Room
     return ok({ ...room, closed: true }); // P6: host leaves -> room closed
   }
   const players = room.players.filter((p) => p.id !== actor.id);
-  // Drop the leaver's token too, or a stale secret could "resume" a gone slot.
-  const tokens = Object.fromEntries(Object.entries(room.tokens).filter(([id]) => id !== actor.id));
+  // Drop the leaver's token + prune their tally (B6) — a left id can't resume, so both would linger.
+  const tokens = omit(room.tokens, actor.id);
+  const sessionScores = omit(room.sessionScores, actor.id);
   const gameState = forwardRoster(room, { type: 'playerLeft', id: actor.id }, ctx);
   const closed = players.length === 0; // P7: last player leaves -> discarded
-  return ok({ ...room, players, tokens, gameState, closed });
+  return ok({ ...room, players, tokens, gameState, closed, sessionScores });
 }
 
 function selectGame(
@@ -112,7 +113,8 @@ function selectGame(
   if (room.phase === 'IN_GAME') {
     return err({ code: 'WRONG_PHASE' });
   }
-  return ok({ ...room, phase: 'LOBBY', selectedGameId: gameId });
+  const fresh = gameId !== room.selectedGameId ? { round: 0, sessionScores: {} } : {}; // B2
+  return ok({ ...room, phase: 'LOBBY', selectedGameId: gameId, ...fresh });
 }
 
 function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
@@ -152,9 +154,8 @@ function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room,
   if (!result.ok) {
     return err({ code: 'GAME_REJECTED', message: result.error.code });
   }
-  const complete = game.isComplete(result.value);
+  const complete = game.isComplete(result.value); // fold once on entry to SCORES (S6)
   const phase: Phase = complete ? 'SCORES' : 'IN_GAME';
-  // Fold the round into the session tally on entry to SCORES (S6, terminal → once).
   const sessionScores = complete
     ? foldScores(room.sessionScores, game.scores(result.value))
     : room.sessionScores;
@@ -173,8 +174,7 @@ function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Ro
   if (game === undefined) {
     return err({ code: 'GAME_NOT_REGISTERED' });
   }
-  // Host abort still counts (D1): fold the partial round's scores at the moment
-  // of the abort, same as a natural completion.
+  // Host abort still counts (D1): fold the partial round's scores, like a natural end.
   const sessionScores = foldScores(room.sessionScores, game.scores(room.gameState));
   return ok({ ...room, phase: 'SCORES', sessionScores });
 }
