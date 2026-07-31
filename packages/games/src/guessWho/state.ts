@@ -14,6 +14,7 @@ export interface GWState {
   prompt: string;
   roster: readonly PlayerId[]; // the active seats init was handed (E2)
   drafts: Readonly<Record<PlayerId, string>>; // collect-phase submissions
+  skipped: readonly PlayerId[]; // players who chose not to answer but still guess (B4)
   cards: readonly AnswerCard[]; // built at collect -> guess
   guesses: Readonly<Record<PlayerId, Readonly<Record<string, PlayerId>>>>; // guesser -> (cardId -> author)
 }

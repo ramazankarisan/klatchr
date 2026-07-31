@@ -7,6 +7,7 @@ function revealState(guesses: GWState['guesses']): GWState {
     prompt: 'A prompt?',
     roster: ['a', 'b', 'c'],
     drafts: {},
+    skipped: [],
     cards: [
       { id: 'c0', text: 'apples', authorId: 'a' },
       { id: 'c1', text: 'bananas', authorId: 'b' },

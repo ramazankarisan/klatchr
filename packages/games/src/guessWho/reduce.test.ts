@@ -69,6 +69,30 @@ describe('submit (G2–G4)', () => {
   });
 });
 
+describe('skip (B4)', () => {
+  const HOST = { role: 'host' } as const;
+
+  it('marks a skipper resolved (no card) so the host counts them done, and is idempotent', () => {
+    let state = expectOk(guessWho.reduce(collect(), { type: 'skip', playerId: 'a' }));
+    expect(state.skipped).toEqual(['a']);
+    state = expectOk(guessWho.reduce(state, { type: 'skip', playerId: 'a' })); // idempotent
+    expect(state.skipped).toEqual(['a']);
+    // The host progress counts the skipper as done, but they got no card.
+    const view = guessWho.view(state, HOST) as { submittedCount: number; submitted: string[] };
+    expect(view.submittedCount).toBe(1);
+    expect(view.submitted).toContain('a');
+    const advanced = expectOk(guessWho.reduce(state, { type: 'advance', from: 'collect' }));
+    expect(advanced.cards).toHaveLength(0); // no answer taped
+  });
+
+  it('rejects a skip from a non-roster player and once past collect', () => {
+    const spectator = guessWho.reduce(collect(), { type: 'skip', playerId: 'z' });
+    expect(spectator.ok === false && spectator.error.code).toBe('NOT_PLAYING');
+    const late = guessWho.reduce(seedGuess(), { type: 'skip', playerId: 'a' });
+    expect(late.ok === false && late.error.code).toBe('WRONG_PHASE');
+  });
+});
+
 describe('advance (G5, G7)', () => {
   it('G5 freezes anonymised cards sorted by text and moves to guess', () => {
     const state = seedGuess();

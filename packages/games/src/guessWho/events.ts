@@ -6,5 +6,6 @@ import type { PlayerId } from '@klatchr/core';
  */
 export type GWEvent =
   | { type: 'submit'; playerId: PlayerId; text: string }
+  | { type: 'skip'; playerId: PlayerId } // answer nothing, still guess (B4)
   | { type: 'guess'; playerId: PlayerId; cardId: string; author: PlayerId }
   | { type: 'advance'; from: 'collect' | 'guess' };
