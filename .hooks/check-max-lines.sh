@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# File-size caps. core/games are the pure "small" packages — held stricter.
-STRICT=200   # packages/core, packages/games production files
+# File-size caps. A uniform 400-line ceiling across every package (raised from a
+# stricter 200 for core/games in Cycle 11 — the user's call; splitting for its own
+# sake was buying little). A file near the cap is still a smell worth a split.
+STRICT=400   # packages/core, packages/games production files
 NORMAL=400   # packages/protocol, apps production files
 TESTS=400    # any *.test.ts / *.test.tsx
 
