@@ -143,3 +143,10 @@ round — same no-repeat guarantee, no cross-round seed problem. **Decided: in-o
 the disclosure, no new tokens), SPEC.md (plan range → plan-11), CLAUDE.md (the Game
 `config` seam is now live — note it under §The Game interface if the "reserved" wording
 goes stale), README if the feature list is user-facing. Log the sweep here.
+
+**Docs checked (2026-08-03):** CLAUDE.md §The Game interface (the "`config` is reserved …
+both games ignore it" line rewritten — config now carries host-authored setup, and GameDeps
+now injects the round); design.md (new "Cycle 11 — host-authored questions" section, no new
+tokens); SPEC.md (cycle list + plan range → plan-11); README.md (the intro now names the
+bring-your-own-questions flow); `.hooks/check-max-lines.sh` comment (uniform 400 cap). All
+brought to the shipped reality.
