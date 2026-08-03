@@ -75,13 +75,30 @@ shared code.
   round: `authored[(deps.round - 1) % authored.length]`; **no config ⇒ today's random
   draw, unchanged.** Each game exports a `packs` table (pure data — `guessWho/packs.ts`,
   `mostLikelyTo/packs.ts`). Redaction tests unaffected. Games stay **100%**.
-- **`web`** — `GameViews` gains an optional `Setup` slot; both games point it at a shared
-  `PromptSetEditor` (packs row → append; deletable rows; add-your-own; source tags; count;
-  built-in-fallback note). The host lobby gets the **Customize ⌄** disclosure (collapsed by
-  default — the one-tap path is untouched). Transport `Action` gains
-  `{ type:'configureGame'; config: unknown }`; `socket.toWire` maps it; the lobby sends one
-  full-list snapshot on panel close (and before `startGame` if changed). All against the
-  approved sketch.
+- **`web`** — `GameViews` gains an optional `packs` slot; both games point the shared
+  `PromptSetEditor` at their own packs (packs row → append; deletable rows; add-your-own;
+  source tags; count; built-in-fallback note). The host lobby gets the **Customize ⌄**
+  disclosure (collapsed by default — the one-tap path is untouched). Transport `Action` gains
+  `{ type:'configureGame'; config: unknown }`; `socket.toWire` maps it; the lobby sends the
+  full list as a snapshot **on each edit** (discrete actions, idempotent — ordered before
+  `startGame` over the same socket). The list is **cached in `localStorage` per room+game**
+  so a reload or a re-opened panel rehydrates it. All against the approved sketch.
+
+## Review fixes (post-review, same PR)
+
+The cycle's code review confirmed the seam, rotation, redaction, timing and purity are
+clean, and raised three findings; addressed here:
+
+- **F1 (medium) — the editor couldn't rehydrate the stored set.** After a host reload (or
+  re-opening the panel post-round) the editor mounted empty and read "built-in" while the
+  room still held a set, and a re-edit **replaced** it (silent loss). Fixed by caching the
+  authored list in `localStorage` (`storedQuestions`/`rememberQuestions`, mirroring the
+  nick/token pattern) and seeding the editor from it on mount — so re-edits **append**.
+- **F3 (low) — the editor lacked the caps `init` enforces.** Mirrored `MAX_PROMPTS`/`MAX_LEN`
+  (now exported from `games`): the list is capped, the field bounded, Add disabled at the cap.
+- **F2 (low) — round isn't reset when a set is replaced mid-session.** Left as-is: the
+  by-round walk is intentional for a *persisted* set, and F1's append-not-replace removes the
+  surprising path. Documented, no code change.
 
 ## Design-gated screen (Rule 9)
 
