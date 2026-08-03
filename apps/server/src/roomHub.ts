@@ -54,7 +54,9 @@ export class RoomHub {
         this.resumeHostRoom(conn, message.code, message.hostToken);
         return;
       case 'host':
-        this.route(conn, message.code, (s) => s.hostAction(conn, message.action, message.gameId));
+        this.route(conn, message.code, (s) =>
+          s.hostAction(conn, message.action, message.gameId, message.config),
+        );
         return;
       case 'play':
         this.route(conn, message.code, (s) => s.play(conn, message.event));
