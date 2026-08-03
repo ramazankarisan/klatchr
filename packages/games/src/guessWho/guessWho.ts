@@ -1,13 +1,14 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
 import { err, ok } from '@klatchr/core';
+import { choosePrompt } from '../promptConfig.js';
 import type { GWEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
 import type { AnswerCard, GWState } from './state.js';
 import { viewFor } from './view.js';
 
-function init(active: readonly Player[], deps: GameDeps): GWState {
-  const prompt = PROMPTS[Math.floor(deps.random() * PROMPTS.length)] ?? PROMPTS[0];
+function init(active: readonly Player[], deps: GameDeps, config?: unknown): GWState {
+  const prompt = choosePrompt(config, deps, PROMPTS);
   return {
     phase: 'collect',
     prompt,
