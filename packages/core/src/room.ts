@@ -20,6 +20,7 @@ export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set(
     closed: false,
     sessionScores: {},
     round: 0,
+    gameConfig: undefined,
   };
 }
 
@@ -46,6 +47,8 @@ export function roomReduce(
       return leave(room, actor, ctx);
     case 'selectGame':
       return selectGame(room, event.gameId, actor, ctx);
+    case 'configureGame':
+      return configureGame(room, event.config, actor);
     case 'startGame':
       return startGame(room, actor, ctx);
     case 'gameEvent':
@@ -113,8 +116,24 @@ function selectGame(
   if (room.phase === 'IN_GAME') {
     return err({ code: 'WRONG_PHASE' });
   }
-  const fresh = gameId !== room.selectedGameId ? { round: 0, sessionScores: {} } : {}; // B2
+  // B2 + Cycle 11: a different game is its own contest — reset the round, the tally, and
+  // the host-authored config (a set authored for one game is meaningless to another).
+  const fresh =
+    gameId !== room.selectedGameId ? { round: 0, sessionScores: {}, gameConfig: undefined } : {};
   return ok({ ...room, phase: 'LOBBY', selectedGameId: gameId, ...fresh });
+}
+
+/** Store the host's opaque game config (Cycle 11). Host-only, lobby-only; the room never
+ * looks inside it — `startGame` hands it to `game.init` and the game validates it. */
+function configureGame(room: Room, config: unknown, actor: Viewer): Result<Room, RoomError> {
+  const hostError = requireHost(actor);
+  if (hostError !== null) {
+    return err(hostError);
+  }
+  if (room.phase === 'IN_GAME') {
+    return err({ code: 'WRONG_PHASE' });
+  }
+  return ok({ ...room, gameConfig: config });
 }
 
 function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
@@ -138,7 +157,9 @@ function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, 
   const round = room.round + 1;
   const seated = seatWindow(room.players, game.maxPlayers, round); // E2 + X1 rotation
   const active = seated.filter((p) => !p.spectator);
-  const gameState = game.init(active, ctx.gameDeps);
+  // Inject the round into deps and hand the game its stored config (Cycle 11); the room
+  // treats the config as opaque — the game reads and validates it.
+  const gameState = game.init(active, { ...ctx.gameDeps, round }, room.gameConfig);
   return ok({ ...room, phase: 'IN_GAME', gameState, players: seated, round });
 }
 

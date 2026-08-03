@@ -2,7 +2,7 @@ import type { GameDeps, GameError, Player, Result } from '@klatchr/core';
 import { guessWho } from './guessWho.js';
 import type { GWState } from './state.js';
 
-const deps: GameDeps = { random: () => 0, now: () => 0 };
+const deps: GameDeps = { random: () => 0, now: () => 0, round: 1 };
 const player = (id: string): Player => ({
   id,
   nickname: id,
@@ -43,7 +43,11 @@ describe('init (G1)', () => {
   });
 
   it('tolerates a random draw of 1.0 (inclusive-upper RNG) with a valid prompt', () => {
-    const state = guessWho.init([player('a'), player('b')], { random: () => 1, now: () => 0 });
+    const state = guessWho.init([player('a'), player('b')], {
+      random: () => 1,
+      now: () => 0,
+      round: 1,
+    });
     expect(state.prompt.length).toBeGreaterThan(0);
   });
 });
