@@ -47,8 +47,12 @@ export const clientMessage = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('host'),
     code: roomCode,
-    action: z.enum(['selectGame', 'startGame', 'endGame']),
+    action: z.enum(['selectGame', 'configureGame', 'startGame', 'endGame']),
     gameId: z.string().optional(), // required only for selectGame; the server enforces that
+    // Host-authored game setup (Cycle 11), carried only on a `configureGame`. Opaque on
+    // the wire — the same z.unknown() discipline as `play.event`/`frame.gameView`; the
+    // *game* validates its shape in init, not the protocol. The server enforces presence.
+    config: z.unknown().optional(),
   }),
   z.object({
     type: z.literal('play'),
