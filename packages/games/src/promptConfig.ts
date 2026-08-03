@@ -27,7 +27,8 @@ export function validPrompts(config: unknown): readonly string[] | null {
   }
   const seen = new Set<string>();
   const cleaned: string[] = [];
-  for (const item of raw) {
+  // Array.isArray narrows to any[]; take each element as unknown so nothing is `any`.
+  for (const item of Array.from<unknown>(raw)) {
     if (typeof item !== 'string') {
       continue;
     }

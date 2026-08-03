@@ -18,7 +18,7 @@ interface Item {
 
 const norm = (s: string): string => s.trim().toLowerCase();
 
-export interface PromptSetEditorProps {
+interface PromptSetEditorProps {
   packs: readonly PromptPack[];
   onChange: (prompts: string[]) => void;
 }
