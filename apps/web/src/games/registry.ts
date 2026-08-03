@@ -1,4 +1,4 @@
-import { games } from '@klatchr/games';
+import { type PromptPack, games, guessWhoPacks, mostLikelyToPacks } from '@klatchr/games';
 import type { ReactNode } from 'react';
 import type { PublicPlayer } from '../transport/types.js';
 import { HostView as GuessWhoHost } from './guessWho/HostView.js';
@@ -21,14 +21,23 @@ interface GameViews {
   Host: (props: { view: unknown; players: readonly PublicPlayer[] }) => ReactNode;
   Player: (props: PlayerViewProps) => ReactNode;
   hostStep: (gameView: unknown) => HostStep;
+  // Themed prompt packs the host can pour into their question set (Cycle 11); the shared
+  // PromptSetEditor renders them. Omitted for a game that takes no host-authored setup.
+  packs?: readonly PromptPack[];
 }
 
 const registry: Record<string, GameViews> = {
-  'guess-who': { Host: GuessWhoHost, Player: GuessWhoPlayer, hostStep: guessWhoStep },
+  'guess-who': {
+    Host: GuessWhoHost,
+    Player: GuessWhoPlayer,
+    hostStep: guessWhoStep,
+    packs: guessWhoPacks,
+  },
   'most-likely-to': {
     Host: MostLikelyToHost,
     Player: MostLikelyToPlayer,
     hostStep: mostLikelyToStep,
+    packs: mostLikelyToPacks,
   },
 };
 

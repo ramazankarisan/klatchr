@@ -32,6 +32,7 @@ export interface ViewFrame {
 /** A host control, a forwarded game event, or a player action — the outbound wire. */
 export type Action =
   | { type: 'selectGame'; gameId: string }
+  | { type: 'configureGame'; config: unknown } // host-authored game setup (Cycle 11)
   | { type: 'startGame' }
   | { type: 'endGame' }
   | { type: 'gameEvent'; event: unknown };
