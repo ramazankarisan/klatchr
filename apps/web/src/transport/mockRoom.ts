@@ -92,6 +92,9 @@ class MockEngine {
       case 'selectGame':
         this.apply(actor, { type: 'selectGame', gameId: action.gameId });
         break;
+      case 'configureGame':
+        this.apply(actor, { type: 'configureGame', config: action.config });
+        break;
       case 'startGame':
         this.apply(actor, { type: 'startGame' });
         break;

@@ -280,6 +280,8 @@ export class SocketTransport implements Transport {
     switch (action.type) {
       case 'selectGame':
         return { type: 'host', code, action: 'selectGame', gameId: action.gameId };
+      case 'configureGame':
+        return { type: 'host', code, action: 'configureGame', config: action.config };
       case 'startGame':
         return { type: 'host', code, action: 'startGame' };
       case 'endGame':

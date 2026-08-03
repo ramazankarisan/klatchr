@@ -1,7 +1,9 @@
+import type { PromptPack } from '@klatchr/games';
 import { Box, Button, Typography } from '@mui/material';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Board, Recover } from '../components/paper.js';
 import { SessionStandings } from '../components/standings.js';
+import { PromptSetEditor } from '../games/PromptSetEditor.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
 import { playerColor, tokens } from '../tokens.js';
@@ -214,6 +216,59 @@ function Lobby({
   );
 }
 
+/** The optional "Customize questions" disclosure under the picked game (Cycle 11). Closed by
+ * default — the one-tap path is untouched. Open it to pour in packs, delete, or add your own;
+ * the working list is sent up as it changes. Self-contained: the host screen remounts it with
+ * a `key` on the game id, so a game change resets it. The editor stays mounted while collapsed
+ * (hidden), so opening and closing the panel never loses the list. */
+function CustomizeQuestions({
+  packs,
+  onConfigure,
+}: {
+  packs: readonly PromptPack[];
+  onConfigure: (prompts: string[]) => void;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(0);
+  return (
+    <Box sx={{ mt: 2.5 }}>
+      <Button
+        onClick={() => setOpen((v) => !v)}
+        fullWidth
+        sx={{
+          textTransform: 'none',
+          justifyContent: 'space-between',
+          color: tokens.color.ink,
+          backgroundColor: tokens.color.card,
+          border: '1px dashed #d8c8ac',
+          borderRadius: `${tokens.radius.control}px`,
+          px: 1.75,
+          py: 1.25,
+          fontSize: 14,
+        }}
+      >
+        <Box component="span">
+          {count === 0
+            ? 'Using the built-in question bank'
+            : `${count} custom ${count === 1 ? 'question' : 'questions'}`}
+        </Box>
+        <Box component="span" sx={{ color: tokens.color.inkSoft, fontWeight: 700 }}>
+          {open ? 'Done ▴' : 'Customize ▾'}
+        </Box>
+      </Button>
+      <Box sx={{ mt: 1, display: open ? 'block' : 'none' }}>
+        <PromptSetEditor
+          packs={packs}
+          onChange={(next) => {
+            setCount(next.length);
+            onConfigure(next);
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}
+
 export function HostScreen({
   transport,
   onExit,
@@ -263,7 +318,16 @@ export function HostScreen({
       reconnecting={reconnecting}
     >
       {showPicker ? (
-        <Lobby frame={frame} onSelect={(id) => send({ type: 'selectGame', gameId: id })} />
+        <>
+          <Lobby frame={frame} onSelect={(id) => send({ type: 'selectGame', gameId: id })} />
+          {views?.packs !== undefined && frame.selectedGameId !== null ? (
+            <CustomizeQuestions
+              key={frame.selectedGameId}
+              packs={views.packs}
+              onConfigure={(next) => send({ type: 'configureGame', config: { prompts: next } })}
+            />
+          ) : null}
+        </>
       ) : (
         <Box>
           <Box sx={{ mb: 1 }}>
