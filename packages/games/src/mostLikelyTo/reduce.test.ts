@@ -2,7 +2,7 @@ import type { GameDeps, GameError, Player, Result } from '@klatchr/core';
 import { mostLikelyTo } from './mostLikelyTo.js';
 import type { MLTState } from './state.js';
 
-const deps: GameDeps = { random: () => 0, now: () => 0 };
+const deps: GameDeps = { random: () => 0, now: () => 0, round: 1 };
 const player = (id: string): Player => ({
   id,
   nickname: id,
@@ -39,7 +39,11 @@ describe('init (M1)', () => {
   });
 
   it('tolerates a random draw of 1.0 (inclusive-upper RNG) with a valid prompt', () => {
-    const state = mostLikelyTo.init([player('a'), player('b')], { random: () => 1, now: () => 0 });
+    const state = mostLikelyTo.init([player('a'), player('b')], {
+      random: () => 1,
+      now: () => 0,
+      round: 1,
+    });
     expect(state.prompt.length).toBeGreaterThan(0);
   });
 });

@@ -61,7 +61,8 @@ class MockEngine {
   private room: Room;
   private readonly registry = createRegistry(games);
   private readonly roomDeps: RoomDeps = makeRoomDeps();
-  private readonly gameDeps: GameDeps = { random: () => Math.random(), now: () => 0 };
+  // `round` is a baseline — the engine's startGame injects the real round per game.
+  private readonly gameDeps: GameDeps = { random: () => Math.random(), now: () => 0, round: 0 };
   private readonly subs = new Set<Sub>();
   private readonly answered = new Map<PlayerId, string>();
 

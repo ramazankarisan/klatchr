@@ -21,7 +21,8 @@ export interface ServerDeps {
 export function realDeps(): ServerDeps {
   return {
     roomDeps: { random: () => Math.random(), id: () => randomUUID(), secret: () => randomUUID() },
-    gameDeps: { random: () => Math.random(), now: () => Date.now() },
+    // `round` is a baseline — the engine's startGame injects the real round per game.
+    gameDeps: { random: () => Math.random(), now: () => Date.now(), round: 0 },
     schedule: (callback, ms) => {
       const handle = setTimeout(callback, ms);
       return () => clearTimeout(handle);

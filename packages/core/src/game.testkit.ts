@@ -20,7 +20,7 @@ export function stubRoomDeps(): RoomDeps {
 }
 
 export function stubGameDeps(): GameDeps {
-  return { random: () => 0, now: () => 0 };
+  return { random: () => 0, now: () => 0, round: 1 };
 }
 
 /** A minimal Game test-double. Override any field to shape behaviour per test. */

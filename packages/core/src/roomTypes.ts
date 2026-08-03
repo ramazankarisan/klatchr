@@ -23,6 +23,11 @@ export interface Room {
   sessionScores: Readonly<Record<string, number>>;
   // How many rounds have been started this session (each `startGame` is a round).
   round: number;
+  // Host-authored game setup (Cycle 11), opaque to the room: the host sends it via
+  // `configureGame`, the room stores it and hands it to `game.init` each round, and
+  // only the game reads inside it (same opaque discipline as `gameState`). `undefined`
+  // ⇒ the game uses its built-in default. Reset when the selected game changes.
+  gameConfig: unknown;
 }
 
 export type RoomErrorCode =
@@ -45,6 +50,7 @@ export type RoomEvent =
   | { type: 'join'; nickname: string; reconnectToken?: string }
   | { type: 'leave' }
   | { type: 'selectGame'; gameId: string }
+  | { type: 'configureGame'; config: unknown }
   | { type: 'startGame' }
   | { type: 'gameEvent'; event: unknown }
   | { type: 'endGame' };
