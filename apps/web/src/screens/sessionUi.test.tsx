@@ -2,30 +2,11 @@ import { ThemeProvider } from '@mui/material/styles';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { FrameTransport } from '../frameTransport.testkit.js';
 import { theme } from '../theme.js';
-import type { Action, ConnStatus, Transport, ViewFrame } from '../transport/types.js';
+import type { ViewFrame } from '../transport/types.js';
 import { HostScreen } from './HostScreen.js';
 import { PlayerScreen } from './PlayerScreen.js';
-
-/** A transport that delivers one frame and records what the screen sends. */
-class FrameTransport implements Transport {
-  readonly sent: Action[] = [];
-  constructor(private readonly frame: ViewFrame) {}
-  subscribe(onFrame: (f: ViewFrame) => void): () => void {
-    onFrame(this.frame);
-    return () => {};
-  }
-  subscribeStatus(onStatus: (s: ConnStatus) => void): () => void {
-    onStatus('live');
-    return () => {};
-  }
-  subscribeError(): () => void {
-    return () => {};
-  }
-  send(action: Action): void {
-    this.sent.push(action);
-  }
-}
 
 const frame = (over: Partial<ViewFrame>): ViewFrame => ({
   code: 'WXYZ',

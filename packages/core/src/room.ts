@@ -126,23 +126,17 @@ function selectGame(
 /** Store the host's opaque game config (Cycle 11). Host-only, lobby-only; the room never
  * looks inside it — `startGame` hands it to `game.init` and the game validates it. */
 function configureGame(room: Room, config: unknown, actor: Viewer): Result<Room, RoomError> {
-  const hostError = requireHost(actor);
-  if (hostError !== null) {
-    return err(hostError);
-  }
-  if (room.phase === 'IN_GAME') {
-    return err({ code: 'WRONG_PHASE' });
+  const guard = requireHostBeforeGame(room, actor);
+  if (guard !== null) {
+    return err(guard);
   }
   return ok({ ...room, gameConfig: config });
 }
 
 function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
-  const hostError = requireHost(actor);
-  if (hostError !== null) {
-    return err(hostError);
-  }
-  if (room.phase === 'IN_GAME') {
-    return err({ code: 'WRONG_PHASE' });
+  const guard = requireHostBeforeGame(room, actor);
+  if (guard !== null) {
+    return err(guard);
   }
   if (room.selectedGameId === null) {
     return err({ code: 'NO_GAME_SELECTED' });
@@ -202,6 +196,16 @@ function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Ro
 
 function requireHost(actor: Viewer): RoomError | null {
   return actor.role === 'host' ? null : { code: 'NOT_HOST' };
+}
+
+/** The guard shared by the host's pre-game actions (startGame, configureGame): host-only,
+ * and only before a game is running. The error to send, or null when the host may act. */
+function requireHostBeforeGame(room: Room, actor: Viewer): RoomError | null {
+  const hostError = requireHost(actor);
+  if (hostError !== null) {
+    return hostError;
+  }
+  return room.phase === 'IN_GAME' ? { code: 'WRONG_PHASE' } : null;
 }
 
 function activeGame(room: Room, ctx: ReduceContext): AnyGame | undefined {
