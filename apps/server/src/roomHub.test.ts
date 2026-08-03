@@ -112,6 +112,19 @@ describe('a full round: authority, redaction, scores', () => {
     expect(lastError(host).message).toBe('NO_GAME_ID');
   });
 
+  it('forwards a host configureGame without error and stays in the lobby (Cycle 11)', async () => {
+    hub.handle(host, { type: 'host', code, action: 'selectGame', gameId: 'guess-who' });
+    hub.handle(host, { type: 'host', code, action: 'configureGame', config: { prompts: ['Q?'] } });
+    await flush();
+    expect(lastFrame(host).phase).toBe('LOBBY');
+    expect(host.received.some((m) => m.type === 'error')).toBe(false);
+  });
+
+  it('rejects a configureGame from a non-host', async () => {
+    hub.handle(a, { type: 'host', code, action: 'configureGame', config: { prompts: ['Q?'] } });
+    expect(lastError(a).message).toBe('NOT_HOST');
+  });
+
   it('withholds every other player’s answer and all authorship through the round', async () => {
     await start();
     expect(gv(lastFrame(host)).phase).toBe('collect');

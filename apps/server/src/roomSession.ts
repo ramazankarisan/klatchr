@@ -13,7 +13,7 @@ import type { ServerMessage } from '@klatchr/protocol';
 import type { Connection } from './connection.js';
 import type { ServerDeps } from './serverDeps.js';
 
-type HostAction = 'selectGame' | 'startGame' | 'endGame';
+type HostAction = 'selectGame' | 'configureGame' | 'startGame' | 'endGame';
 
 /** How long a dropped player's slot survives before it is reaped (a reload/flaky
  * network reconnects with the same token inside this window and resumes). */
@@ -128,13 +128,13 @@ export class RoomSession {
     return true;
   }
 
-  hostAction(conn: Connection, action: HostAction, gameId?: string): void {
+  hostAction(conn: Connection, action: HostAction, gameId?: string, config?: unknown): void {
     const viewer = this.members.get(conn);
     if (viewer === undefined || viewer.role !== 'host') {
       conn.send(this.errorMsg('NOT_HOST'));
       return;
     }
-    const event = hostEvent(action, gameId);
+    const event = hostEvent(action, gameId, config);
     if (event === null) {
       conn.send(this.errorMsg('NO_GAME_ID')); // 5.1 review: selectGame requires a gameId
       return;
@@ -359,10 +359,14 @@ export class RoomSession {
 }
 
 /** Map a host action to a core event; null iff selectGame arrived without a gameId. */
-function hostEvent(action: HostAction, gameId?: string): RoomEvent | null {
+function hostEvent(action: HostAction, gameId?: string, config?: unknown): RoomEvent | null {
   switch (action) {
     case 'selectGame':
       return gameId === undefined ? null : { type: 'selectGame', gameId };
+    case 'configureGame':
+      // Forwarded opaque — the room stores it, the game validates it. An absent config
+      // is valid (clears the room back to the game's built-in default).
+      return { type: 'configureGame', config };
     case 'startGame':
       return { type: 'startGame' };
     case 'endGame':
