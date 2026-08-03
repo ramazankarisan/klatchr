@@ -100,9 +100,12 @@ interface Game<TState, TEvent> {
 type AnyGame = Game<unknown, unknown>;
 ```
 
-`GameDeps` carries everything non-deterministic — a random source, a clock —
-so that games stay pure and tests stay reproducible. `config` is reserved for
-games that need setup (rounds, category); both current games ignore it.
+`GameDeps` carries everything the room injects into `init` — a random source, a
+clock, and the round being started — so that games stay pure and tests stay
+reproducible. `config` carries host-authored game setup (Cycle 11): a per-game
+opaque blob the room stores (via a `configureGame` message) and hands to `init`,
+which the game validates itself — the room never looks inside it. Both current
+games use it for a custom question set; a game that needs no setup ignores it.
 
 **`view()` is a redaction boundary, not a convenience.** It returns what one
 specific viewer is allowed to see. The server sends `view(state, viewer)` and

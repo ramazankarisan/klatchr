@@ -131,7 +131,8 @@ Do not build these. If any seems necessary, stop and ask.
 
 (Cycles ran past this original table: 5 wiring, 6 a second game, 7 production +
 deploy, 8 post-launch UX, 9 session scoring (absorbed into the Cycle-10
-post-play-test bundle) — see `docs/plan-5.md` … `plan-10.md`.)
+post-play-test bundle), 10 post-play-test bundle, 11 host-authored question sets
+— see `docs/plan-5.md` … `plan-11.md`.)
 
 ### Budget
 

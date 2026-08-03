@@ -112,6 +112,16 @@ async function submitAnswer(page: Page, text: string): Promise<void> {
   await expect(page.getByText(/Answer taped up/)).toBeVisible();
 }
 
+/** Open a host board, seat all three phones, and land on Guess Who selected in the lobby. */
+async function hostGuessWho(
+  browser: Browser,
+): Promise<{ host: { page: Page; code: string }; phone: (name: string) => Page }> {
+  const host = await openHost(browser);
+  const phone = await joinAllPlayers(browser, host.code);
+  await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  return { host, phone };
+}
+
 test('a full round keeps answers and authorship secret, and resumes a dropped slot', async ({
   browser,
 }) => {
@@ -301,10 +311,7 @@ test('a host page reload resumes the same room, game intact (8.1)', async ({ bro
 test('a skipper still guesses, the board keeps a running tally, and the host can change game (10)', async ({
   browser,
 }) => {
-  const host = await openHost(browser);
-  const phone = await joinAllPlayers(browser, host.code);
-
-  await host.page.getByRole('button', { name: /guess who said it/i }).click();
+  const { host, phone } = await hostGuessWho(browser);
   await host.page.getByRole('button', { name: STEP.start }).click();
   await expect(host.page.getByText(/round 1/i)).toBeVisible(); // round counter on the board
 
@@ -364,4 +371,38 @@ test('host ends a round mid-play → the player sees game-over and the host can 
   await expect(host.page.getByRole('button', { name: /new round/i })).toBeVisible();
   await host.page.getByRole('button', { name: /new round/i }).click();
   await expect(host.page.getByText(/everyone.s voting/i)).toBeVisible(); // a fresh round ran
+});
+
+/**
+ * Cycle 11 over the wire: a host authors a custom question set in the lobby, and it drives
+ * the round — on the board and on every phone — instead of the built-in bank. Across two
+ * rounds the set is walked in order with no repeat: round 1 uses the first question, round 2
+ * the second. Proves the whole config seam (web editor → configureGame → room → game.init).
+ */
+test('host-authored questions drive the round and rotate without repeats (11)', async ({
+  browser,
+}) => {
+  const { host, phone } = await hostGuessWho(browser);
+
+  // Open "Customize questions" and author two of our own (distinctive so getByText is exact).
+  await host.page.getByRole('button', { name: /customize/i }).click();
+  const field = host.page.getByLabel(/type a question of your own/i);
+  await field.fill('QQPROMPT alpha?');
+  await host.page.getByRole('button', { name: 'Add' }).click();
+  await field.fill('QQPROMPT beta?');
+  await host.page.getByRole('button', { name: 'Add' }).click();
+  await expect(host.page.getByText(/2 custom questions/i)).toBeVisible();
+
+  // --- round 1 uses the FIRST authored question, on the board and the phones ---
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  await expect(host.page.getByText('QQPROMPT alpha?')).toBeVisible();
+  await expect(phone('Adalyn').getByText('QQPROMPT alpha?')).toBeVisible();
+  await expect(host.page.getByText('QQPROMPT beta?')).toHaveCount(0); // beta is next round, not now
+
+  // --- abort → new round → round 2 uses the SECOND question (walked, no repeat) ---
+  await host.page.getByRole('button', { name: /end game/i }).click();
+  await host.page.getByRole('button', { name: /new round/i }).click();
+  await expect(host.page.getByText('QQPROMPT beta?')).toBeVisible();
+  await expect(phone('Adalyn').getByText('QQPROMPT beta?')).toBeVisible();
+  await expect(host.page.getByText('QQPROMPT alpha?')).toHaveCount(0); // rotated on — no repeat
 });

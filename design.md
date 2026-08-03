@@ -182,6 +182,30 @@ Fixes found play-testing the live app. Sketched on the Klatchr design project (c
 New token: `color.bad = #c0392b` (error mark/outline — used only for failure states,
 never decoratively).
 
+## Cycle 11 — host-authored questions (approved 2026-08-03)
+
+The host can bring their own questions instead of the built-in bank. Sketched on the
+Klatchr design project (card `cycle-11-questions`); all on the locked paper palette, **no
+new tokens**. Picked options:
+
+- **Default lobby — a closed door.** Under the picked game sits one dashed disclosure row —
+  *"Using the built-in question bank · Customize ▾"*. The one-tap path is untouched: do
+  nothing and Start plays the built-in bank exactly as before.
+- **The editor — one working list.** Opening the disclosure reveals a shared
+  `PromptSetEditor` (used by every prompt-driven game, each supplying its own packs):
+  themed **pack** chips pour their questions in (deduped, mixable; a full pack shows a teal
+  ✓), every row has an **×** to toss it, and a dashed field adds **your own**. A faint
+  source tag (`Work-safe` / `yours`) is informational, not a division. List rows stay
+  straight — the playful ±1.5° tape-and-rotate is for taped answers *during play*, not an
+  editable list.
+- **Behaviour.** The list is walked in the host's order with no repeat until exhausted;
+  emptying it falls back to the built-in bank; switching games resets it. Players' phones
+  are unchanged — a prompt is public, so there is **no redaction impact**.
+
+The seam: the list is sent as an opaque `configureGame` (the dormant `Game.init(…, config)`
+argument, now live end-to-end); the game validates it. No `core`/design token churn — a new
+game with its own setup UI would add a `Setup` slot to the web registry.
+
 ## Screens (Cycle 4)
 
 - Host: **lobby** (room code + joining players), **in-game** per phase,

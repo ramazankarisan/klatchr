@@ -5,7 +5,9 @@ join from their phones with a four-letter room code, and the group plays a short
 game together.
 
 The platform is the product; games are modules that plug into it. Two games ship
-today: **Guess Who Said It** and **Most Likely To**.
+today: **Guess Who Said It** and **Most Likely To**. A host can play the built-in
+questions in one tap, or bring their own — pour in a themed pack, prune it, and
+add custom questions in the lobby before starting.
 
 **Live:** <https://klatchr.duckdns.org> — a host opens a room, players join from
 their phones. Rooms are in-memory, so a redeploy resets them.
