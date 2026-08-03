@@ -1,4 +1,4 @@
-import type { PromptPack } from '@klatchr/games';
+import { MAX_PROMPTS, MAX_PROMPT_LEN, type PromptPack } from '@klatchr/games';
 import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
 import { tokens } from '../tokens.js';
@@ -21,17 +21,30 @@ const norm = (s: string): string => s.trim().toLowerCase();
 interface PromptSetEditorProps {
   packs: readonly PromptPack[];
   onChange: (prompts: string[]) => void;
+  // A previously-authored list (from the client cache) to rehydrate on mount — so a reload
+  // or a re-opened panel shows the real set instead of an empty "built-in" one (F1).
+  initial?: readonly string[];
 }
 
-export function PromptSetEditor({ packs, onChange }: PromptSetEditorProps): ReactNode {
-  const [items, setItems] = useState<readonly Item[]>([]);
+export function PromptSetEditor({
+  packs,
+  onChange,
+  initial = [],
+}: PromptSetEditorProps): ReactNode {
+  const [items, setItems] = useState<readonly Item[]>(() =>
+    initial.map((text) => ({ text, source: 'saved' })),
+  );
   const [draft, setDraft] = useState('');
+  const full = items.length >= MAX_PROMPTS; // the game caps the set at MAX_PROMPTS
 
   const has = (text: string): boolean => items.some((i) => norm(i.text) === norm(text));
 
   const commit = (next: readonly Item[]): void => {
-    setItems(next);
-    onChange(next.map((i) => i.text));
+    // Never exceed the cap the game enforces, so the editor can't show questions that would
+    // be silently dropped at start (F3).
+    const capped = next.slice(0, MAX_PROMPTS);
+    setItems(capped);
+    onChange(capped.map((i) => i.text));
   };
 
   const addPack = (pack: PromptPack): void => {
@@ -48,9 +61,9 @@ export function PromptSetEditor({ packs, onChange }: PromptSetEditorProps): Reac
   };
 
   const addCustom = (): void => {
-    const text = draft.trim();
+    const text = draft.trim().slice(0, MAX_PROMPT_LEN);
     setDraft('');
-    if (text.length > 0 && !has(text)) {
+    if (text.length > 0 && !has(text) && !full) {
       commit([...items, { text, source: 'yours' }]);
     }
   };
@@ -161,10 +174,12 @@ export function PromptSetEditor({ packs, onChange }: PromptSetEditorProps): Reac
               addCustom();
             }
           }}
+          disabled={full}
+          slotProps={{ htmlInput: { maxLength: MAX_PROMPT_LEN } }}
           size="small"
           fullWidth
         />
-        <Button variant="contained" onClick={addCustom} sx={{ minHeight: 40 }}>
+        <Button variant="contained" onClick={addCustom} disabled={full} sx={{ minHeight: 40 }}>
           Add
         </Button>
       </Box>
@@ -172,7 +187,9 @@ export function PromptSetEditor({ packs, onChange }: PromptSetEditorProps): Reac
       <Typography sx={{ color: tokens.color.inkSoft, fontSize: 12.5 }}>
         {items.length === 0
           ? 'Empty — the game plays its built-in questions.'
-          : 'Asked in order — every question comes up before any repeats.'}
+          : full
+            ? `That's the max of ${MAX_PROMPTS} questions — asked in order, no repeats.`
+            : 'Asked in order — every question comes up before any repeats.'}
       </Typography>
     </Box>
   );

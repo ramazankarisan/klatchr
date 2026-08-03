@@ -49,4 +49,24 @@ describe('PromptSetEditor (Cycle 11)', () => {
     expect(changes.at(-1)).toEqual(['Q two?', 'My own?']);
     expect(screen.getByText('My own?')).toBeTruthy();
   });
+
+  it('F1 rehydrates from an initial list and appends to it (no replace)', async () => {
+    const user = userEvent.setup();
+    const changes: string[][] = [];
+    render(
+      withTheme(
+        <PromptSetEditor
+          packs={PACKS}
+          initial={['Kept one?', 'Kept two?']}
+          onChange={(p) => changes.push(p)}
+        />,
+      ),
+    );
+    expect(screen.getByText('Kept one?')).toBeTruthy();
+    expect(screen.getByText('Kept two?')).toBeTruthy();
+    await user.type(screen.getByLabelText(/type a question of your own/i), 'New three?');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    // The seeded list is extended, not overwritten.
+    expect(changes.at(-1)).toEqual(['Kept one?', 'Kept two?', 'New three?']);
+  });
 });

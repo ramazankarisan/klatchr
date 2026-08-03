@@ -19,4 +19,5 @@ export { mostLikelyTo } from './mostLikelyTo/mostLikelyTo.js';
 export type { MLTEvent } from './mostLikelyTo/events.js';
 export type { MLTState, Phase as MLTPhase } from './mostLikelyTo/state.js';
 export { PACKS as mostLikelyToPacks } from './mostLikelyTo/packs.js';
+export { MAX_LEN as MAX_PROMPT_LEN, MAX_PROMPTS } from './promptConfig.js';
 export type { PromptPack } from './promptConfig.js';

@@ -7,6 +7,7 @@ import { PromptSetEditor } from '../games/PromptSetEditor.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
 import { playerColor, tokens } from '../tokens.js';
+import { rememberQuestions, storedQuestions } from '../transport/factory.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
 
@@ -222,14 +223,20 @@ function Lobby({
  * a `key` on the game id, so a game change resets it. The editor stays mounted while collapsed
  * (hidden), so opening and closing the panel never loses the list. */
 function CustomizeQuestions({
+  code,
+  gameId,
   packs,
   onConfigure,
 }: {
+  code: string;
+  gameId: string;
   packs: readonly PromptPack[];
   onConfigure: (prompts: string[]) => void;
 }): ReactNode {
+  // Rehydrate from the client cache so a reload or re-opened panel shows the real set (F1).
+  const [initial] = useState(() => storedQuestions(code, gameId));
   const [open, setOpen] = useState(false);
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(initial.length);
   return (
     <Box sx={{ mt: 2.5 }}>
       <Button
@@ -259,8 +266,10 @@ function CustomizeQuestions({
       <Box sx={{ mt: 1, display: open ? 'block' : 'none' }}>
         <PromptSetEditor
           packs={packs}
+          initial={initial}
           onChange={(next) => {
             setCount(next.length);
+            rememberQuestions(code, gameId, next);
             onConfigure(next);
           }}
         />
@@ -323,6 +332,8 @@ export function HostScreen({
           {views?.packs !== undefined && frame.selectedGameId !== null ? (
             <CustomizeQuestions
               key={frame.selectedGameId}
+              code={frame.code}
+              gameId={frame.selectedGameId}
               packs={views.packs}
               onConfigure={(next) => send({ type: 'configureGame', config: { prompts: next } })}
             />

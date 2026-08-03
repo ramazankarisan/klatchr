@@ -29,6 +29,8 @@ const withTheme = (node: ReactNode): ReactNode => (
 );
 
 describe('host customize questions (Cycle 11)', () => {
+  beforeEach(() => localStorage.clear()); // the editor caches the authored set per room now
+
   it('A13 the default lobby uses the built-in bank behind a closed disclosure, Start still works', async () => {
     const user = userEvent.setup();
     const t = new FrameTransport(lobbyFrame());
@@ -53,5 +55,20 @@ describe('host customize questions (Cycle 11)', () => {
     }
     // The pack's questions crossed as the opaque config, non-empty.
     expect(cfg.config).toEqual({ prompts: expect.arrayContaining([expect.any(String)]) });
+  });
+
+  it('F1 rehydrates a cached authored set so the disclosure reflects it, not "built-in"', () => {
+    // A prior session cached the host's set for this room+game (as configureGame is sent).
+    localStorage.setItem(
+      'klatchr:questions:WXYZ:guess-who',
+      JSON.stringify(['Stored A?', 'Stored B?']),
+    );
+    render(
+      withTheme(<HostScreen transport={new FrameTransport(lobbyFrame())} onExit={() => {}} />),
+    );
+    // The disclosure shows the real count — not the misleading "built-in" (a reload/rejoin no
+    // longer loses the set nor invites a replace-instead-of-append edit).
+    expect(screen.getByText(/2 custom questions/i)).toBeTruthy();
+    expect(screen.queryByText(/using the built-in question bank/i)).toBeNull();
   });
 });

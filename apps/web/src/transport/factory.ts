@@ -78,6 +78,33 @@ export function storedNick(code: string): string | null {
   return localStorage.getItem(nickKey(code));
 }
 
+const questionsKey = (code: string, gameId: string): string =>
+  `klatchr:questions:${code}:${gameId}`;
+
+/** The host's authored question list for a game in this room (Cycle 11), cached client-side
+ * so the lobby editor rehydrates after a reload or a picker toggle — otherwise it would read
+ * "built-in" while a set is stored, and a re-edit would replace the set instead of extending
+ * it. Mirrors what was last sent as `configureGame`; the server stays the source of truth. */
+export function storedQuestions(code: string, gameId: string): readonly string[] {
+  const raw = localStorage.getItem(questionsKey(code, gameId));
+  if (raw === null) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return Array.from<unknown>(parsed).filter((p): p is string => typeof p === 'string');
+  } catch {
+    return []; // corrupt cache — fall back to no authored set
+  }
+}
+
+export function rememberQuestions(code: string, gameId: string, prompts: readonly string[]): void {
+  localStorage.setItem(questionsKey(code, gameId), JSON.stringify(prompts));
+}
+
 export function createPlayerTransport(code: string, nickname: string): Transport {
   const url = wsUrl();
   if (url === undefined) {

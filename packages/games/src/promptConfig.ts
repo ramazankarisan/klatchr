@@ -7,8 +7,8 @@ export interface PromptPack {
   prompts: readonly string[];
 }
 
-const MAX_PROMPTS = 50; // a sane ceiling on an authored set
-const MAX_LEN = 200; // one question's character cap
+export const MAX_PROMPTS = 50; // a sane ceiling on an authored set
+export const MAX_LEN = 200; // one question's character cap
 
 /**
  * Read a host-authored prompt list out of an opaque config blob. Defensive on purpose:
