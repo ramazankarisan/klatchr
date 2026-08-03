@@ -50,6 +50,13 @@ describe('init (G1)', () => {
     });
     expect(state.prompt.length).toBeGreaterThan(0);
   });
+
+  it('A5 uses a host-authored prompt over the built-in bank', () => {
+    const state = guessWho.init([player('a'), player('b'), player('c')], deps, {
+      prompts: ['Custom question for the room?'],
+    });
+    expect(state.prompt).toBe('Custom question for the room?');
+  });
 });
 
 describe('submit (G2–G4)', () => {

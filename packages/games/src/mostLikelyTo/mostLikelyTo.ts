@@ -1,13 +1,14 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
 import { err, ok } from '@klatchr/core';
+import { choosePrompt } from '../promptConfig.js';
 import type { MLTEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
 import type { MLTState } from './state.js';
 import { viewFor } from './view.js';
 
-function init(active: readonly Player[], deps: GameDeps): MLTState {
-  const prompt = PROMPTS[Math.floor(deps.random() * PROMPTS.length)] ?? PROMPTS[0];
+function init(active: readonly Player[], deps: GameDeps, config?: unknown): MLTState {
+  const prompt = choosePrompt(config, deps, PROMPTS);
   return { phase: 'vote', prompt, roster: active.map((p) => p.id), votes: {} };
 }
 

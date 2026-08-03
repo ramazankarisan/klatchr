@@ -46,6 +46,13 @@ describe('init (M1)', () => {
     });
     expect(state.prompt.length).toBeGreaterThan(0);
   });
+
+  it('A5 uses a host-authored prompt over the built-in bank', () => {
+    const state = mostLikelyTo.init([player('a'), player('b'), player('c')], deps, {
+      prompts: ['Who is most likely to reply-all the whole company?'],
+    });
+    expect(state.prompt).toBe('Who is most likely to reply-all the whole company?');
+  });
 });
 
 describe('vote', () => {

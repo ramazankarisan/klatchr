@@ -14,6 +14,9 @@ export const registeredGameIds: readonly string[] = games.map((game) => game.id)
 export { guessWho } from './guessWho/guessWho.js';
 export type { GWEvent } from './guessWho/events.js';
 export type { AnswerCard, GWState, Phase } from './guessWho/state.js';
+export { PACKS as guessWhoPacks } from './guessWho/packs.js';
 export { mostLikelyTo } from './mostLikelyTo/mostLikelyTo.js';
 export type { MLTEvent } from './mostLikelyTo/events.js';
 export type { MLTState, Phase as MLTPhase } from './mostLikelyTo/state.js';
+export { PACKS as mostLikelyToPacks } from './mostLikelyTo/packs.js';
+export type { PromptPack } from './promptConfig.js';
