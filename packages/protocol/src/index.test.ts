@@ -10,6 +10,7 @@ describe('clientMessage', () => {
     { type: 'join', code: 'WXYZ', nickname: 'Bo' },
     { type: 'join', code: 'WXYZ', nickname: 'Bo', reconnectToken: 'tok_secret_1' },
     { type: 'host', code: 'WXYZ', action: 'selectGame', gameId: 'guessWho' },
+    { type: 'host', code: 'WXYZ', action: 'configureGame', config: { prompts: ['q1', 'q2'] } },
     { type: 'host', code: 'WXYZ', action: 'startGame' },
     { type: 'host', code: 'WXYZ', action: 'endGame' },
     { type: 'play', code: 'WXYZ', event: { kind: 'submit', text: 'hi' } },
