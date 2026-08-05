@@ -167,12 +167,13 @@ findings against the plan as written:
   reclaim-after-reap is exactly the flaky-phone path. Same trust level as planned.
 - **Conformance verdict:** both games passed 200 seeded storms of I1–I6 with zero findings
   (the six mutant self-tests prove the kit bites), so no pinned regressions were needed.
-- **Finding (documented, not changed):** if a player is reaped mid-round, the end-of-round
-  fold re-adds their departed id to `sessionScores` (the game still scores their surviving
-  submissions). Invisible to users — standings filter to the roster web-side (Cycle 10 B6)
-  — and the ledger only parks at leave time, so a mid-round reap loses that round's points
-  even on reclaim. Pinned as documented behaviour in the guessWho matrix; revisit in
-  Cycle 14 if it should fold-to-ledger instead.
+- **Finding (FIXED in Cycle 14, plan-14 D2):** if a player is reaped mid-round, the
+  end-of-round fold re-added their departed id to `sessionScores` (the game still scores their
+  surviving submissions). Invisible to users — standings filter to the roster web-side
+  (Cycle 10 B6) — but the ledger only parks at leave time, so a mid-round reap lost that
+  round's points even on reclaim. Cycle 14 resolved it by *forfeiting the round*: the fold now
+  counts only seated players, so a departed id never enters `sessionScores`. The guessWho
+  matrix assertion here was flipped accordingly.
 - **A10's leak test** lives in `apps/server/src/roomHub.test.ts` (test-only; `frameFor`
   itself needed no change — it already picks fields explicitly).
 
