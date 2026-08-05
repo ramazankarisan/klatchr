@@ -38,13 +38,10 @@ describe('init (M1)', () => {
     expect(state.votes).toEqual({});
   });
 
-  it('tolerates a random draw of 1.0 (inclusive-upper RNG) with a valid prompt', () => {
-    const state = mostLikelyTo.init([player('a'), player('b')], {
-      random: () => 1,
-      now: () => 0,
-      round: 1,
-    });
-    expect(state.prompt.length).toBeGreaterThan(0);
+  it('walks the built-in bank in round order — successive rounds, successive questions', () => {
+    const at = (round: number) =>
+      mostLikelyTo.init([player('a'), player('b')], { random: () => 0, now: () => 0, round });
+    expect(at(1).prompt).not.toBe(at(2).prompt); // no repeat within a session
   });
 
   it('A5 uses a host-authored prompt over the built-in bank', () => {
@@ -52,6 +49,11 @@ describe('init (M1)', () => {
       prompts: ['Who is most likely to reply-all the whole company?'],
     });
     expect(state.prompt).toBe('Who is most likely to reply-all the whole company?');
+  });
+
+  it('A2 roundCount is the session length — authored size, else the built-in bank size', () => {
+    expect(mostLikelyTo.roundCount?.({ prompts: ['x', 'y', 'z'] })).toBe(3);
+    expect(mostLikelyTo.roundCount?.(undefined)).toBeGreaterThan(1);
   });
 });
 

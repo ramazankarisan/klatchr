@@ -42,13 +42,10 @@ describe('init (G1)', () => {
     expect(state.roster).toEqual(['a', 'b', 'c']);
   });
 
-  it('tolerates a random draw of 1.0 (inclusive-upper RNG) with a valid prompt', () => {
-    const state = guessWho.init([player('a'), player('b')], {
-      random: () => 1,
-      now: () => 0,
-      round: 1,
-    });
-    expect(state.prompt.length).toBeGreaterThan(0);
+  it('walks the built-in bank in round order — successive rounds, successive questions', () => {
+    const at = (round: number): GWState =>
+      guessWho.init([player('a'), player('b')], { random: () => 0, now: () => 0, round });
+    expect(at(1).prompt).not.toBe(at(2).prompt); // no repeat within a session
   });
 
   it('A5 uses a host-authored prompt over the built-in bank', () => {
@@ -56,6 +53,11 @@ describe('init (G1)', () => {
       prompts: ['Custom question for the room?'],
     });
     expect(state.prompt).toBe('Custom question for the room?');
+  });
+
+  it('A2 roundCount is the session length — authored size, else the built-in bank size', () => {
+    expect(guessWho.roundCount?.({ prompts: ['x', 'y', 'z'] })).toBe(3);
+    expect(guessWho.roundCount?.(undefined)).toBeGreaterThan(1);
   });
 });
 

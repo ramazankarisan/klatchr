@@ -47,20 +47,26 @@ export function validPrompts(config: unknown): readonly string[] | null {
 }
 
 /**
- * Pick this round's prompt. A host-authored set is walked in order with no repeat until
- * it is exhausted (indexed by the 1-based round), then it wraps. With no authored set it
- * draws from the built-in bank at random — exactly the pre-Cycle-11 behaviour. `builtin`
- * is a non-empty tuple, so `builtin[0]` is the always-safe fallback (a degenerate round 0
- * — which the room never passes in a real game — falls to it).
+ * Pick this round's prompt: walk the set in order, one question per round (Cycle 12 —
+ * "a set is the session"). The bank is the host's authored list, or the built-in bank when
+ * there is no usable config. The room never starts a round past the set (see `promptCount` /
+ * `Game.roundCount`), so there is no wrap and no repeat within a session; `builtin[0]` is the
+ * always-safe fallback for a degenerate round (0 or out of range) the room never really passes.
  */
 export function choosePrompt(
   config: unknown,
   deps: GameDeps,
   builtin: readonly [string, ...string[]],
 ): string {
-  const authored = validPrompts(config);
-  if (authored !== null) {
-    return authored[(deps.round - 1) % authored.length] ?? builtin[0];
-  }
-  return builtin[Math.floor(deps.random() * builtin.length)] ?? builtin[0];
+  const bank = validPrompts(config) ?? builtin;
+  return bank[deps.round - 1] ?? builtin[0];
+}
+
+/**
+ * How many distinct questions a session will run: the authored set's length, or the built-in
+ * bank's when there is no usable config. Feeds `Game.roundCount`, so the room ends the game
+ * once the questions are spent instead of repeating.
+ */
+export function promptCount(config: unknown, builtin: readonly [string, ...string[]]): number {
+  return validPrompts(config)?.length ?? builtin.length;
 }
