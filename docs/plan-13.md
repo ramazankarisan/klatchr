@@ -180,3 +180,15 @@ findings against the plan as written:
 Testing section: kit + scenario DSL; rule 8 + fast-check), SPEC (cycles note → 13,
 plan range → plan-13), `docs/playtest.md` added (A12), README/design.md/deploy.md
 unaffected (no user-facing or UI/deploy change).
+
+**Review round (PR #31):** the background review found one real bug — the reclaim lookup
+read the ledger with a bare index, so a nickname like "Constructor" fell through to
+`Object.prototype`, poured a function into `sessionScores`, and every later frame failed
+the wire schema (one join could brick a room's broadcasts). Fixed with an `Object.hasOwn`
+guard + pinned tests ("Constructor" never reclaims; "__proto__" round-trips as an own
+key). Also taken: scenario `resume()` now throws on a stale token instead of silently
+minting a seat and desyncing the nick map; the kit's viewer set now includes the storm's
+`late-*` spectator ids (a leak aimed only at a known mid-round joiner is caught); and
+`deepFreeze` walks through pre-frozen top levels (cycle-guarded by a seen-set) so a
+shallow-frozen state can't blind I3. Each fix landed red → green with its own mutant or
+unit test.

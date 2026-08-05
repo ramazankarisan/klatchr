@@ -137,7 +137,15 @@ class Scenario {
   resume(nick: string): this {
     const token = this.tokensByNick.get(nick);
     fail_unless(token !== undefined, `resume(${nick}): no stored token`);
-    return this.apply({ type: 'join', nickname: nick, reconnectToken: token }, HOST);
+    const seats = this.current.players.length;
+    this.apply({ type: 'join', nickname: nick, reconnectToken: token }, HOST);
+    // A resume must be a no-op (E3). If the token died with a reap, core falls
+    // through to a fresh join — throw rather than let the nick map desync.
+    fail_unless(
+      this.current.players.length === seats,
+      `resume(${nick}): token was stale, a new seat was minted — use rejoin() after a reap`,
+    );
+    return this;
   }
 
   /** The player's CURRENT id — capture it before a reap if you need the old one. */

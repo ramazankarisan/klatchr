@@ -62,6 +62,11 @@ describe('scenario DSL semantics', () => {
     expect(s.room.players.map((p) => p.nickname)).toEqual(['Ada', 'Cy', 'Bo']);
   });
 
+  it('resume after a reap throws instead of silently minting a new seat', () => {
+    const s = scenario(echoGame()).join('Ada', 'Bo', 'Cy').start().reap('Bo');
+    expect(() => s.resume('Bo')).toThrowError(/stale/); // the token died with the seat — use rejoin
+  });
+
   it('resume within grace keeps the same seat — state byte-identical (E3)', () => {
     const s = scenario(echoGame()).join('Ada', 'Bo', 'Cy').start();
     const before = s.room;

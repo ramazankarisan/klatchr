@@ -114,10 +114,15 @@ function playersFor(ids: readonly PlayerId[]): Player[] {
   return ids.map((id) => ({ id, nickname: id, joinedDuringGame: false, spectator: false }));
 }
 
+// The ids the storm's mid-game joins use — also rendered as viewers, so a leak
+// aimed only at a known spectator cannot escape the checks.
+const LATE_IDS: readonly PlayerId[] = ['late-0', 'late-1', 'late-2', 'late-3'];
+
 function viewersFor(seated: readonly PlayerId[]): Viewer[] {
   return [
     { role: 'host' },
     ...seated.map((id): Viewer => ({ role: 'player', id })),
+    ...LATE_IDS.map((id): Viewer => ({ role: 'player', id })), // mid-round spectators
     { role: 'player', id: GHOST_A }, // a viewer the game never seated
   ];
 }
@@ -148,12 +153,15 @@ function deepEqual(a: unknown, b: unknown): boolean {
   );
 }
 
-/** Freeze a state tree in place so any reducer mutation throws (I3). */
-function deepFreeze<T>(value: T): T {
-  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+/** Freeze a state tree in place so any reducer mutation throws (I3). A `seen`
+ * set (not an isFrozen short-circuit) guards cycles — a game that shallow-froze
+ * its own top level must not blind the walk to the subtrees underneath. */
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value !== null && typeof value === 'object' && !seen.has(value)) {
+    seen.add(value);
     Object.freeze(value);
     for (const key of Object.getOwnPropertyNames(value)) {
-      deepFreeze((value as Record<string, unknown>)[key]);
+      deepFreeze((value as Record<string, unknown>)[key], seen);
     }
   }
   return value;
