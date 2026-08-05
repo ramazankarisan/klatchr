@@ -43,7 +43,12 @@ describe('endGame — session fold', () => {
 
   it('D1 folds the aborted round’s partial scores into the session tally', () => {
     const g = scoringGame([{ playerId: 'a', points: 2 }]);
-    const start = room({ phase: 'IN_GAME', selectedGameId: 'stub', gameState: {} });
+    const start = room({
+      phase: 'IN_GAME',
+      selectedGameId: 'stub',
+      gameState: {},
+      players: [player('a')],
+    });
     const r = roomReduce(start, { type: 'endGame' }, HOST, ctxWith([g]));
     expect(r.ok && r.value.sessionScores).toEqual({ a: 2 });
   });
@@ -92,7 +97,11 @@ describe('session scoring (S6)', () => {
       { playerId: 'a', points: 3 },
       { playerId: 'b', points: 1 },
     ]);
-    const start = room({ phase: 'IN_GAME', selectedGameId: 'stub' });
+    const start = room({
+      phase: 'IN_GAME',
+      selectedGameId: 'stub',
+      players: [player('a'), player('b')],
+    });
     const r = roomReduce(start, { type: 'gameEvent', event: {} }, asPlayer('x'), ctxWith([g]));
     expect(r.ok && r.value.phase).toBe('SCORES');
     expect(r.ok && r.value.sessionScores).toEqual({ a: 3, b: 1 });
