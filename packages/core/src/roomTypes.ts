@@ -23,6 +23,12 @@ export interface Room {
   sessionScores: Readonly<Record<string, number>>;
   // How many rounds have been started this session (each `startGame` is a round).
   round: number;
+  // D4 nickname-reclaim (Cycle 13): scores parked by leavers, keyed by lower-cased
+  // display nickname. `leave` parks the leaver's sessionScores entry here (so the
+  // roster/standings stay pruned — the ghost fix holds) and a fresh `join` with a
+  // matching nickname starts at the parked value, consuming the slot. Cleared with
+  // the session on `selectGame`. Never leaves core: no frame or view carries it.
+  scoreLedger: Readonly<Record<string, number>>;
   // Host-authored game setup (Cycle 11), opaque to the room: the host sends it via
   // `configureGame`, the room stores it and hands it to `game.init` each round, and
   // only the game reads inside it (same opaque discipline as `gameState`). `undefined`

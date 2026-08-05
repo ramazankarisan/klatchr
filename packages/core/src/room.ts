@@ -21,7 +21,15 @@ export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set(
     sessionScores: {},
     round: 0,
     gameConfig: undefined,
+    scoreLedger: {},
   };
+}
+
+/** The ledger key for a display nickname: case-insensitive on purpose — phone
+ * keyboards auto-capitalise, and reclaim-after-reap is exactly the flaky-phone
+ * path. Same trust level as the resume token (rule 7: no auth). */
+function ledgerKey(nickname: string): string {
+  return nickname.toLowerCase();
 }
 
 /** The player a reconnect token belongs to, or undefined — the resume credential check. */
@@ -84,7 +92,16 @@ function join(
   const players = [...room.players, player];
   const tokens = { ...room.tokens, [player.id]: ctx.roomDeps.secret() };
   const gameState = forwardRoster(room, { type: 'playerJoined', player }, ctx);
-  return ok({ ...room, players, tokens, gameState });
+  // D4: a matching nickname reclaims the parked score — first claimant wins.
+  const parked = room.scoreLedger[ledgerKey(player.nickname)];
+  const reclaim =
+    parked === undefined
+      ? {}
+      : {
+          sessionScores: { ...room.sessionScores, [player.id]: parked },
+          scoreLedger: omit(room.scoreLedger, ledgerKey(player.nickname)),
+        };
+  return ok({ ...room, players, tokens, gameState, ...reclaim });
 }
 
 function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
@@ -95,9 +112,17 @@ function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Room
   // Drop the leaver's token + prune their tally (B6) — a left id can't resume, so both would linger.
   const tokens = omit(room.tokens, actor.id);
   const sessionScores = omit(room.sessionScores, actor.id);
+  // D4: park the pruned tally by nickname so a same-name rejoin gets it back.
+  // Duplicate-nick leavers overwrite the slot — last leaver wins (icebreaker stakes).
+  const leaver = room.players.find((p) => p.id === actor.id);
+  const parked = room.sessionScores[actor.id];
+  const scoreLedger =
+    leaver === undefined || parked === undefined
+      ? room.scoreLedger
+      : { ...room.scoreLedger, [ledgerKey(leaver.nickname)]: parked };
   const gameState = forwardRoster(room, { type: 'playerLeft', id: actor.id }, ctx);
   const closed = players.length === 0; // P7: last player leaves -> discarded
-  return ok({ ...room, players, tokens, gameState, closed, sessionScores });
+  return ok({ ...room, players, tokens, gameState, closed, sessionScores, scoreLedger });
 }
 
 function selectGame(
@@ -127,6 +152,7 @@ function selectGame(
     selectedGameId: gameId,
     round: 0,
     sessionScores: {},
+    scoreLedger: {}, // D4: a new session parks nothing
     ...config,
   });
 }
