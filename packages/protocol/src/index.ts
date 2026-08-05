@@ -91,6 +91,10 @@ export const serverMessage = z.discriminatedUnion('type', [
     // no hidden info and are safe to show any time. `round` counts rounds started.
     sessionScores: z.array(score),
     round: z.number(),
+    // How many rounds this session runs given the host config (Cycle 12) — the game's
+    // `roundCount`. The host UI ends the game (final standings, no "New round") once
+    // `round` reaches it. `0` ⇒ no active game / unbounded.
+    roundsTotal: z.number(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string().optional() }),
 ]);

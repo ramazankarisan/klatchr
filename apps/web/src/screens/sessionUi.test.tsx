@@ -21,6 +21,7 @@ const frame = (over: Partial<ViewFrame>): ViewFrame => ({
   scores: null,
   sessionScores: [],
   round: 1,
+  roundsTotal: 0,
   ...over,
 });
 

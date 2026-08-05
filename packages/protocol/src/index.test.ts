@@ -54,6 +54,7 @@ describe('serverMessage', () => {
       scores: null,
       sessionScores: [],
       round: 0,
+      roundsTotal: 0,
     },
     {
       type: 'frame',
@@ -71,6 +72,7 @@ describe('serverMessage', () => {
         { playerId: 'p_2', points: 3 },
       ],
       round: 2,
+      roundsTotal: 3,
     },
     { type: 'error', code: 'ROOM_FULL' },
     { type: 'error', code: 'GAME_REJECTED', message: 'not your turn' },
@@ -96,6 +98,7 @@ describe('serverMessage', () => {
         scores: null,
         sessionScores: [],
         round: 0,
+        roundsTotal: 0,
       }).success,
     ).toBe(false);
   });
@@ -112,6 +115,7 @@ describe('serverMessage', () => {
         scores: [{ playerId: 'p_1', points: 'lots' }],
         sessionScores: [],
         round: 1,
+        roundsTotal: 3,
       }).success,
     ).toBe(false);
   });

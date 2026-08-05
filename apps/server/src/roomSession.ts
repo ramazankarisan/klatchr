@@ -308,8 +308,12 @@ export class RoomSession {
   }
 
   private frameFor(viewer: Viewer): ServerMessage {
-    const { code, phase, players, selectedGameId, sessionScores, round } = this.room;
+    const { code, phase, players, selectedGameId, sessionScores, round, gameConfig } = this.room;
     const game = this.gameFor(viewer);
+    // Session length (Cycle 12): the active game's roundCount for the host config, so the host
+    // ends the game once the questions are spent. 0 when no game is selected (unbounded).
+    const activeGame = selectedGameId === null ? undefined : this.registry.get(selectedGameId);
+    const roundsTotal = activeGame?.roundCount?.(gameConfig) ?? 0;
     return {
       type: 'frame',
       code,
@@ -327,6 +331,7 @@ export class RoomSession {
         points,
       })),
       round,
+      roundsTotal,
     };
   }
 
