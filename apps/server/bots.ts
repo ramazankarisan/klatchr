@@ -248,21 +248,25 @@ interface HostGameView {
   votedCount?: number;
   submittedCount?: number;
   guessed?: string[];
+  candidates?: string[];
   total?: number;
 }
 
 /** Has everyone seated acted this phase, so the host can advance without racing
  * a late action? Progress counts come straight from the host's own view. */
 function everyoneActed(view: HostGameView): boolean {
-  const total = view.total ?? 0;
   if (view.phase === 'vote') {
-    return (view.votedCount ?? 0) >= total;
+    return (view.votedCount ?? 0) >= (view.total ?? 0);
   }
   if (view.phase === 'collect') {
-    return (view.submittedCount ?? 0) >= total;
+    return (view.submittedCount ?? 0) >= (view.total ?? 0);
   }
   if (view.phase === 'guess') {
-    return (view.guessed?.length ?? 0) >= total;
+    // The guess view carries no `total`; its `candidates` are the seated roster,
+    // so wait until everyone has guessed at least once before advancing (else the
+    // guess phase would flip instantly and never soak under load).
+    const need = view.candidates?.length ?? 0;
+    return need > 0 && (view.guessed?.length ?? 0) >= need;
   }
   return false;
 }

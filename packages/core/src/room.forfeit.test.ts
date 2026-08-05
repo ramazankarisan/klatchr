@@ -17,16 +17,6 @@ function completingGame(scores: { playerId: string; points: number }[]) {
   return stubGame({ reduce: (s) => ok(s), isComplete: () => true, scores: () => scores });
 }
 
-function inGame(scores: { playerId: string; points: number }[], players = ['p1', 'p2', 'p3']) {
-  return room({
-    phase: 'IN_GAME',
-    selectedGameId: 'stub',
-    gameState: { moves: 0 },
-    players: players.map(player),
-    round: 4,
-  });
-}
-
 describe('the score fold forfeits a mid-round-departed player (D2)', () => {
   it('A1: a reaped id is absent from sessionScores; seated totals are exact', () => {
     // p2 left this round but the game still credits their surviving guess.
@@ -93,6 +83,44 @@ describe('the score fold forfeits a mid-round-departed player (D2)', () => {
     if (result.ok) {
       expect(result.value.phase).toBe('SCORES');
       expect(result.value.sessionScores).toEqual({ p1: 2 });
+    }
+  });
+
+  it('A3: reclaim after a mid-round reap yields the pre-reap total only', () => {
+    // Ada earned 5 in earlier rounds; the game still credits her surviving guess
+    // this round under her old id. She is reaped mid-round, then rejoins by name.
+    const game = completingGame([{ playerId: 'p1', points: 1 }]); // credits departed Ada
+    const ctx = ctxWith([game]);
+    const start = room({
+      phase: 'IN_GAME',
+      selectedGameId: 'stub',
+      gameState: { moves: 0 },
+      players: [{ ...player('p1'), nickname: 'Ada' }, player('p2'), player('p3')],
+      sessionScores: { p1: 5 },
+      round: 2,
+    });
+
+    const reaped = roomReduce(start, { type: 'leave' }, asPlayer('p1'), ctx);
+    expect(reaped.ok).toBe(true);
+    if (!reaped.ok) return;
+    expect(reaped.value.scoreLedger).toEqual({ ada: 5 }); // pre-reap total parked
+
+    const completed = roomReduce(
+      reaped.value,
+      { type: 'gameEvent', event: {} },
+      asPlayer('p2'),
+      ctx,
+    );
+    expect(completed.ok).toBe(true);
+    if (!completed.ok) return;
+    expect(completed.value.sessionScores).toEqual({}); // this round forfeit — p1 not folded
+
+    const back = roomReduce(completed.value, { type: 'join', nickname: 'Ada' }, asPlayer('x'), ctx);
+    expect(back.ok).toBe(true);
+    if (back.ok) {
+      // Reclaimed exactly the 5 she had before the reap — never the forfeited round's point.
+      expect(Object.values(back.value.sessionScores)).toEqual([5]);
+      expect(back.value.scoreLedger).toEqual({});
     }
   });
 });
