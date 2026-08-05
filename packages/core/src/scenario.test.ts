@@ -15,10 +15,17 @@ import { scenario } from './scenario.testkit.js';
 /** A stub whose view echoes the viewer — proves view() routing per viewer. */
 const echoGame = () => stubGame({ view: (_state, viewer) => viewer, reduce: (state) => ok(state) });
 
+// Scores the first seated player +1 per round. init captures the real minted id
+// (the room hands the host id out first, so a hardcoded 'p1' is the host, not a
+// player — and the fold now drops non-seated ids, plan-14 D2).
 const scoring = () =>
   stubGame({
+    init: (players) => ({ scorer: players[0]?.id }),
     isComplete: () => true, // any game event ends the round
-    scores: () => [{ playerId: 'p1', points: 1 }],
+    scores: (state) => {
+      const scorer = (state as { scorer?: string }).scorer;
+      return scorer === undefined ? [] : [{ playerId: scorer, points: 1 }];
+    },
   });
 
 describe('scenario DSL semantics', () => {
@@ -34,7 +41,7 @@ describe('scenario DSL semantics', () => {
     const s = scenario(scoring()).join('Ada', 'Bo', 'Cy').round(4);
     expect(s.room.phase).toBe('IN_GAME');
     expect(s.room.round).toBe(4);
-    expect(s.room.sessionScores).toEqual({ p1: 3 }); // three aborted rounds folded
+    expect(s.room.sessionScores).toEqual({ [s.id('Ada')]: 3 }); // three aborted rounds folded
   });
 
   it('a rejected step throws with the room error code', () => {

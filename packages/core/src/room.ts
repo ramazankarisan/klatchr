@@ -1,6 +1,6 @@
 import { MAX_PLAYERS } from './bounds.js';
 import type { RoomDeps } from './deps.js';
-import type { AnyGame, RosterEvent } from './game.js';
+import type { AnyGame, RosterEvent, Score } from './game.js';
 import type { Player, Viewer } from './ids.js';
 import { normaliseNickname } from './nickname.js';
 import { type Result, err, ok } from './result.js';
@@ -216,7 +216,7 @@ function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room,
   const complete = game.isComplete(result.value); // fold once on entry to SCORES (S6)
   const phase: Phase = complete ? 'SCORES' : 'IN_GAME';
   const sessionScores = complete
-    ? foldScores(room.sessionScores, game.scores(result.value))
+    ? foldScores(room.sessionScores, seatedScores(room, game.scores(result.value)))
     : room.sessionScores;
   return ok({ ...room, gameState: result.value, phase, sessionScores });
 }
@@ -234,12 +234,24 @@ function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Ro
     return err({ code: 'GAME_NOT_REGISTERED' });
   }
   // Host abort still counts (D1): fold the partial round's scores, like a natural end.
-  const sessionScores = foldScores(room.sessionScores, game.scores(room.gameState));
+  const sessionScores = foldScores(
+    room.sessionScores,
+    seatedScores(room, game.scores(room.gameState)),
+  );
   return ok({ ...room, phase: 'SCORES', sessionScores });
 }
 
 function requireHost(actor: Viewer): RoomError | null {
   return actor.role === 'host' ? null : { code: 'NOT_HOST' };
+}
+
+/** Keep only the scores of currently-seated players (plan-14 D2): a game may
+ * still credit a player it kept in its own roster after a mid-round reap, but
+ * that player forfeited the round — their points must not re-enter the session
+ * tally under a departed id (and could never be reclaimed by nickname). */
+function seatedScores(room: Room, scores: readonly Score[]): Score[] {
+  const seated = new Set(room.players.map((p) => p.id));
+  return scores.filter((s) => seated.has(s.playerId));
 }
 
 /** The guard shared by the host's pre-game actions (startGame, configureGame): host-only,

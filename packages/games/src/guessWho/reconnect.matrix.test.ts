@@ -75,17 +75,17 @@ describe('reap mid-round — seat pruned, submissions survive (A6)', () => {
     expect(gw(s).cards.map((c) => c.text)).toContain('Bo-says'); // the answer survives
   });
 
-  it('guess: the reaped player’s guesses still score at reveal', () => {
+  it('guess: a mid-round reap forfeits that round — the leaver is not folded (plan-14 D2)', () => {
     const s = toGuess(trio().start());
     const bo = s.id('Bo');
     s.play({ type: 'guess', playerId: bo, cardId: cardIdOf(s, 'Ada-says'), author: s.id('Ada') });
     s.reap('Bo');
     expect(s.room.sessionScores).toEqual({}); // pruned at the reap (B6)
     s.play({ type: 'advance', from: 'guess' });
-    // The game still scores the leaver's correct guess (their submissions are
-    // theirs), so the fold re-adds the departed id. Standings filter to the
-    // roster web-side (Cycle 10 B6); the ledger only ever parks at leave time.
-    expect(s.room.sessionScores[bo]).toBe(1);
+    // The game still credits Bo's correct guess in its own tally, but Bo left
+    // this round — the room folds only seated players, so the departed id never
+    // enters sessionScores. Was the Cycle-13 finding; fixed in Cycle 14.
+    expect(s.room.sessionScores[bo]).toBeUndefined();
   });
 
   it('SCORES: reaping after the reveal parks the folded tally by nickname', () => {
