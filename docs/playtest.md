@@ -46,6 +46,20 @@ just plays and follows instructions when named.
 | S2 | Play **two rounds** at that size | The bench rotates in — nobody spectates twice in a row |
 | S3 | End the game, **switch games**, play again | Round counter and scores reset; nobody is stuck on a stale screen |
 
+## Bots (optional, before or alongside the humans)
+
+Warm the room up — or reproduce a scale bug — with the load tool instead of
+(or in addition to) real phones:
+
+```bash
+pnpm bots --players 20 --chaos            # 20 clients at localhost, with churn
+pnpm bots --players 30 --url wss://klatchr.duckdns.org --seconds 30   # the live VM
+```
+
+It exits non-zero on a real room/protocol or socket error, so it doubles as a
+scriptable smoke. Benign phase-race rejections under a fast crowd are expected
+and reported separately. Watch the server logs (or the board) while it runs.
+
 ## Wrap-up
 
 - [ ] Play a set to the end: the game ends by itself when the questions are

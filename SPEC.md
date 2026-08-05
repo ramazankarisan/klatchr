@@ -134,8 +134,10 @@ deploy, 8 post-launch UX, 9 session scoring (absorbed into the Cycle-10
 post-play-test bundle), 10 post-play-test bundle, 11 host-authored question sets,
 12 play-test fixes (a set is the session, reorder, leave-room, confirms),
 13 hardening (fast-check conformance kit, reconnect-matrix scenario DSL,
-nickname score-reclaim after a reap, Most Likely To seats 20) — see
-`docs/plan-5.md` … `plan-13.md`.)
+nickname score-reclaim after a reap, Most Likely To seats 20),
+14 verification pyramid (mid-round-reap forfeits the round, ws-integration
+tests, a bot-army load tool, two new e2e reload flows) — see
+`docs/plan-5.md` … `plan-14.md`.)
 
 ### Budget
 

@@ -18,7 +18,13 @@ pnpm lint           # biome check (lint + format)
 pnpm e2e            # playwright
 pnpm dev            # server + web, concurrently
 pnpm gate           # full pre-commit wall — all phases, fail_fast
+pnpm bots           # load/soak tool: many real ws clients at a server (Cycle 14)
 ```
+
+`pnpm bots --players N [--chaos] [--url ws://…] [--game …] [--seconds …]` drives
+a crowd of real protocol clients at a running server (default `ws://localhost:8080`,
+or point `--url` at the live VM). It is a manual smoke — **not** part of `pnpm gate`
+or `pnpm e2e` — and exits non-zero on a real room/protocol or socket error.
 
 Run `pnpm gate` before claiming any task is done. It runs the phased wall
 (syntax → format → dead code → static analysis → types → module architecture →
@@ -122,7 +128,11 @@ of the same severity as a crash.
 leaving mid-round arrives at `reduce` as a `RosterEvent`. The game decides the
 policy: a known id rejoining resumes its slot; a new id mid-round is a
 spectator (not in the answer pool or guess targets); a player who left keeps
-whatever they already submitted.
+whatever they already submitted. **The room forfeits a mid-round-departed
+player's round** (Cycle 14): a game may still score a reaped player's surviving
+submissions, but the room's session fold counts only currently-seated players,
+so a departed id never re-enters `sessionScores`. Their earlier rounds and
+nickname-parked total (the score ledger) are untouched.
 
 **Phase advance is a host-driven game event.** A phased game puts
 `{ type: 'advance'; from: PhaseTag }` in its own `TEvent`. The reducer no-ops
@@ -194,6 +204,14 @@ is wrong — stop and say so rather than special-casing the game in core.
 
 ## Testing
 
+The verification pyramid, cheapest first: **unit** (pure reducer/view tests,
+100% in core/games) → **conformance** (fuzzed platform invariants, every game) →
+**ws-integration** (real socket path in vitest, Cycle 14) → **e2e** (whole stack
+in a browser). Plus **`pnpm bots`**, a manual load/soak tool at the top. Each
+layer catches what the one below can't: units prove a transition, conformance
+proves it under storms, ws-integration proves the wire + timers, e2e proves the
+UI, bots prove a crowd.
+
 - `packages/core` and `packages/games` have a coverage threshold of 100% lines
   and branches. They are pure and small; there is no excuse for a gap. If
   coverage drops the build fails — fix the test, do not lower the threshold.
@@ -219,6 +237,12 @@ is wrong — stop and say so rather than special-casing the game in core.
   is *no core event*, reap is `leave`, rejoin is a fresh `join`, resume is the
   token join — so the per-game `reconnect.matrix.test.ts` files read as
   behaviour. Literal timers stay server territory.
+- The **ws-integration test** (`apps/server/src/gateway.integration.test.ts`,
+  Cycle 14) exercises the real socket path the FakeConn unit tests and the
+  browser E2E leave uncovered: `startSocketServer` on an ephemeral port, real
+  `ws` clients, JSON on the wire, a real `socket.close()` → grace → reap
+  (driven by an injected `schedule`, no wall-clock), token resume, and the
+  static-handler 404. Runs in `pnpm gate` (it is a vitest test, not e2e).
 - Tests are behavioural: assert on returned state, views and scores, not on
   internal helper calls.
 - `apps/web` tests use React Testing Library, query by role and label, never
