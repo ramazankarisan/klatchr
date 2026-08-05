@@ -112,6 +112,16 @@ async function submitAnswer(page: Page, text: string): Promise<void> {
   await expect(page.getByText(/Answer taped up/)).toBeVisible();
 }
 
+/** Assert the board auto-resumed onto its own room after a reload (same code,
+ * not bounced to the landing) — shared by the lobby- and mid-round host-reload tests. */
+async function expectHostResumed(page: Page, code: string): Promise<void> {
+  await expect(page.locator('[aria-label^="room code"]')).toHaveAttribute(
+    'aria-label',
+    `room code ${code}`,
+  );
+  await expect(page.getByRole('button', { name: HOST.button })).toHaveCount(0);
+}
+
 /** Open a host board, seat all three phones, and land on Guess Who selected in the lobby. */
 async function hostGuessWho(
   browser: Browser,
@@ -295,11 +305,7 @@ test('a host page reload resumes the same room, game intact (8.1)', async ({ bro
 
   // Auto-resumed: same room code, not bounced to the landing, and the picked game
   // survived (the server held the room; the client re-attached via resumeHost).
-  await expect(host.page.locator('[aria-label^="room code"]')).toHaveAttribute(
-    'aria-label',
-    `room code ${host.code}`,
-  );
-  await expect(host.page.getByRole('button', { name: HOST.button })).toHaveCount(0);
+  await expectHostResumed(host.page, host.code);
   await expect(host.page.getByText(/selected/i)).toBeVisible();
 });
 
@@ -453,4 +459,91 @@ test('a spent question set ends the game, and the host can leave to start over (
   await host.page.getByRole('button', { name: /close room/i }).click();
   await expect(host.page.getByRole('button', { name: /host a room/i })).toBeVisible();
   await expect(host.page.getByRole('button', { name: /join a room/i })).toBeVisible();
+});
+
+/** Pick a candidate by name in the MLT vote picker (search then tap the chip). */
+async function voteFor(page: Page, name: string): Promise<void> {
+  await page.getByLabel('Search names').fill(name);
+  await page.getByRole('button', { name: new RegExp(name, 'i') }).click();
+}
+
+/** Every phone votes for Bowen, then the host reveals the tally. */
+async function mltVoteRound(host: { page: Page }, phone: (name: string) => Page): Promise<void> {
+  for (const p of PLAYERS) {
+    await voteFor(phone(p.name), PLAYERS[1].name);
+  }
+  await host.page.getByRole('button', { name: /show the results/i }).click();
+}
+
+/**
+ * plan-14 L5 / A9 — a reload deep in a Most Likely To session. After three full
+ * rounds (so the session tally is non-empty), a phone reloads mid-vote in round 4
+ * and rejoins with the same code+name: it resumes the same seat (voting, not a
+ * fresh spectator) and the session is intact — still round 4, no fourth seat.
+ */
+test('a round-4 MLT reload mid-vote resumes the same seat, session intact (L5)', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const host = await openHost(browser);
+  const phone = await joinAllPlayers(browser, host.code);
+  await host.page.getByRole('button', { name: /most likely to/i }).click();
+
+  // Play rounds 1–3 to completion, then start round 4 — a real multi-round session.
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  for (let round = 1; round <= 3; round += 1) {
+    await expect(host.page.getByText(new RegExp(`round ${round}`, 'i'))).toBeVisible();
+    await mltVoteRound(host, phone);
+    await host.page.getByRole('button', { name: /new round/i }).click();
+  }
+  await expect(host.page.getByText(/round 4/i)).toBeVisible(); // deep in the session now
+
+  // Adalyn casts her round-4 vote, then her page reloads mid-vote (socket closes,
+  // the server holds the slot) and she rejoins with the same code+name.
+  const adalyn = phone('Adalyn');
+  await voteFor(adalyn, PLAYERS[2].name); // votes Cyrus
+  await expect(adalyn.getByText(/voted for/i)).toBeVisible();
+  await adalyn.goto('/');
+  await fillJoin(adalyn, host.code, 'Adalyn');
+
+  // Resumed the same seat: she is voting again (not benched as a mid-round spectator),
+  // her round-4 vote survived, and the session rode through — still round 4, three seats.
+  await expect(adalyn.getByText(/tap a name/i)).toBeVisible();
+  await expect(adalyn.getByText(/up next round/i)).toHaveCount(0);
+  await expect(adalyn.getByText(/voted for/i)).toBeVisible(); // her vote is intact
+  await expect(host.page.getByText(/round 4/i)).toBeVisible();
+  await expect(host.page.getByText(/everyone.s voting/i)).toBeVisible();
+});
+
+/**
+ * plan-14 L5 / A10 — a host reload mid-guess. Deeper than the 8.1 lobby-phase
+ * host-reload: here a Guess Who round is live in the guess phase when the board
+ * reloads. The client auto-resumeHosts onto the same room with the round intact
+ * (the reveal step is still available), and the phones are unaffected.
+ */
+test('a host reload mid-guess resumes the live round, phones unaffected (L5)', async ({
+  browser,
+}) => {
+  const { host, phone } = await hostGuessWho(browser);
+  await host.page.getByRole('button', { name: STEP.start }).click();
+  for (const p of PLAYERS) {
+    await submitAnswer(phone(p.name), p.secret);
+  }
+  // Into the guess phase — the round is now live with anonymised cards on the board.
+  await host.page.getByRole('button', { name: STEP.show }).click();
+  await expect(host.page.getByRole('button', { name: STEP.reveal })).toBeVisible();
+
+  await host.page.reload(); // closes the socket mid-round; only localStorage survives
+
+  // Auto-resumed onto the same room, and the guess phase is intact: the reveal step
+  // is available again (a fresh/lobby board would show "Start the round" instead).
+  await expectHostResumed(host.page, host.code);
+  await expect(host.page.getByRole('button', { name: STEP.reveal })).toBeVisible();
+
+  // The phones never noticed: a player can still name an author over the live socket.
+  await expect(
+    phone('Cyrus')
+      .getByRole('button', { name: /tap to name/i })
+      .first(),
+  ).toBeVisible();
 });
