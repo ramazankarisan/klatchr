@@ -338,6 +338,10 @@ test('a skipper still guesses, the board keeps a running tally, and the host can
   await expect(host.page.getByText(/standings so far/i)).toBeVisible();
   await expect(host.page.getByText(/game over/i)).toBeVisible();
   await host.page.getByRole('button', { name: /change game/i }).click();
+  await host.page
+    .getByRole('dialog')
+    .getByRole('button', { name: /change game/i })
+    .click(); // confirm
   await expect(host.page.getByText(/choose tonight.s game/i)).toBeVisible();
 });
 
@@ -360,8 +364,12 @@ test('host ends a round mid-play → the player sees game-over and the host can 
       .first(),
   ).toBeVisible(); // mid-vote
 
-  // Host aborts mid-vote (nobody voted yet).
+  // Host aborts mid-vote (nobody voted yet) — confirming the dialog.
   await host.page.getByRole('button', { name: /end game/i }).click();
+  await host.page
+    .getByRole('dialog')
+    .getByRole('button', { name: /end game/i })
+    .click();
 
   // The player no longer sits on the vote form — it's a wrap, with the overall standings.
   await expect(phone('Adalyn').getByText(/that.s a wrap/i)).toBeVisible();
@@ -401,8 +409,48 @@ test('host-authored questions drive the round and rotate without repeats (11)', 
 
   // --- abort → new round → round 2 uses the SECOND question (walked, no repeat) ---
   await host.page.getByRole('button', { name: /end game/i }).click();
+  await host.page
+    .getByRole('dialog')
+    .getByRole('button', { name: /end game/i })
+    .click(); // confirm
   await host.page.getByRole('button', { name: /new round/i }).click();
   await expect(host.page.getByText('QQPROMPT beta?')).toBeVisible();
   await expect(phone('Adalyn').getByText('QQPROMPT beta?')).toBeVisible();
   await expect(host.page.getByText('QQPROMPT alpha?')).toHaveCount(0); // rotated on — no repeat
+});
+
+/**
+ * Cycle 12 over the wire: a question set is the session. A one-question set plays exactly one
+ * round, then the host lands on the game-over screen — no "New round". From there the host can
+ * Leave & close the room and return to the landing, free to host again or join as a player.
+ */
+test('a spent question set ends the game, and the host can leave to start over (12)', async ({
+  browser,
+}) => {
+  const { host, phone } = await hostGuessWho(browser);
+
+  // Author a one-question set → a one-round session.
+  await host.page.getByRole('button', { name: /customize/i }).click();
+  await host.page
+    .getByLabel(/type a question of your own/i)
+    .fill('QQONE what is your hidden talent?');
+  await host.page.getByRole('button', { name: 'Add' }).click();
+  await host.page.getByRole('button', { name: STEP.start }).click();
+
+  // Play the single round through to the reveal.
+  for (const p of PLAYERS) {
+    await submitAnswer(phone(p.name), p.secret);
+  }
+  await host.page.getByRole('button', { name: STEP.show }).click();
+  await host.page.getByRole('button', { name: STEP.reveal }).click();
+
+  // The set is spent → game-over: the pill says so and there is no "New round".
+  await expect(host.page.getByText(/all 1 question played/i)).toBeVisible();
+  await expect(host.page.getByRole('button', { name: /new round/i })).toHaveCount(0);
+
+  // --- Leave & close room (confirmed) → back to the landing, ready to host again / join ---
+  await host.page.getByRole('button', { name: /leave & close room/i }).click();
+  await host.page.getByRole('button', { name: /close room/i }).click();
+  await expect(host.page.getByRole('button', { name: /host a room/i })).toBeVisible();
+  await expect(host.page.getByRole('button', { name: /join a room/i })).toBeVisible();
 });

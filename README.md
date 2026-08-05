@@ -6,8 +6,9 @@ game together.
 
 The platform is the product; games are modules that plug into it. Two games ship
 today: **Guess Who Said It** and **Most Likely To**. A host can play the built-in
-questions in one tap, or bring their own — pour in a themed pack, prune it, and
-add custom questions in the lobby before starting.
+questions in one tap, or bring their own — pour in a themed pack, reorder it, and
+add custom questions in the lobby. A question set is a session: it plays through
+once, in order, then the game ends to the final standings.
 
 **Live:** <https://klatchr.duckdns.org> — a host opens a room, players join from
 their phones. Rooms are in-memory, so a redeploy resets them.

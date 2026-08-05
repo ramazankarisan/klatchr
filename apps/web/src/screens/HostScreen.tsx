@@ -19,7 +19,7 @@ function RoundPill({
   const label = !over
     ? `Round ${round}`
     : exhausted
-      ? `All ${round} questions played`
+      ? `All ${round} ${round === 1 ? 'question' : 'questions'} played`
       : `Game over · ${round} ${round === 1 ? 'round' : 'rounds'}`;
   return (
     <Box
