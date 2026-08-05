@@ -128,6 +128,8 @@ class MockEngine {
         points,
       })),
       round: room.round,
+      // Session length (Cycle 12) — the mock runs the real engine, so it reports it too.
+      roundsTotal: game?.roundCount?.(room.gameConfig) ?? 0,
     };
   }
 

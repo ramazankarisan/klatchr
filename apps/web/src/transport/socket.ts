@@ -273,6 +273,7 @@ export class SocketTransport implements Transport {
       scores: frame.scores,
       sessionScores: frame.sessionScores,
       round: frame.round,
+      roundsTotal: frame.roundsTotal,
     };
   }
 

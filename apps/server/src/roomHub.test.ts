@@ -125,6 +125,20 @@ describe('a full round: authority, redaction, scores', () => {
     expect(lastError(a).message).toBe('NOT_HOST');
   });
 
+  it('A6 frame.roundsTotal reflects the active game roundCount — built-in, then authored', async () => {
+    hub.handle(host, { type: 'host', code, action: 'selectGame', gameId: 'guess-who' });
+    await flush();
+    expect(lastFrame(host).roundsTotal).toBeGreaterThan(0); // the built-in bank size
+    hub.handle(host, {
+      type: 'host',
+      code,
+      action: 'configureGame',
+      config: { prompts: ['One?', 'Two?'] },
+    });
+    await flush();
+    expect(lastFrame(host).roundsTotal).toBe(2); // now the authored set size
+  });
+
   it('withholds every other player’s answer and all authorship through the round', async () => {
     await start();
     expect(gv(lastFrame(host)).phase).toBe('collect');

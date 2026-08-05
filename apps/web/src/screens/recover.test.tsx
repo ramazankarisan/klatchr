@@ -49,6 +49,7 @@ const lobby = (viewer: ViewFrame['viewer']): ViewFrame => ({
   scores: null,
   sessionScores: [],
   round: 0,
+  roundsTotal: 0,
 });
 const withTheme = (node: ReactNode): ReactNode => (
   <ThemeProvider theme={theme}>{node}</ThemeProvider>

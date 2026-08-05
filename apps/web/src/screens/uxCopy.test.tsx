@@ -36,6 +36,7 @@ const hostLobby = (over: Partial<ViewFrame>): ViewFrame => ({
   scores: null,
   sessionScores: [],
   round: 0,
+  roundsTotal: 0,
   ...over,
 });
 
@@ -68,6 +69,7 @@ describe('capacity copy from the picked game, never a hardcoded number (8.2)', (
       scores: null,
       sessionScores: [],
       round: 0,
+      roundsTotal: 0,
     };
     render(withTheme(<PlayerScreen transport={new FrameTransport(frame)} onExit={() => {}} />));
     expect(screen.getByText(/this round is full \(12 seats\)/i)).toBeTruthy();

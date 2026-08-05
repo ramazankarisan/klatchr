@@ -21,6 +21,7 @@ const lobbyFrame = (over: Partial<ViewFrame> = {}): ViewFrame => ({
   scores: null,
   sessionScores: [],
   round: 0,
+  roundsTotal: 0,
   ...over,
 });
 
@@ -47,7 +48,7 @@ describe('host customize questions (Cycle 11)', () => {
     const t = new FrameTransport(lobbyFrame());
     render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
     await user.click(screen.getByRole('button', { name: /customize/i }));
-    await user.click(screen.getByRole('button', { name: /work-safe/i }));
+    await user.click(screen.getByRole('button', { name: /around the office/i }));
     const cfg = t.sent.find((a) => a.type === 'configureGame');
     expect(cfg).toBeTruthy();
     if (cfg?.type !== 'configureGame') {

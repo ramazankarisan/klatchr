@@ -81,6 +81,7 @@ const lobbyFrame = (code: string) => ({
   scores: null,
   sessionScores: [],
   round: 0,
+  roundsTotal: 0,
 });
 
 describe('SocketTransport (host)', () => {

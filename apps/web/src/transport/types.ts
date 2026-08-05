@@ -27,6 +27,9 @@ export interface ViewFrame {
   // may show cumulative standings any time.
   sessionScores: readonly Score[];
   round: number;
+  // Session length = the active game's roundCount for the host config (Cycle 12). The host
+  // ends the game once `round` reaches it. 0 ⇒ no active game / unbounded.
+  roundsTotal: number;
 }
 
 /** A host control, a forwarded game event, or a player action — the outbound wire. */
