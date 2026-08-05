@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@mui/material/styles';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { FrameTransport } from '../frameTransport.testkit.js';
@@ -39,11 +39,13 @@ describe('session UI — round, standings, and the host exits (10)', () => {
     expect(screen.getByText(/round 3/i)).toBeTruthy();
   });
 
-  it('offers "End game" mid-round and sends endGame', async () => {
+  it('offers "End game" mid-round and confirms before sending endGame (F7)', async () => {
     const user = userEvent.setup();
     const t = new FrameTransport(frame({ phase: 'IN_GAME' }));
     render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
-    await user.click(screen.getByRole('button', { name: /end game/i }));
+    await user.click(screen.getByRole('button', { name: /end game/i })); // opens the confirm
+    expect(t.sent).not.toContainEqual({ type: 'endGame' }); // nothing sent until confirmed
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /end game/i }));
     expect(t.sent).toContainEqual({ type: 'endGame' });
   });
 
@@ -63,8 +65,11 @@ describe('session UI — round, standings, and the host exits (10)', () => {
     expect(screen.getByText(/standings so far/i)).toBeTruthy();
     expect(screen.getByText(/game over · 2 rounds/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /new round/i })).toBeTruthy();
-    // "Change game" re-opens the picker so the host can pick a different game.
+    // "Change game" now confirms first, then re-opens the picker (F7).
     await user.click(screen.getByRole('button', { name: /change game/i }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /change game/i }),
+    );
     expect(await screen.findByText(/choose tonight.s game/i)).toBeTruthy();
   });
 

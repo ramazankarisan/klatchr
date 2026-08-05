@@ -101,6 +101,9 @@ class MockEngine {
       case 'endGame':
         this.apply(actor, { type: 'endGame' });
         break;
+      case 'leave':
+        this.apply(actor, { type: 'leave' });
+        break;
       case 'gameEvent':
         this.apply(actor, { type: 'gameEvent', event: action.event });
         break;

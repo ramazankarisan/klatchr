@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { theme } from '../theme.js';
-import { PromptSetEditor } from './PromptSetEditor.js';
+import { PromptSetEditor, reorderByText } from './PromptSetEditor.js';
 
 const PACKS: readonly PromptPack[] = [
   { id: 'p1', name: 'Warmups', prompts: ['Q one?', 'Q two?'] },
@@ -15,6 +15,21 @@ const withTheme = (node: ReactNode): ReactNode => (
   <ThemeProvider theme={theme}>{node}</ThemeProvider>
 );
 
+describe('reorderByText (A8) — drag result', () => {
+  const items = [
+    { text: 'a', source: 'x' },
+    { text: 'b', source: 'x' },
+    { text: 'c', source: 'x' },
+  ];
+  it('moves the dragged row to where it was dropped', () => {
+    expect(reorderByText(items, 'a', 'c').map((i) => i.text)).toEqual(['b', 'c', 'a']);
+    expect(reorderByText(items, 'c', 'a').map((i) => i.text)).toEqual(['c', 'a', 'b']);
+  });
+  it('is a no-op copy when an id is not in the list', () => {
+    expect(reorderByText(items, 'zzz', 'a').map((i) => i.text)).toEqual(['a', 'b', 'c']);
+  });
+});
+
 describe('PromptSetEditor (Cycle 11)', () => {
   it('A10 pours a pack into the list, deduping across packs and marking a full pack added', async () => {
     const user = userEvent.setup();
@@ -24,14 +39,16 @@ describe('PromptSetEditor (Cycle 11)', () => {
     await user.click(screen.getByRole('button', { name: /warmups/i }));
     expect(screen.getByText('Q one?')).toBeTruthy();
     expect(changes.at(-1)).toEqual(['Q one?', 'Q two?']);
+    expect(screen.getByRole('button', { name: /warmups/i }).textContent).toContain('✓'); // marked added
 
     // Deep shares 'Q two?' with Warmups — only the genuinely new question is appended.
     await user.click(screen.getByRole('button', { name: /deep/i }));
     expect(changes.at(-1)).toEqual(['Q one?', 'Q two?', 'Q three?']);
 
-    // Re-tapping an already-added pack changes nothing.
+    // F1/A7: re-tapping a fully-added pack toggles it OFF — its questions leave the list.
     await user.click(screen.getByRole('button', { name: /warmups/i }));
-    expect(changes.at(-1)).toEqual(['Q one?', 'Q two?', 'Q three?']);
+    expect(changes.at(-1)).toEqual(['Q three?']); // Q one? / Q two? (Warmups) removed
+    expect(screen.queryByText('Q one?')).toBeNull();
   });
 
   it('A11 deletes a row and appends a custom question', async () => {
