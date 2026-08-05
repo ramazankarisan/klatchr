@@ -66,6 +66,16 @@ describe('join', () => {
     expect(JSON.stringify(lastFrame(a))).not.toContain(secret);
   });
 
+  it('never puts the score ledger in a frame (A10: parked scores stay in core)', async () => {
+    const [hub, host, code] = await open();
+    const conns = await seat(hub, code, 3);
+    hub.handle(at(conns, 0), { type: 'leave', code }); // parks any tally under the nickname (D4)
+    await flush();
+    for (const frame of [lastFrame(host), lastFrame(at(conns, 1))]) {
+      expect(JSON.stringify(frame)).not.toContain('scoreLedger');
+    }
+  });
+
   it('refuses to resume with a public playerId as the token (impersonation blocked)', async () => {
     const [hub, , code] = await open();
     const a = at(await seat(hub, code, 3), 0);

@@ -37,6 +37,7 @@ export function room(overrides: Partial<Room> = {}): Room {
     sessionScores: {},
     round: 0,
     gameConfig: undefined,
+    scoreLedger: {},
     ...overrides,
   };
 }
