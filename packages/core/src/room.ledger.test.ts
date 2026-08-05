@@ -92,6 +92,39 @@ describe('join reclaims a parked score by nickname (D4)', () => {
     }
   });
 
+  it('a nickname colliding with Object.prototype never reclaims (hasOwn guard)', () => {
+    // "constructor" is inherited from Object.prototype — a plain index read
+    // would find a FUNCTION there and pour it into sessionScores, which then
+    // fails the frame schema and bricks every future broadcast. Review find.
+    const r = room({});
+    const result = roomReduce(r, { type: 'join', nickname: 'Constructor' }, HOSTLESS, ctxWith());
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sessionScores).toEqual({});
+      expect(result.value.scoreLedger).toEqual({});
+    }
+  });
+
+  it('a "__proto__" nickname round-trips the ledger as an ordinary own key', () => {
+    const r = room({ players: [named('p1', '__proto__')], sessionScores: { p1: 4 } });
+    const left = roomReduce(r, { type: 'leave' }, asPlayer('p1'), ctxWith());
+    expect(left.ok).toBe(true);
+    if (left.ok) {
+      expect(Object.hasOwn(left.value.scoreLedger, '__proto__')).toBe(true); // own, not prototype
+      const back = roomReduce(
+        left.value,
+        { type: 'join', nickname: '__proto__' },
+        HOSTLESS,
+        ctxWith(),
+      );
+      expect(back.ok).toBe(true);
+      if (back.ok) {
+        expect(Object.values(back.value.sessionScores)).toEqual([4]);
+        expect(back.value.scoreLedger).toEqual({});
+      }
+    }
+  });
+
   it('A9: a different nickname starts at zero and leaves the ledger alone', () => {
     const r = room({ scoreLedger: { ada: 5 } });
     const result = roomReduce(r, { type: 'join', nickname: 'Cy' }, HOSTLESS, ctxWith());

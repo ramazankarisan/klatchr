@@ -174,4 +174,35 @@ describe('conformance kit self-tests (A1)', () => {
     });
     expect(() => gameConformance(mutant)).toThrowError(/I5/);
   });
+
+  it('a shallow-frozen state does not blind the freeze — nested mutation still fails (I3)', () => {
+    // A game might hand back a state it froze at the TOP level only; the kit
+    // must still freeze (and so detect mutation of) the subtrees underneath.
+    const mutant = miniSpec({
+      init: (players) =>
+        Object.freeze({ phase: 'hidden', roster: players.map((p) => p.id), notes: {} }),
+      reduce: (state, event) => {
+        if (event.type === 'note' && state.phase === 'hidden') {
+          (state.notes as Record<string, string>)[event.playerId] = event.text;
+          return ok(state);
+        }
+        return miniReduce(state, event);
+      },
+    });
+    expect(() => gameConformance(mutant)).toThrowError(/read only|not extensible|frozen/i);
+  });
+
+  it('a view that leaks only to a mid-round joiner still fails the kit (I4)', () => {
+    // The storm seats late-k spectators mid-game; a leak rendered only to one
+    // of THOSE viewers must not escape because the viewer set skipped them.
+    const mutant = miniSpec({
+      view: (state, viewer) => {
+        if (state.phase === 'hidden' && viewer.role === 'player' && viewer.id.startsWith('late-')) {
+          return { phase: state.phase, all: state.notes }; // the leak, spectators only
+        }
+        return miniGame().view(state, viewer);
+      },
+    });
+    expect(() => redactionNonInterference(mutant)).toThrowError(/I4/);
+  });
 });

@@ -93,13 +93,16 @@ function join(
   const tokens = { ...room.tokens, [player.id]: ctx.roomDeps.secret() };
   const gameState = forwardRoster(room, { type: 'playerJoined', player }, ctx);
   // D4: a matching nickname reclaims the parked score — first claimant wins.
-  const parked = room.scoreLedger[ledgerKey(player.nickname)];
+  // hasOwn: a bare index read would fall through to Object.prototype, so a
+  // nickname like "constructor" would reclaim a FUNCTION and poison the tally.
+  const key = ledgerKey(player.nickname);
+  const parked = Object.hasOwn(room.scoreLedger, key) ? room.scoreLedger[key] : undefined;
   const reclaim =
     parked === undefined
       ? {}
       : {
           sessionScores: { ...room.sessionScores, [player.id]: parked },
-          scoreLedger: omit(room.scoreLedger, ledgerKey(player.nickname)),
+          scoreLedger: omit(room.scoreLedger, key),
         };
   return ok({ ...room, players, tokens, gameState, ...reclaim });
 }
