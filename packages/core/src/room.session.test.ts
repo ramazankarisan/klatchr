@@ -62,7 +62,9 @@ describe('per-game reset (B2) + leave prune (B6)', () => {
     expect(r.ok && r.value).toMatchObject({ selectedGameId: 'other', round: 0, sessionScores: {} });
   });
 
-  it('re-selecting the same game keeps round + tally', () => {
+  it('re-selecting the same game replays it — round + tally reset (Cycle 12 revises B2)', () => {
+    // "Set = the session": picking the same game again starts a fresh session from question 1,
+    // rather than continuing the old round count (which would carry a spent set past its end).
     const start = room({
       phase: 'SCORES',
       selectedGameId: 'stub',
@@ -70,7 +72,7 @@ describe('per-game reset (B2) + leave prune (B6)', () => {
       sessionScores: { a: 9 },
     });
     const r = roomReduce(start, { type: 'selectGame', gameId: 'stub' }, HOST, ctxWith());
-    expect(r.ok && r.value).toMatchObject({ round: 3, sessionScores: { a: 9 } });
+    expect(r.ok && r.value).toMatchObject({ round: 0, sessionScores: {} });
   });
 
   it('prunes a leaving player from the session tally', () => {

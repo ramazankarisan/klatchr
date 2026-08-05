@@ -32,6 +32,11 @@ export interface Game<TState, TEvent> {
   view(state: TState, viewer: Viewer): unknown;
   scores(state: TState): Score[];
   isComplete(state: TState): boolean;
+  /** How many distinct rounds this session runs, given the host `config` — its "length"
+   * (Cycle 12): a question game returns its set size, so the room ends the game when the
+   * questions are spent instead of repeating. Omitted ⇒ unbounded (host starts rounds
+   * until they stop). The room never inspects `config`; the game reads its own. */
+  roundCount?(config?: unknown): number;
 }
 
 /** A game with its type parameters erased — how the registry and room hold it. */

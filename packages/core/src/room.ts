@@ -116,11 +116,19 @@ function selectGame(
   if (room.phase === 'IN_GAME') {
     return err({ code: 'WRONG_PHASE' });
   }
-  // B2 + Cycle 11: a different game is its own contest — reset the round, the tally, and
-  // the host-authored config (a set authored for one game is meaningless to another).
-  const fresh =
-    gameId !== room.selectedGameId ? { round: 0, sessionScores: {}, gameConfig: undefined } : {};
-  return ok({ ...room, phase: 'LOBBY', selectedGameId: gameId, ...fresh });
+  // Cycle 12: every (re)select starts a fresh session — reset the round + tally always, so
+  // re-picking the SAME game replays it from question 1 ("set = the session"). A DIFFERENT
+  // game also drops the host's config (a set authored for one game is meaningless to another,
+  // B2); re-picking the same game keeps it, so the authored set survives a replay.
+  const config = gameId !== room.selectedGameId ? { gameConfig: undefined } : {};
+  return ok({
+    ...room,
+    phase: 'LOBBY',
+    selectedGameId: gameId,
+    round: 0,
+    sessionScores: {},
+    ...config,
+  });
 }
 
 /** Store the host's opaque game config (Cycle 11). Host-only, lobby-only; the room never
