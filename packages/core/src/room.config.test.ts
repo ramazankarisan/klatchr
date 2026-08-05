@@ -112,3 +112,28 @@ describe('selectGame resets the config on a game change (A3)', () => {
     expect(r.value.sessionScores).toEqual({});
   });
 });
+
+describe('startGame refuses a spent session (F4.1)', () => {
+  it('rejects a round once round has reached the game roundCount, allows it below', () => {
+    const ctx = ctxWith([stubGame({ roundCount: () => 2 })]);
+    const players = [player('a'), player('b')];
+    // Two rounds already started (round === roundCount) — the set is spent.
+    expectErr(
+      roomReduce(
+        { ...room({ selectedGameId: 'stub', players, round: 2 }) },
+        { type: 'startGame' },
+        HOST,
+        ctx,
+      ),
+      'SESSION_COMPLETE',
+    );
+    // One round in (below the count) — the next round is still allowed.
+    const ok = roomReduce(
+      room({ selectedGameId: 'stub', players, round: 1 }),
+      { type: 'startGame' },
+      HOST,
+      ctx,
+    );
+    expect(ok.ok).toBe(true);
+  });
+});

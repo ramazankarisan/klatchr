@@ -39,6 +39,7 @@ export type RoomErrorCode =
   | 'GAME_EVENT_OUTSIDE_GAME'
   | 'GAME_REJECTED'
   | 'EMPTY_NICKNAME'
+  | 'SESSION_COMPLETE'
   | 'WRONG_PHASE';
 
 export interface RoomError {

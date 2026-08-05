@@ -1,4 +1,4 @@
-/** Prompt bank for Most Likely To. init picks one via GameDeps.random. */
+/** Built-in prompt bank for Most Likely To. init walks it one per round, in order (Cycle 12). */
 export const PROMPTS: readonly [string, ...string[]] = [
   'Who is most likely to survive a zombie apocalypse?',
   'Who is most likely to become internet famous?',

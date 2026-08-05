@@ -272,10 +272,16 @@ export function HostScreen({
   // a lobby "Start the round" for the (re)picked game — not the old game's step (B5).
   const controlFrame = showPicker ? { ...frame, phase: 'LOBBY' as const } : frame;
   const control = hostControl(controlFrame);
-  // F3: Start is blocked while Customize is open with an empty list; its hint wins.
+  // The dedicated game-over screen (the set is spent and we're not re-picking) drops the
+  // primary control entirely; opening the picker ("Change game") brings a re-pick Start back.
+  const gameOver = exhausted && !showPicker;
+  // F3: Start is blocked while Customize is open with an empty list; after a spent set the
+  // picker prompts a re-pick to start a fresh session. The most specific hint wins.
   const hint = customizeBlocked
     ? 'Add a question, or close Customize to use the built-in set.'
-    : startHint(controlFrame);
+    : exhausted && showPicker
+      ? 'Pick a game to play again.'
+      : startHint(controlFrame);
   const gameName = gameCatalog().find((g) => g.id === frame.selectedGameId)?.name;
   const confirmProps = confirmDialogFor(confirm, frame.code, {
     end: () => send({ type: 'endGame' }),
@@ -324,11 +330,11 @@ export function HostScreen({
         </Box>
       ) : null}
       <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-        {exhausted ? null : (
+        {gameOver ? null : (
           <Button
             variant="contained"
             size="large"
-            disabled={control.actions.length === 0 || customizeBlocked}
+            disabled={control.actions.length === 0 || customizeBlocked || (exhausted && showPicker)}
             onClick={() => {
               for (const action of control.actions) {
                 send(action);

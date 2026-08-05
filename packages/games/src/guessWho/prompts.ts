@@ -1,4 +1,4 @@
-/** Prompt bank for Guess Who Said It. init picks one via GameDeps.random. */
+/** Built-in prompt bank for Guess Who Said It. init walks it one per round, in order (Cycle 12). */
 export const PROMPTS: readonly [string, ...string[]] = [
   'What is your most controversial food opinion?',
   'What would you do with an extra hour every day?',

@@ -32,6 +32,9 @@ export function CustomizeQuestions({
   const [count, setCount] = useState(initial.length);
   useEffect(() => {
     onBlockedChange(open && count === 0);
+    // Reset on unmount (e.g. switching to a game with no packs) so a stale "blocked" can't
+    // leave Start disabled with no editor left to clear it.
+    return () => onBlockedChange(false);
   }, [open, count, onBlockedChange]);
   return (
     <Box sx={{ mt: 2.5 }}>

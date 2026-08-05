@@ -156,6 +156,13 @@ function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, 
   if (room.players.length < game.minPlayers) {
     return err({ code: 'BELOW_MIN_PLAYERS' }); // P3
   }
+  // Cycle 12: a set is the session — refuse a round past the game's roundCount, so the
+  // "no repeats, the game ends when the questions are spent" invariant is authoritative in
+  // core, not only the host UI. Omitted roundCount ⇒ unbounded (unchanged for such games).
+  const total = game.roundCount?.(room.gameConfig);
+  if (total !== undefined && room.round >= total) {
+    return err({ code: 'SESSION_COMPLETE' });
+  }
   const round = room.round + 1;
   const seated = seatWindow(room.players, game.maxPlayers, round); // E2 + X1 rotation
   const active = seated.filter((p) => !p.spectator);
