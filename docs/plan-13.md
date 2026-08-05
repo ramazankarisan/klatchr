@@ -147,3 +147,36 @@ randomness is fast-check's, seeded, test-scope).
 **Docs checkpoint (at cycle end):** CLAUDE.md (testing section: conformance kit + how a new
 game plugs in; `fast-check` under rule 8's approved tooling), SPEC (plan range → plan-13),
 README if user-facing. Log the sweep here.
+
+## Implementation log (2026-08-05)
+
+All five commits landed in order on `cycle-13-hardening`; gate green throughout. Deltas and
+findings against the plan as written:
+
+- **Kit API naming:** the plan's `arbHidden` shipped as `hiddenVariants(state)` — a
+  deterministic function returning the single-player hidden-swap worlds, which needs no
+  arbitrary at all. It is **required** (a no-hidden game passes `() => []`) so skipping I4
+  is a visible decision, never a silent default. Kit lives in `conformance.testkit.ts`
+  (coverage-exempt like all testkits) and reaches games via new package subpaths
+  `@klatchr/core/conformance` + `@klatchr/core/scenario`, keeping fast-check out of the
+  runtime export graph.
+- **I4 variants swap content only** (answer text, guess targets, vote targets), never
+  add/remove an actor — *who has acted* is public host progress by design. Card→author
+  linkage is a two-player permutation and stays covered by the explicit redaction tests.
+- **Ledger key is the lower-cased display nickname** — phone keyboards auto-capitalise and
+  reclaim-after-reap is exactly the flaky-phone path. Same trust level as planned.
+- **Conformance verdict:** both games passed 200 seeded storms of I1–I6 with zero findings
+  (the six mutant self-tests prove the kit bites), so no pinned regressions were needed.
+- **Finding (documented, not changed):** if a player is reaped mid-round, the end-of-round
+  fold re-adds their departed id to `sessionScores` (the game still scores their surviving
+  submissions). Invisible to users — standings filter to the roster web-side (Cycle 10 B6)
+  — and the ledger only parks at leave time, so a mid-round reap loses that round's points
+  even on reclaim. Pinned as documented behaviour in the guessWho matrix; revisit in
+  Cycle 14 if it should fold-to-ledger instead.
+- **A10's leak test** lives in `apps/server/src/roomHub.test.ts` (test-only; `frameFor`
+  itself needed no change — it already picks fields explicitly).
+
+**Docs checked (cycle end):** CLAUDE.md (new-game checklist step 5 = conformance run;
+Testing section: kit + scenario DSL; rule 8 + fast-check), SPEC (cycles note → 13,
+plan range → plan-13), `docs/playtest.md` added (A12), README/design.md/deploy.md
+unaffected (no user-facing or UI/deploy change).
