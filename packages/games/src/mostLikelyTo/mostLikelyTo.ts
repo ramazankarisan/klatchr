@@ -57,7 +57,7 @@ export const mostLikelyTo: Game<MLTState, MLTEvent> = {
   description: 'Everyone votes for who fits the prompt, then the tally is revealed.',
   contexts: ['teams', 'strangers'],
   minPlayers: 3,
-  maxPlayers: 12,
+  maxPlayers: 20, // D3 (Cycle 13): voting a 20-name list scales; guessing 20 cards does not, so guessWho stays 12
   init,
   reduce,
   view: viewFor,

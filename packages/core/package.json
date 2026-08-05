@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./conformance": "./src/conformance.testkit.ts"
+    "./conformance": "./src/conformance.testkit.ts",
+    "./scenario": "./src/scenario.testkit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
