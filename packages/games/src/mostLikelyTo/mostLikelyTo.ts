@@ -1,6 +1,6 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
 import { err, ok } from '@klatchr/core';
-import { choosePrompt } from '../promptConfig.js';
+import { choosePrompt, promptCount } from '../promptConfig.js';
 import type { MLTEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
@@ -63,4 +63,5 @@ export const mostLikelyTo: Game<MLTState, MLTEvent> = {
   view: viewFor,
   scores: tally,
   isComplete: (state) => state.phase === 'results',
+  roundCount: (config) => promptCount(config, PROMPTS),
 };

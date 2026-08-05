@@ -1,6 +1,6 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
 import { err, ok } from '@klatchr/core';
-import { choosePrompt } from '../promptConfig.js';
+import { choosePrompt, promptCount } from '../promptConfig.js';
 import type { GWEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
@@ -142,4 +142,5 @@ export const guessWho: Game<GWState, GWEvent> = {
   view: viewFor,
   scores: tally,
   isComplete: (state) => state.phase === 'reveal',
+  roundCount: (config) => promptCount(config, PROMPTS),
 };

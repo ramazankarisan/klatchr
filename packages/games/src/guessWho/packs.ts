@@ -2,39 +2,30 @@ import type { PromptPack } from '../promptConfig.js';
 
 /**
  * Themed packs a host can pour into their Guess Who question list (Cycle 11). Pure data —
- * the web editor reads these; a host appends a pack, prunes it, and adds their own.
+ * the web editor reads these; a host appends a pack, prunes it, and adds their own. The tone
+ * is warm, workplace-safe and a little funny (offsite / team energy, never edgy).
  */
 export const PACKS: readonly PromptPack[] = [
   {
-    id: 'work-safe',
-    name: 'Work-safe',
+    id: 'around-the-office',
+    name: 'Around the office',
     prompts: [
-      'What is your most controversial food opinion?',
-      'What would you do with an extra hour every day?',
-      'What is a small thing that makes you unreasonably happy?',
-      'What is the worst piece of advice you have ever received?',
-      'What is a hill you are willing to die on?',
+      'What is a small work win you are weirdly proud of?',
+      'What is the best desk snack, no wrong answers?',
+      'What would your job be in a parallel universe?',
+      'What is a work habit you will defend to the end?',
+      'What is the most useful thing a coworker ever taught you?',
     ],
   },
   {
     id: 'get-to-know-you',
     name: 'Get to know you',
     prompts: [
-      'What is the first concert you ever went to?',
-      'What is a skill you wish you had picked up sooner?',
       'What is your go-to karaoke song?',
+      'What hobby would you pick up with a free month?',
       'What is the best trip you have ever taken?',
-      'What is a weirdly specific fear you have?',
-    ],
-  },
-  {
-    id: 'spicy',
-    name: 'Spicy',
-    prompts: [
-      'What is a lie you told that you never got caught for?',
-      'What is the pettiest reason you have ended a friendship?',
-      'What is a trend you secretly think is overrated?',
-      'What is something you pretend to like to fit in?',
+      'What is your comfort movie or show?',
+      'What is a small thing that instantly makes your day better?',
     ],
   },
   {
@@ -43,8 +34,8 @@ export const PACKS: readonly PromptPack[] = [
     prompts: [
       'What is a belief you have changed your mind about?',
       'What is something you are quietly proud of?',
-      'What is a piece of advice you would give your younger self?',
-      'What is a moment that changed the direction of your life?',
+      'What advice would you give your younger self?',
+      'What is a moment that nudged your life in a new direction?',
     ],
   },
 ];

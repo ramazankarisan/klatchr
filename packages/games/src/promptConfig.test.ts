@@ -2,7 +2,7 @@ import type { GameDeps } from '@klatchr/core';
 import { describe, expect, it } from 'vitest';
 import { PACKS as guessWhoPacks } from './guessWho/packs.js';
 import { PACKS as mostLikelyToPacks } from './mostLikelyTo/packs.js';
-import { choosePrompt, validPrompts } from './promptConfig.js';
+import { choosePrompt, promptCount, validPrompts } from './promptConfig.js';
 
 const BUILTIN = ['B0', 'B1', 'B2'] as const;
 const depsAt = (round: number, random = 0): GameDeps => ({
@@ -38,26 +38,31 @@ describe('validPrompts (A8)', () => {
   });
 });
 
-describe('choosePrompt (A6, A7)', () => {
-  it('walks an authored set in order by round, wrapping with no repeat until exhausted', () => {
+describe('choosePrompt (A1) — in-order walk, a set is the session', () => {
+  it('walks an authored set in order, one per round, no repeat within the session', () => {
     const config = { prompts: ['Q1', 'Q2', 'Q3'] };
     expect(choosePrompt(config, depsAt(1), BUILTIN)).toBe('Q1');
     expect(choosePrompt(config, depsAt(2), BUILTIN)).toBe('Q2');
     expect(choosePrompt(config, depsAt(3), BUILTIN)).toBe('Q3');
-    expect(choosePrompt(config, depsAt(4), BUILTIN)).toBe('Q1'); // wraps, still no repeat within a cycle
   });
 
-  it('falls back to a random built-in when there is no usable config', () => {
-    expect(choosePrompt(undefined, depsAt(1, 0), BUILTIN)).toBe('B0');
-    expect(choosePrompt({ prompts: [] }, depsAt(1, 0.9), BUILTIN)).toBe('B2');
+  it('walks the built-in bank in order when there is no usable config', () => {
+    expect(choosePrompt(undefined, depsAt(1), BUILTIN)).toBe('B0');
+    expect(choosePrompt(undefined, depsAt(2), BUILTIN)).toBe('B1');
+    expect(choosePrompt({ prompts: [] }, depsAt(3), BUILTIN)).toBe('B2');
   });
 
-  it('tolerates the inclusive-upper RNG draw of 1.0 on the built-in path', () => {
-    expect(choosePrompt(undefined, depsAt(1, 1), BUILTIN)).toBe('B0'); // index len → undefined → first
-  });
-
-  it('tolerates a degenerate round 0 (never passed in a real game) by falling to a built-in', () => {
+  it('falls to the first built-in for a degenerate round (0 or past the set) the room never starts', () => {
     expect(choosePrompt({ prompts: ['Q1', 'Q2'] }, depsAt(0), BUILTIN)).toBe('B0');
+    expect(choosePrompt({ prompts: ['Q1', 'Q2'] }, depsAt(5), BUILTIN)).toBe('B0');
+  });
+});
+
+describe('promptCount (A2) — the session length', () => {
+  it('is the authored set length, or the built-in bank length with no usable config', () => {
+    expect(promptCount({ prompts: ['Q1', 'Q2', 'Q3'] }, BUILTIN)).toBe(3);
+    expect(promptCount(undefined, BUILTIN)).toBe(3);
+    expect(promptCount({ prompts: [] }, BUILTIN)).toBe(3); // empty ⇒ built-in
   });
 });
 
