@@ -144,7 +144,11 @@ is wrong — stop and say so rather than special-casing the game in core.
 3. A unit test for **every** transition, including the rejections (rule 4).
 4. A `redaction.test.ts` covering **both** viewers, player and host (§ Testing).
    The gate refuses a game directory that has none.
-5. A web view under `apps/web` — design-sketched and approved first (rule 9).
+5. A `conformance.test.ts`: ~30 lines of fast-check arbitraries feeding the
+   kit at `@klatchr/core/conformance` (§ Testing) — the game inherits the
+   fuzzed platform invariants (totality, purity, redaction non-interference,
+   roster storms) for free.
+6. A web view under `apps/web` — design-sketched and approved first (rule 9).
 
 ## Hard rules
 
@@ -173,7 +177,9 @@ is wrong — stop and say so rather than special-casing the game in core.
    pnpm, TypeScript, vitest, zod, NestJS, React, MUI, playwright, **@dnd-kit**
    (drag-and-drop reorder in the question editor, added Cycle 12). Approved
    tooling: **biome** (lint + format, replaces eslint), dependency-cruiser,
-   knip, jscpd, type-coverage, husky + lint-staged, gitleaks, commitlint.
+   knip, jscpd, type-coverage, husky + lint-staged, gitleaks, commitlint,
+   **fast-check** (property-based conformance fuzz — devDependency of
+   `core`/`games` only, test-side only, added Cycle 13).
    **No Python.** The `pre-commit` framework and semgrep are excluded; the gate
    wall is node/bash-native, orchestrated by `pnpm gate`. Call-level purity in
    `core`/`games` (no `Math.random`/`Date.now`/timers) is enforced by
@@ -198,6 +204,21 @@ is wrong — stop and say so rather than special-casing the game in core.
   the strictest case, since everyone sees it. A gate phase
   (`.hooks/check-redaction-tests.sh`) refuses any game directory that ships no
   `redaction.test.ts`, so the presence of the test is enforced, not just asked.
+- Every game also runs the **conformance kit** (Cycle 13): `stormConformance` +
+  `redactionNonInterference` from `@klatchr/core/conformance` drive seeded
+  fast-check event storms through the real reducer and views, checking at every
+  step: totality (never throws), typed rejections, no input mutation
+  (deep-freeze), redaction non-interference (swapping one player's hidden
+  submission never shifts another viewer's view), scores ⊆ the seated set, and
+  roster-storm acceptance. A game supplies ~30 lines of arbitraries — see
+  either game's `conformance.test.ts`. A failure prints the fast-check seed +
+  shrunken event trace: an exact deterministic repro. The kit's own mutant
+  self-tests live in `packages/core/src/conformance.test.ts`.
+- The **scenario DSL** (`@klatchr/core/scenario`) encodes the server's
+  disconnect policy over the pure room reducer exactly once — drop-within-grace
+  is *no core event*, reap is `leave`, rejoin is a fresh `join`, resume is the
+  token join — so the per-game `reconnect.matrix.test.ts` files read as
+  behaviour. Literal timers stay server territory.
 - Tests are behavioural: assert on returned state, views and scores, not on
   internal helper calls.
 - `apps/web` tests use React Testing Library, query by role and label, never
