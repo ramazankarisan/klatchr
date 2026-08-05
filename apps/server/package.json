@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
+    "bots": "tsx bots.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
