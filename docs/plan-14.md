@@ -140,3 +140,37 @@ Two whole-stack flows the current suite doesn't cover, both from the live play-t
 **Docs checkpoint (at cycle end):** CLAUDE.md (testing layers + bot tool; the reap-forfeit rule
 in the Game-interface roster-policy note), SPEC (plan range → plan-14), `docs/playtest.md` (bot
 army), README if user-facing. Log the sweep here.
+
+## Implementation log (2026-08-05)
+
+All five commits landed in order on `cycle-14-verification`; gate green throughout, e2e 10/10.
+Deltas and findings against the plan:
+
+- **Fold-fix (D2):** a one-line `seatedScores` filter at both fold sites (`gameEvent`,
+  `endGame`). Flushed out that three existing fixtures (two session-fold, one scenario-DSL
+  `round(n)`) had scored ids that were never seated — they only "worked" under the unfiltered
+  fold; each now seats the player it scores. The guessWho matrix assertion + the plan-13
+  finding note were flipped.
+- **L3 ws-integration:** extracted `startSocketServer(hub, {port, distDir})`; `SocketGateway`
+  is now a thin async Nest wrapper (prod boot re-smoked: GET 404 / ws 101). Harness lessons
+  worth keeping: a `ws` client must register its `'open'` listener in the constructor (awaiting
+  `once` later races the fast local connect); `close()` must `terminate()` live sockets first
+  (`http.close` waits on open connections, hanging the test); and a socket close reaches the
+  server asynchronously, so the reap test fires the injected grace timer until the reap lands.
+- **L4 bot army:** landed as `apps/server/bots.ts` (outside `src`, so no coverage/knip demand;
+  typechecked via the package tsconfig's `include`), run as `pnpm bots`. **Deviation from the
+  plan's `scripts/bots.ts`:** a script in `scripts/` can't resolve `ws`/`@klatchr/protocol`
+  (Node resolves bare imports from the file's own location, and neither is hoisted to the repo
+  root) — placing it in `apps/server` resolves them from that package, honouring D3 ("no new
+  library") without adding root deps. The tool splits benign phase-race rejections (expected
+  under a fast async crowd) from real room/protocol/socket errors, and only the latter fails
+  the run. Type-coverage needed the `.catch((error: unknown) =>` annotation.
+- **L5 e2e:** two flows added. The MLT vote picker labels chips by real nickname (the "You"
+  in the unit test is just a fixture nickname, not a self-relabel), so the e2e votes by name via
+  the search field. jscpd flagged the host-resume assertion as a clone of the 8.1 test →
+  extracted `expectHostResumed`.
+
+**Docs checked (cycle end):** CLAUDE.md (verification-pyramid intro + ws-integration + bot tool
+in Testing; `pnpm bots` in Commands; reap-forfeit in the roster-policy note), SPEC (cycles note
+→ 14, plan range → plan-14), `docs/playtest.md` (bot-army section), this plan's log.
+README/design.md/deploy.md unaffected (no user-facing or UI/deploy change).
