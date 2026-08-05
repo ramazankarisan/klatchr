@@ -1,18 +1,26 @@
-import type { PromptPack } from '@klatchr/games';
 import { Box, Button, Typography } from '@mui/material';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { ConfirmDialog, confirmDialogFor } from '../components/confirmDialog.js';
 import { Board, Recover } from '../components/paper.js';
 import { SessionStandings } from '../components/standings.js';
-import { PromptSetEditor } from '../games/PromptSetEditor.js';
 import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
 import { playerColor, tokens } from '../tokens.js';
-import { rememberQuestions, storedQuestions } from '../transport/factory.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
+import { CustomizeQuestions } from './customizeQuestions.js';
 
 /** A small round-counter pill for the board header (S6). */
-function RoundPill({ round, over }: { round: number; over: boolean }): ReactNode {
+function RoundPill({
+  round,
+  over,
+  exhausted,
+}: { round: number; over: boolean; exhausted: boolean }): ReactNode {
+  const label = !over
+    ? `Round ${round}`
+    : exhausted
+      ? `All ${round} questions played`
+      : `Game over · ${round} ${round === 1 ? 'round' : 'rounds'}`;
   return (
     <Box
       component="span"
@@ -29,7 +37,7 @@ function RoundPill({ round, over }: { round: number; over: boolean }): ReactNode
         whiteSpace: 'nowrap',
       }}
     >
-      {over ? `Game over · ${round} ${round === 1 ? 'round' : 'rounds'}` : `Round ${round}`}
+      {label}
     </Box>
   );
 }
@@ -217,67 +225,6 @@ function Lobby({
   );
 }
 
-/** The optional "Customize questions" disclosure under the picked game (Cycle 11). Closed by
- * default — the one-tap path is untouched. Open it to pour in packs, delete, or add your own;
- * the working list is sent up as it changes. Self-contained: the host screen remounts it with
- * a `key` on the game id, so a game change resets it. The editor stays mounted while collapsed
- * (hidden), so opening and closing the panel never loses the list. */
-function CustomizeQuestions({
-  code,
-  gameId,
-  packs,
-  onConfigure,
-}: {
-  code: string;
-  gameId: string;
-  packs: readonly PromptPack[];
-  onConfigure: (prompts: string[]) => void;
-}): ReactNode {
-  // Rehydrate from the client cache so a reload or re-opened panel shows the real set (F1).
-  const [initial] = useState(() => storedQuestions(code, gameId));
-  const [open, setOpen] = useState(false);
-  const [count, setCount] = useState(initial.length);
-  return (
-    <Box sx={{ mt: 2.5 }}>
-      <Button
-        onClick={() => setOpen((v) => !v)}
-        fullWidth
-        sx={{
-          textTransform: 'none',
-          justifyContent: 'space-between',
-          color: tokens.color.ink,
-          backgroundColor: tokens.color.card,
-          border: '1px dashed #d8c8ac',
-          borderRadius: `${tokens.radius.control}px`,
-          px: 1.75,
-          py: 1.25,
-          fontSize: 14,
-        }}
-      >
-        <Box component="span">
-          {count === 0
-            ? 'Using the built-in question bank'
-            : `${count} custom ${count === 1 ? 'question' : 'questions'}`}
-        </Box>
-        <Box component="span" sx={{ color: tokens.color.inkSoft, fontWeight: 700 }}>
-          {open ? 'Done ▴' : 'Customize ▾'}
-        </Box>
-      </Button>
-      <Box sx={{ mt: 1, display: open ? 'block' : 'none' }}>
-        <PromptSetEditor
-          packs={packs}
-          initial={initial}
-          onChange={(next) => {
-            setCount(next.length);
-            rememberQuestions(code, gameId, next);
-            onConfigure(next);
-          }}
-        />
-      </Box>
-    </Box>
-  );
-}
-
 export function HostScreen({
   transport,
   onExit,
@@ -285,6 +232,11 @@ export function HostScreen({
   const { frame, reconnecting, recover } = useScreen(transport, onExit, 'Back to start');
   // "Change game" re-opens the picker at the game-over screen; forget it once we leave.
   const [picking, setPicking] = useState(false);
+  // F7: a confirm dialog gates the destructive host actions (end / change / leave).
+  const [confirm, setConfirm] = useState<'end' | 'change' | 'leave' | null>(null);
+  // F3: the editor reports "open with an empty list" so Start can be blocked.
+  const [customizeBlocked, setCustomizeBlocked] = useState(false);
+  const onCustomizeBlocked = useCallback((blocked: boolean) => setCustomizeBlocked(blocked), []);
   const phase = frame?.phase;
   useEffect(() => {
     if (phase !== 'SCORES') {
@@ -312,18 +264,36 @@ export function HostScreen({
   const views = viewsFor(frame.selectedGameId);
   const send = (action: Action): void => transport.send(action);
   const over = frame.phase === 'SCORES'; // the round finished — game-over screen
+  // F4: a set is the session — once the questions are spent (round has reached roundsTotal)
+  // the game is over: no "New round", just the standings and the exits.
+  const exhausted = over && frame.roundsTotal > 0 && frame.round >= frame.roundsTotal;
   const showPicker = frame.phase === 'LOBBY' || picking || views === null;
   // While the picker is open (incl. "Change game" at SCORES) the primary control is
   // a lobby "Start the round" for the (re)picked game — not the old game's step (B5).
   const controlFrame = showPicker ? { ...frame, phase: 'LOBBY' as const } : frame;
   const control = hostControl(controlFrame);
-  const hint = startHint(controlFrame);
+  // F3: Start is blocked while Customize is open with an empty list; its hint wins.
+  const hint = customizeBlocked
+    ? 'Add a question, or close Customize to use the built-in set.'
+    : startHint(controlFrame);
   const gameName = gameCatalog().find((g) => g.id === frame.selectedGameId)?.name;
+  const confirmProps = confirmDialogFor(confirm, frame.code, {
+    end: () => send({ type: 'endGame' }),
+    change: () => setPicking(true),
+    leave: () => {
+      send({ type: 'leave' });
+      onExit();
+    },
+  });
   return (
     <Board
       code={frame.code}
       hint={<>Join at {joinHost()} · punch in the code</>}
-      badge={frame.round > 0 ? <RoundPill round={frame.round} over={over} /> : undefined}
+      badge={
+        frame.round > 0 ? (
+          <RoundPill round={frame.round} over={over} exhausted={exhausted} />
+        ) : undefined
+      }
       reconnecting={reconnecting}
     >
       {showPicker ? (
@@ -336,6 +306,7 @@ export function HostScreen({
               gameId={frame.selectedGameId}
               packs={views.packs}
               onConfigure={(next) => send({ type: 'configureGame', config: { prompts: next } })}
+              onBlockedChange={onCustomizeBlocked}
             />
           ) : null}
         </>
@@ -353,37 +324,62 @@ export function HostScreen({
         </Box>
       ) : null}
       <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-        <Button
-          variant="contained"
-          size="large"
-          disabled={control.actions.length === 0}
-          onClick={() => {
-            for (const action of control.actions) {
-              send(action);
-            }
-          }}
-        >
-          {control.label}
-        </Button>
+        {exhausted ? null : (
+          <Button
+            variant="contained"
+            size="large"
+            disabled={control.actions.length === 0 || customizeBlocked}
+            onClick={() => {
+              for (const action of control.actions) {
+                send(action);
+              }
+            }}
+          >
+            {control.label}
+          </Button>
+        )}
         {over && !picking ? (
-          <Button variant="outlined" size="large" color="inherit" onClick={() => setPicking(true)}>
+          <Button
+            variant="outlined"
+            size="large"
+            color="inherit"
+            onClick={() => setConfirm('change')}
+          >
             Change game
           </Button>
         ) : null}
         {frame.phase === 'IN_GAME' ? (
-          <Button
-            variant="text"
-            size="large"
-            color="inherit"
-            onClick={() => send({ type: 'endGame' })}
-          >
+          <Button variant="text" size="large" color="inherit" onClick={() => setConfirm('end')}>
             End game
           </Button>
         ) : null}
+        <Button
+          variant="text"
+          size="large"
+          color="error"
+          onClick={() => setConfirm('leave')}
+          sx={{ ml: { sm: 'auto' } }}
+        >
+          Leave &amp; close room
+        </Button>
         {hint !== null ? (
           <Typography sx={{ color: tokens.color.inkSoft, fontSize: 15 }}>{hint}</Typography>
         ) : null}
       </Box>
+      {confirmProps !== null ? (
+        <ConfirmDialog
+          open
+          title={confirmProps.title}
+          body={confirmProps.body}
+          confirmLabel={confirmProps.confirmLabel}
+          danger={confirmProps.danger}
+          onConfirm={() => {
+            setConfirm(null);
+            confirmProps.action();
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      ) : null}
     </Board>
   );
 }

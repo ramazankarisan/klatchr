@@ -58,6 +58,18 @@ describe('host customize questions (Cycle 11)', () => {
     expect(cfg.config).toEqual({ prompts: expect.arrayContaining([expect.any(String)]) });
   });
 
+  it('A9 blocks Start when Customize is open with an empty list, enables it otherwise', async () => {
+    const user = userEvent.setup();
+    render(
+      withTheme(<HostScreen transport={new FrameTransport(lobbyFrame())} onExit={() => {}} />),
+    );
+    const start = (): HTMLElement => screen.getByRole('button', { name: /start the round/i });
+    expect(start().hasAttribute('disabled')).toBe(false); // built-in path: Start works
+    await user.click(screen.getByRole('button', { name: /customize/i })); // open, list empty
+    expect(start().hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(/add a question, or close customize/i)).toBeTruthy();
+  });
+
   it('F1 rehydrates a cached authored set so the disclosure reflects it, not "built-in"', () => {
     // A prior session cached the host's set for this room+game (as configureGame is sent).
     localStorage.setItem(

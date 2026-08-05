@@ -287,6 +287,8 @@ export class SocketTransport implements Transport {
         return { type: 'host', code, action: 'startGame' };
       case 'endGame':
         return { type: 'host', code, action: 'endGame' };
+      case 'leave':
+        return { type: 'leave', code };
       case 'gameEvent':
         // `?? null` pins the type non-undefined, which the wire schema requires
         // (a play must carry an event); real game events are never undefined.

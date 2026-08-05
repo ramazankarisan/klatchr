@@ -38,6 +38,7 @@ export type Action =
   | { type: 'configureGame'; config: unknown } // host-authored game setup (Cycle 11)
   | { type: 'startGame' }
   | { type: 'endGame' }
+  | { type: 'leave' } // host closes the room / player leaves it (Cycle 12)
   | { type: 'gameEvent'; event: unknown };
 
 /**
