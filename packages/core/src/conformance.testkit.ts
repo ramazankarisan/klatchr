@@ -254,7 +254,7 @@ function causeChain(failure: unknown): string[] {
 }
 
 /** I1, I2, I3, I5, I6 over seeded event storms. Throws on the first violation. */
-function stormConformance<TState, TEvent>(spec: ConformanceSpec<TState, TEvent>): void {
+export function stormConformance<TState, TEvent>(spec: ConformanceSpec<TState, TEvent>): void {
   assertProperty(
     spec as ConformanceSpec<unknown, TEvent>,
     fc.property(arbStorm(spec), (run) => {
