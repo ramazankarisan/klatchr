@@ -86,6 +86,13 @@ describe('scenario DSL semantics', () => {
     }
   });
 
+  it('host leaving closes the room at any phase (P6 — the host-analog rows)', () => {
+    const lobby = scenario(stubGame()).join('Ada', 'Bo', 'Cy').hostLeaves();
+    expect(lobby.room.closed).toBe(true);
+    const inGame = scenario(stubGame()).join('Ada', 'Bo', 'Cy').start().hostLeaves();
+    expect(inGame.room.closed).toBe(true);
+  });
+
   it('attempt() applies the new state when the event is accepted', () => {
     const game = stubGame({ reduce: () => ok({ moves: 1 }), view: (state) => state });
     const s = scenario(game).join('Ada', 'Bo', 'Cy').start();

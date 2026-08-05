@@ -123,6 +123,11 @@ class Scenario {
     return this.apply({ type: 'leave' }, { role: 'player', id: this.id(nick) });
   }
 
+  /** The host-analog of a reap: an expired board grace closes the room (P6). */
+  hostLeaves(): this {
+    return this.apply({ type: 'leave' }, HOST);
+  }
+
   /** Rejoin after a reap: a fresh join under the same nickname — new id. */
   rejoin(nick: string): this {
     return this.join(nick);
