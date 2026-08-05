@@ -206,6 +206,29 @@ The seam: the list is sent as an opaque `configureGame` (the dormant `Game.init(
 argument, now live end-to-end); the game validates it. No `core`/design token churn — a new
 game with its own setup UI would add a `Setup` slot to the web registry.
 
+## Cycle 12 — play-test fixes (approved 2026-08-05)
+
+Seven play-test fixes on the paper palette; **no new tokens**. Sketched on the Klatchr design
+project (card `cycle-12`); picked options:
+
+- **Editor v2.** Pack chips are **toggles** — an added pack shows a teal ✓; tap it again to
+  remove its questions (F1). Rows carry a **drag handle** (⠿) to reorder, and the list order is
+  the ask order (F2, adds the `@dnd-kit` dependency). If the host opens Customize and empties the
+  list, **Start is disabled with a hint** rather than silently falling back (F3). The do-nothing
+  host who never opens Customize still gets the built-in set in one tap.
+- **A set is the session (F4).** Questions play once, in order; once the set is spent
+  (`round === roundsTotal`) the last reveal lands on the **game-over screen** — final standings,
+  the round pill reads *"All N questions played"*, and there is **no "New round"**, only Change
+  game / Leave. Built-in bank the same (plays its bank in order, then ends). The board reads
+  `roundsTotal` from the frame.
+- **Leave & close room (F6).** A control (marker-red, board corner) closes the room for everyone
+  and returns to the landing, where the host can host again **or** join as a player — the escape
+  from the auto-resume that otherwise traps a host in one room. An accidental reload still
+  auto-resumes; leaving is the deliberate way out.
+- **Confirm dialogs (F7).** One reusable MUI `Dialog` guards End game, Change game and Leave &
+  close room. Cancel is the safe default; the confirm carries the action's weight (red to close).
+- **Packs (F5).** The "Spicy" pack is gone; every pack is now workplace-safe, warm and funny.
+
 ## Screens (Cycle 4)
 
 - Host: **lobby** (room code + joining players), **in-game** per phase,

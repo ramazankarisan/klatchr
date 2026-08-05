@@ -94,6 +94,10 @@ interface Game<TState, TEvent> {
   view(state: TState, viewer: Viewer): unknown;
   scores(state: TState): Score[];
   isComplete(state: TState): boolean;
+  // How many rounds the session runs, given the host config — its length (Cycle 12).
+  // A question game returns its set size, so the room ends the game when the questions
+  // are spent instead of repeating. Omitted ⇒ unbounded (the host starts rounds freely).
+  roundCount?(config?: unknown): number;
 }
 
 // The type-erased form the registry and room hold games as.
@@ -166,7 +170,8 @@ is wrong — stop and say so rather than special-casing the game in core.
 7. **No database, no auth, no accounts.** Rooms live in server memory and are
    discarded when empty. Do not add persistence.
 8. **Do not add dependencies** without asking first. Runtime stack is fixed:
-   pnpm, TypeScript, vitest, zod, NestJS, React, MUI, playwright. Approved
+   pnpm, TypeScript, vitest, zod, NestJS, React, MUI, playwright, **@dnd-kit**
+   (drag-and-drop reorder in the question editor, added Cycle 12). Approved
    tooling: **biome** (lint + format, replaces eslint), dependency-cruiser,
    knip, jscpd, type-coverage, husky + lint-staged, gitleaks, commitlint.
    **No Python.** The `pre-commit` framework and semgrep are excluded; the gate
