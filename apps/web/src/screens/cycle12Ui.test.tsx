@@ -44,6 +44,22 @@ describe('host game-over when the question set is spent (F4)', () => {
     render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
     expect(screen.getByRole('button', { name: /new round/i })).toBeTruthy();
   });
+
+  it('F4.2 "Change game" at game-over restores a Start affordance (not stuck)', async () => {
+    const user = userEvent.setup();
+    const t = new FrameTransport(frame({ phase: 'SCORES', round: 3, roundsTotal: 3 }));
+    render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
+    await user.click(screen.getByRole('button', { name: /change game/i }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /change game/i }),
+    );
+    // The picker is open with a Start button again — disabled + a re-pick hint, not absent.
+    expect(screen.getByText(/choose tonight.s game/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /start the round/i }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(screen.getByText(/pick a game to play again/i)).toBeTruthy();
+  });
 });
 
 describe('host leave + confirm dialogs (F6/F7)', () => {
