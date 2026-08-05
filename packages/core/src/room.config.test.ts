@@ -96,10 +96,19 @@ describe('selectGame resets the config on a game change (A3)', () => {
     expect(r.value.sessionScores).toEqual({});
   });
 
-  it('re-selecting the same game keeps the config', () => {
+  it('A4 re-selecting the same game replays it — resets round + tally, keeps the config', () => {
     const ctx = ctxWith([stubGame({ id: 'g1' })]);
-    const start = room({ selectedGameId: 'g1', gameConfig: { prompts: ['x'] } });
+    const start = room({
+      selectedGameId: 'g1',
+      gameConfig: { prompts: ['x'] },
+      round: 3,
+      sessionScores: { a: 5 },
+    });
     const r = roomReduce(start, { type: 'selectGame', gameId: 'g1' }, HOST, ctx);
-    expect(r.ok && r.value.gameConfig).toEqual({ prompts: ['x'] });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.gameConfig).toEqual({ prompts: ['x'] }); // the authored set survives a replay
+    expect(r.value.round).toBe(0); // but the session restarts from question 1
+    expect(r.value.sessionScores).toEqual({});
   });
 });
