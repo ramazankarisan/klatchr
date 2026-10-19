@@ -1,66 +1,133 @@
 # Klatchr
 
-A party-game platform for teams. A host opens a room on a shared screen, players
-join from their phones with a four-letter room code, and the group plays a short
-game together.
+[![gate](https://github.com/ramazankarisan/klatchr/actions/workflows/gate.yml/badge.svg)](https://github.com/ramazankarisan/klatchr/actions/workflows/gate.yml)
+![coverage: 100% core/games](https://img.shields.io/badge/coverage-100%25%20core%2Fgames-2E8B7B)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 
-The platform is the product; games are modules that plug into it. Two games ship
-today: **Guess Who Said It** and **Most Likely To**. A host can play the built-in
-questions in one tap, or bring their own — pour in a themed pack, reorder it, and
-add custom questions in the lobby. A question set is a session: it plays through
-once, in order, then the game ends to the final standings.
+**A party-game platform for teams.** A host opens a room on a shared screen (a TV or a
+laptop on a projector), everyone joins from their phone with a four-letter code, and the
+group plays a short game together — an icebreaker for an offsite, a team meeting or a
+remote call.
 
-**Live:** <https://klatchr.duckdns.org> — a host opens a room, players join from
-their phones. Rooms are in-memory, so a redeploy resets them.
+**Play it live:** <https://klatchr.duckdns.org> — open it on a laptop to host, then join
+from two or three phones.
 
-> Side project. This README is intentionally minimal and will grow as the project does.
+<!-- screenshots: docs/screenshots/ -->
+| Shared screen | Phone |
+| --- | --- |
+| ![The host board in the lobby: room code, join link and who has joined](docs/screenshots/tv-lobby.png) | ![A phone in the waiting room: name-tag, the upcoming game and how to play](docs/screenshots/phone-lobby.png) |
+| ![The host board mid-round: who has answered so far](docs/screenshots/tv-answering.png) | ![A phone after answering: a count of who has answered](docs/screenshots/phone-answered.png) |
 
-## What it does
+## The games
 
-- Host opens a room → gets a four-letter code, shown on a shared screen.
-- Players join on their phones with the code.
-- The group plays a round together; the shared screen shows public state, each
-  phone shows only what that player is allowed to see.
-- Rooms live in server memory and vanish when empty — no accounts, no database.
+- **Guess Who Said It** — everyone answers a prompt; the answers go up on the board with no
+  names; each player guesses who wrote which. A point per right guess.
+- **Most Likely To** — everyone votes for who in the room best fits the prompt; the board
+  reveals the tally (never who voted for whom).
 
-## Stack
+A host can play the built-in questions in one tap, or bring their own: pour in a themed
+pack, reorder it, add custom questions. A question set is a session — it plays through once,
+in order, then ends on the final standings.
 
-TypeScript monorepo (pnpm workspaces).
+## Why it is built the way it is
 
-| Package            | Role                                                        |
-| ------------------ | ----------------------------------------------------------- |
-| `packages/core`    | Room + player lifecycle, the `Game` interface, registry. Pure. |
-| `packages/games`   | One directory per game, each exporting a `Game`. Pure.      |
-| `packages/protocol`| zod schemas for every client↔server message.                |
-| `apps/server`      | NestJS + WebSocket gateway, room registry.                  |
-| `apps/web`         | React + TS + MUI. Platform shell + one view per game.       |
+The interesting part is not the games — it is keeping a multiplayer game **honest and
+alive** across a dozen unreliable phones.
 
-## Commands
+- **Redaction is a correctness boundary.** Every game exposes
+  `view(state, viewer)`: what *this* phone, or the shared screen, may see. The server never
+  sends raw state. The host screen is the strictest viewer, because the whole room sees it.
+  A leak is treated as severely as a crash: every game ships redaction tests for both
+  viewers, and a fuzzer checks that changing one player's hidden answer never changes
+  anyone else's view.
+- **Pure game logic.** `packages/core` and `packages/games` are pure reducers —
+  `(state, event) => Result` — with randomness, time and the round injected. That makes every
+  rule unit-testable (100% line and branch coverage, enforced) and every fuzz failure an exact,
+  replayable seed.
+- **Property-based conformance.** A fast-check kit drives seeded event storms through each
+  game's real reducer and views: it never throws, rejections are typed, input is never
+  mutated, scores only go to seated players, and hidden data never leaks.
+- **Built for flaky phones.** Players keep their seat for 3 minutes through a phone lock or a
+  Wi-Fi blip; the server's heartbeat drops dead sockets, the client's watchdog replaces
+  sockets that only *look* open, a second device takes a seat cleanly, and one bad client
+  can't crash the process or flood a public server.
+- **Parse at the boundary.** Every message is a zod schema in `packages/protocol`, parsed on
+  both ends. Nothing from the wire is ever cast.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph pure [pure — no I/O, 100% covered]
+    core["packages/core<br/>room lifecycle, Game contract"]
+    games["packages/games<br/>Guess Who · Most Likely To"]
+  end
+  protocol["packages/protocol<br/>zod wire schemas"]
+  server["apps/server<br/>NestJS + ws: authority,<br/>per-viewer fan-out, timers"]
+  web["apps/web<br/>React + MUI: board + phone"]
+  games --> core
+  server --> core & games & protocol
+  web --> core & games & protocol
+  web <-. "WebSocket: view(state, viewer) per socket" .-> server
+```
+
+Dependencies point one way and are enforced by dependency-cruiser in the gate. More in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Run it locally
+
+Requires Node 22 and pnpm 10.
 
 ```bash
 pnpm install
-pnpm dev        # server + web
-pnpm test       # vitest
-pnpm gate       # full pre-commit wall — run before calling any task done
+pnpm dev          # web :5173 on an in-browser mock room (bots play along) + server :8080
+pnpm e2e          # the real stack in Playwright: one host + several phones in one test
 ```
 
-## Agentic coding
+To play against the real server locally, run `pnpm -C apps/server dev` and
+`pnpm -C apps/web dev --mode e2e` (its `.env.e2e` points the web at `ws://localhost:8080`),
+then open the web URL in a few browser windows — one hosts, the others join.
 
-This project is built with an AI coding agent (Claude Code) under a fixed method:
+## Quality wall
 
-- **RPI cycle** — Research → Plan (written to `docs/plan-N.md`, approved before
-  code) → Implement.
-- **TDD inside implement** — red → green → refactor. `core` and `games` are pure
-  with a 100% coverage threshold; redaction tests are written first.
-- **`CLAUDE.md`** — the agent's standing instructions: a short root file with the
-  architecture rules and working style, plus one per area (`packages/`,
-  `apps/server/`, `apps/web/`, `e2e/`) that loads only when the agent works there.
-- **Gate wall** (`pnpm gate`, `scripts/gate.sh`) — a fail-fast wall: custom checks
-  (purity, redaction + conformance tests, no casts at the wire boundary, no
-  hardcoded host, dependency allowlist, bypass directives, line caps), secrets scan,
-  biome, dead code, duplication, types, type coverage, module architecture, audit,
-  licenses, tests.
-  A task is not done until the wall is green. End-to-end tests (`pnpm e2e`) run in CI on every
-  PR and at cycle end, not on every commit.
+`pnpm gate` is the definition of done — a fail-fast wall that runs locally (husky) and in CI
+on every PR, together with the end-to-end suite:
 
-See `CLAUDE.md` and the per-area `CLAUDE.md` files for the full rules and `SPEC.md` for the design.
+purity of core/games · redaction + conformance tests present for every game · no casts at the
+wire boundary · no hardcoded host · dependency allowlist · secrets scan · lint/format (biome)
+· dead code (knip) · duplication (jscpd) · types · type coverage · module architecture
+(dependency-cruiser) · production audit · license allowlist · tests with coverage thresholds.
+
+| Layer | What it proves |
+| --- | --- |
+| Unit (vitest) | each reducer transition, including every rejection |
+| Conformance (fast-check) | game invariants under seeded event storms |
+| ws-integration | the real socket path: wire JSON, heartbeat, grace and reap, limits |
+| E2E (Playwright) | a whole round across browser contexts, reloads and drops |
+| `pnpm bots` | a crowd of real protocol clients against a running server |
+
+## Built with an AI agent, under rules
+
+Klatchr is developed with Claude Code working under written, enforced rules:
+
+- **Plan before code** — research, a written plan in `docs/plans/plan-N.md`, then TDD.
+- **`CLAUDE.md`** — a short root file plus one per area (`packages/`, `apps/server/`,
+  `apps/web/`, `e2e/`) that loads only when the agent works there.
+- **Backpressure** — the gate above, plus Claude Code hooks that refuse skipping it
+  (`--no-verify`, pushing to `main`) and ask before an agent edits the wall itself.
+
+The plans are the project's history: [docs/plans/](docs/plans/).
+
+## Repository map
+
+```
+packages/core       room + player lifecycle, the Game contract, conformance + scenario kits
+packages/games      one directory per game
+packages/protocol   zod schemas for every client↔server message
+apps/server         NestJS + ws gateway, room hub, sessions, bot soak tool
+apps/web            React + MUI board and phone views
+e2e/                Playwright multi-device rounds
+docs/               deploy runbook, play-test checklist, plans and design history
+```
+
+Deploy: a single Docker container behind Caddy on a small VM — [docs/deploy.md](docs/deploy.md).

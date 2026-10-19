@@ -137,7 +137,7 @@ post-play-test bundle), 10 post-play-test bundle, 11 host-authored question sets
 nickname score-reclaim after a reap, Most Likely To seats 20),
 14 verification pyramid (mid-round-reap forfeits the round, ws-integration
 tests, a bot-army load tool, two new e2e reload flows) — see
-`docs/plan-5.md` … `plan-14.md`.)
+`docs/plans/plan-5.md` … `plan-14.md`.)
 
 ### Budget
 

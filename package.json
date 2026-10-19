@@ -1,10 +1,25 @@
 {
   "name": "klatchr",
+  "description": "A party-game platform for teams: a host opens a room on a shared screen, everyone plays from their phone.",
+  "homepage": "https://klatchr.duckdns.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ramazankarisan/klatchr"
+  },
+  "keywords": [
+    "party-game",
+    "multiplayer",
+    "websocket",
+    "react",
+    "nestjs",
+    "typescript",
+    "monorepo"
+  ],
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"],

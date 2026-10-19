@@ -41,7 +41,7 @@ Code comments cite these by name.
 
 ## Working style
 
-- Research, then a written plan in `docs/plan-N.md`, then implement. Do not
+- Research, then a written plan in `docs/plans/plan-N.md`, then implement. Do not
   implement before the plan is approved. Inside implementation, TDD: failing
   test first — redaction tests before game logic.
 - Docs are part of the work. Before the PR that closes a plan — and right after
