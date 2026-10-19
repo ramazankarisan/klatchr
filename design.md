@@ -1,6 +1,6 @@
 # design.md — Klatchr design system
 
-Source of truth for the look and feel of `apps/web`. Per CLAUDE.md rule 9,
+Source of truth for the look and feel of `apps/web`. Per `apps/web/CLAUDE.md` (design before code),
 **every UI change is sketched and approved before it is built.** This file is
 updated alongside the sketch, and component code is written against it.
 
@@ -171,7 +171,7 @@ Fixes found play-testing the live app. Sketched on the Klatchr design project (c
   names use `font.display` **bold** (crisp, legible, zero download). This removes the
   Comic Sans fallback. (`font.hand` may still exist as a token but is no longer applied
   to participant names / tallies / the winner spotlight.)
-- **No hardcoded host or cap (rule 6).** The board's join hint is derived from
+- **No hardcoded host or cap (the VITE_WS_URL rule).** The board's join hint is derived from
   `window.location.host` (or shows only the code), not “klatchr.app”; player-count copy
   (“/ N”, spectator “N seats”) is derived from the selected game's `maxPlayers`, not a
   literal 50/12.

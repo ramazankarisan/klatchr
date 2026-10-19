@@ -45,8 +45,8 @@ const KEEPALIVE_MS = 25_000;
 /**
  * A single-viewer `Transport` over one native WebSocket. It opens (host) or
  * joins (player) on connect, parses every inbound with `@klatchr/protocol`
- * (rule 2 — never `as`), and rebuilds the web `ViewFrame` from the wire frame
- * plus its own resolved viewer (host is known; a player's id arrives in
+ * (the parse-at-the-boundary rule — never `as`), and rebuilds the web
+ * `ViewFrame` from the wire frame plus its own resolved viewer (host is known; a player's id arrives in
  * `joined`). Redaction already happened server-side; this only forwards.
  *
  * It heals itself (7.2): on a `close`/`error` it retries with capped exponential
@@ -209,7 +209,7 @@ export class SocketTransport implements Transport {
     }
     const parsed = serverMessage.safeParse(json);
     if (!parsed.success) {
-      return; // an unparseable inbound is dropped, never rendered (rule 2)
+      return; // an unparseable inbound is dropped, never rendered (the parse-at-the-boundary rule)
     }
     this.receive(parsed.data);
   }

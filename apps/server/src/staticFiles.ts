@@ -6,7 +6,7 @@ import { extname, join, normalize, sep } from 'node:path';
 /**
  * A tiny static-file handler for the built web `dist` (7.3, single-service): the
  * server serves the SPA and upgrades WebSockets on the *same* port/origin. Node's
- * built-in `http` does the split (no new runtime dependency, rule 8) — this is the
+ * built-in `http` does the split (no new runtime dependency, the no-new-deps rule) — this is the
  * request side; the gateway hands `Upgrade` requests to the `WebSocketServer`.
  *
  * SPA routing: a path with a file extension maps to a real asset (404 if missing);

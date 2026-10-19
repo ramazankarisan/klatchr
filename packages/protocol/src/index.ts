@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Every client<->server message, defined once and parsed with zod at both
- * boundaries (rule 2). The server parses every inbound `clientMessage`; the
+ * boundaries (the parse-at-the-boundary rule). The server parses every inbound `clientMessage`; the
  * client parses every inbound `serverMessage`. Nothing is ever cast with `as`.
  *
  * The per-game view is carried opaquely as `gameView` / `event` (`z.unknown()`):

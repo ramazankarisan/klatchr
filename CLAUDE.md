@@ -1,283 +1,50 @@
-# CLAUDE.md — Klatchr
+# Klatchr
 
-A party-game platform for teams. A host opens a room on a shared screen,
-players join on their phones with a four-letter room code, and the group plays
-a short game together. The platform hosts many games; two ship today —
-**Guess Who Said It** and **Most Likely To**.
+Party-game platform: a host opens a room on a shared screen, players join on
+their phones with a four-letter code. The platform is the product; games are
+pure modules that plug into it. Live at https://klatchr.duckdns.org (one Docker
+container behind Caddy; runbook `docs/deploy.md`).
 
-The platform is the product. Games are modules that plug into it.
+Area rules load from the nearest CLAUDE.md: `packages/CLAUDE.md` (core, games,
+protocol), `apps/server/CLAUDE.md`, `apps/web/CLAUDE.md`, `e2e/CLAUDE.md`.
 
-## Commands
+## Done means green
 
-```bash
-pnpm install
-pnpm test           # vitest, all packages
-pnpm test:core      # vitest, packages/core only
-pnpm typecheck      # tsc --noEmit, all packages
-pnpm lint           # biome check (lint + format)
-pnpm e2e            # playwright
-pnpm dev            # server + web, concurrently
-pnpm gate           # full pre-commit wall — all phases, fail_fast
-pnpm bots           # load/soak tool: many real ws clients at a server (Cycle 14)
-```
+Run `pnpm gate` before claiming any task done; it fails fast. Never report
+success for code you have not run. CI also runs `pnpm e2e` on every PR.
 
-`pnpm bots --players N [--chaos] [--url ws://…] [--game …] [--seconds …]` drives
-a crowd of real protocol clients at a running server (default `ws://localhost:8080`,
-or point `--url` at the live VM). It is a manual smoke — **not** part of `pnpm gate`
-or `pnpm e2e` — and exits non-zero on a real room/protocol or socket error.
+## Architecture rules
 
-Run `pnpm gate` before claiming any task is done. It runs the phased wall
-(syntax → format → dead code → static analysis → types → module architecture →
-tests) and fails fast. A task is not complete until the wall is green.
-Do not report success on the basis of code you have written but not run.
+Code comments cite these by name.
 
-The end-to-end suite (`pnpm e2e`) is **not** part of `pnpm gate` — it is too
-slow to run on every commit. It runs in CI on every pull request (the
-unbypassable server-side wall) and at cycle end as verification. Run it locally
-whenever you touch the socket handshake, a game flow, or the host/player wiring.
-
-## Structure
-
-```
-packages/core       room + player lifecycle, the Game interface, the game
-                    registry. PURE. Knows nothing about any specific game.
-packages/games      one directory per game, each exporting a Game
-                    implementation. PURE.
-packages/protocol   zod schemas for every client<->server message.
-apps/server         NestJS + WebSocket gateway, room registry. Thin.
-apps/web            React + TS + MUI. Platform shell + one view per game.
-```
-
-Dependency direction is one-way:
-
-```
-core  <-  games  <-  protocol  <-  server
-                                <- web
-```
-
-`core` imports nothing from the other packages. `core` never imports from
-`games` — the dependency points the other way, and the registry receives game
-modules by injection, not by importing them. `server` and `web` never import
-each other.
-
-## Deployment
-
-Klatchr is live at `https://klatchr.duckdns.org` — a single Docker container on
-a free-tier Oracle VM behind Caddy (auto Let's-Encrypt → public `wss://`).
-**`docs/deploy.md` is the authoritative runbook** (host, redeploy steps, TLS);
-it is the source of truth, not the historical plan-7 deploy notes. Rooms are
-in-memory (rule 7), so a redeploy drops any live rooms — that is acceptable.
-
-## The Game interface
-
-Every game implements this. It lives in `packages/core`.
-
-```ts
-// A viewer is either a player (with an id) or the host's shared screen.
-// The same type stamps who a redaction is for.
-type Viewer =
-  | { role: 'player'; id: PlayerId }
-  | { role: 'host' };
-
-// Room-authored roster facts. The room emits these and forwards them into the
-// active game's reduce while IN_GAME. Defined in core; games never redefine it.
-type RosterEvent =
-  | { type: 'playerJoined'; player: Player }
-  | { type: 'playerLeft'; id: PlayerId };
-
-// Which social settings a game suits — drives the picker. Omitted ⇒ every one.
-type GameContext = 'teams' | 'strangers';
-
-interface Game<TState, TEvent> {
-  id: string;
-  name: string;         // display name for the game picker
-  description: string;  // one-line blurb for the game picker
-  contexts?: readonly GameContext[];
-  minPlayers: number;
-  maxPlayers: number;
-  init(players: readonly Player[], deps: GameDeps, config?: unknown): TState;
-  reduce(state: TState, event: TEvent | RosterEvent): Result<TState, GameError>;
-  view(state: TState, viewer: Viewer): unknown;
-  scores(state: TState): Score[];
-  isComplete(state: TState): boolean;
-  // How many rounds the session runs, given the host config — its length (Cycle 12).
-  // A question game returns its set size, so the room ends the game when the questions
-  // are spent instead of repeating. Omitted ⇒ unbounded (the host starts rounds freely).
-  roundCount?(config?: unknown): number;
-}
-
-// The type-erased form the registry and room hold games as.
-type AnyGame = Game<unknown, unknown>;
-```
-
-`GameDeps` carries everything the room injects into `init` — a random source, a
-clock, and the round being started — so that games stay pure and tests stay
-reproducible. `config` carries host-authored game setup (Cycle 11): a per-game
-opaque blob the room stores (via a `configureGame` message) and hands to `init`,
-which the game validates itself — the room never looks inside it. Both current
-games use it for a custom question set; a game that needs no setup ignores it.
-
-**`view()` is a redaction boundary, not a convenience.** It returns what one
-specific viewer is allowed to see. The server sends `view(state, viewer)` and
-never the raw state. `{ role: 'host' }` is the shared screen — it is redacted
-too, and its redaction is the strictest, because everyone in the room sees it.
-If a game leaks hidden information through `view()`, that is a correctness bug
-of the same severity as a crash.
-
-**Roster changes reach a game as events, not a method.** A player joining or
-leaving mid-round arrives at `reduce` as a `RosterEvent`. The game decides the
-policy: a known id rejoining resumes its slot; a new id mid-round is a
-spectator (not in the answer pool or guess targets); a player who left keeps
-whatever they already submitted. **The room forfeits a mid-round-departed
-player's round** (Cycle 14): a game may still score a reaped player's surviving
-submissions, but the room's session fold counts only currently-seated players,
-so a departed id never re-enters `sessionScores`. Their earlier rounds and
-nickname-parked total (the score ledger) are untouched.
-
-**Phase advance is a host-driven game event.** A phased game puts
-`{ type: 'advance'; from: PhaseTag }` in its own `TEvent`. The reducer no-ops
-when `state.phase !== from`, so a double-send is idempotent and never skips a
-phase. Advance is never gated on everyone having acted — the host forces it.
-Only the host may advance, but the pure reducer does not check that (it cannot
-see the host); the server forwards an `advance` only from the host connection.
-
-Adding a game means adding a directory under `packages/games` and registering
-it. It must not require a change to `packages/core`. If it does, the interface
-is wrong — stop and say so rather than special-casing the game in core.
-
-**New-game checklist** (touches only `packages/games` + `apps/web`):
-
-1. `packages/games/src/<game>/` — the pure `Game` module and its `state`,
-   `events`, `reduce`, `view`, `scores`.
-2. Register it in `packages/games/src/index.ts` (the `games` array). No `core`
-   edit — if you need one, the interface is wrong (see above).
-3. A unit test for **every** transition, including the rejections (rule 4).
-4. A `redaction.test.ts` covering **both** viewers, player and host (§ Testing).
-   The gate refuses a game directory that has none.
-5. A `conformance.test.ts`: ~30 lines of fast-check arbitraries feeding the
-   kit at `@klatchr/core/conformance` (§ Testing) — the game inherits the
-   fuzzed platform invariants (totality, purity, redaction non-interference,
-   roster storms) for free.
-6. A web view under `apps/web` — design-sketched and approved first (rule 9).
-
-## Hard rules
-
-1. **`packages/core` and `packages/games` are pure.** No React, no NestJS, no
-   sockets, no timers, no `Date.now()`, no `Math.random()`. Anything
-   non-deterministic arrives through `GameDeps`. Reducers are
-   `(state, event) => Result` and return new objects; never mutate the input.
-2. **Every client<->server message is defined in `packages/protocol` and
-   parsed with zod at the boundary.** The server parses every inbound message
-   before touching it; the client parses every inbound message before
-   rendering it. Never cast an incoming payload with `as`. If a message shape
-   is missing, add it to `protocol` first, then use it.
-3. **The server never broadcasts raw game state.** Every outbound state
-   message is the result of `view(state, viewer)` for that recipient — a
-   player gets `{ role: 'player', id }`, the host screen gets `{ role: 'host' }`.
-4. **Every reducer transition needs a unit test**, including the rejections.
-   A transition that should be refused needs a test proving it is refused.
-   Rejections return an unchanged state plus a typed error. They do not throw.
-5. **No `any`.** No `@ts-expect-error` or `eslint-disable` without a comment
-   on the same line explaining why, and never in `core` or `games`.
-6. **Server URL comes from `VITE_WS_URL`.** Never hardcode a host or port in
-   `apps/web`.
-7. **No database, no auth, no accounts.** Rooms live in server memory and are
-   discarded when empty. Do not add persistence.
-8. **Do not add dependencies** without asking first. Runtime stack is fixed:
-   pnpm, TypeScript, vitest, zod, NestJS, React, MUI, playwright, **@dnd-kit**
-   (drag-and-drop reorder in the question editor, added Cycle 12). Approved
-   tooling: **biome** (lint + format, replaces eslint), dependency-cruiser,
-   knip, jscpd, type-coverage, husky + lint-staged, gitleaks, commitlint,
-   **fast-check** (property-based conformance fuzz — devDependency of
-   `core`/`games` only, test-side only, added Cycle 13).
-   **No Python.** The `pre-commit` framework and semgrep are excluded; the gate
-   wall is node/bash-native, orchestrated by `pnpm gate`. Call-level purity in
-   `core`/`games` (no `Math.random`/`Date.now`/timers) is enforced by
-   `.hooks/check-purity.sh` + dependency-cruiser, not semgrep.
-9. **UI is designed before it is built.** For any UI addition or change in
-   `apps/web`, first produce a design sketch on a Claude design surface and
-   publish it for the user to review and control. Do **not** write component
-   code until the sketch is approved. `design.md` is the design-system source
-   of truth (tokens, the two surfaces, component style); keep it current and
-   design against it. Applies to every screen: host lobby, join, game views,
-   scores.
-
-## Testing
-
-The verification pyramid, cheapest first: **unit** (pure reducer/view tests,
-100% in core/games) → **conformance** (fuzzed platform invariants, every game) →
-**ws-integration** (real socket path in vitest, Cycle 14) → **e2e** (whole stack
-in a browser). Plus **`pnpm bots`**, a manual load/soak tool at the top. Each
-layer catches what the one below can't: units prove a transition, conformance
-proves it under storms, ws-integration proves the wire + timers, e2e proves the
-UI, bots prove a crowd.
-
-- `packages/core` and `packages/games` have a coverage threshold of 100% lines
-  and branches. They are pure and small; there is no excuse for a gap. If
-  coverage drops the build fails — fix the test, do not lower the threshold.
-- Every game must have a **redaction test**: assert that
-  `view(state, { role: 'player', id })` for a player in a hidden-information
-  phase contains no field that would reveal another player's hidden data. Cover
-  the host viewer too — `view(state, { role: 'host' })` on the shared screen is
-  the strictest case, since everyone sees it. A gate phase
-  (`.hooks/check-redaction-tests.sh`) refuses any game directory that ships no
-  `redaction.test.ts`, so the presence of the test is enforced, not just asked.
-- Every game also runs the **conformance kit** (Cycle 13): `stormConformance` +
-  `redactionNonInterference` from `@klatchr/core/conformance` drive seeded
-  fast-check event storms through the real reducer and views, checking at every
-  step: totality (never throws), typed rejections, no input mutation
-  (deep-freeze), redaction non-interference (swapping one player's hidden
-  submission never shifts another viewer's view), scores ⊆ the seated set, and
-  roster-storm acceptance. A game supplies ~30 lines of arbitraries — see
-  either game's `conformance.test.ts`. A failure prints the fast-check seed +
-  shrunken event trace: an exact deterministic repro. The kit's own mutant
-  self-tests live in `packages/core/src/conformance.test.ts`.
-- The **scenario DSL** (`@klatchr/core/scenario`) encodes the server's
-  disconnect policy over the pure room reducer exactly once — drop-within-grace
-  is *no core event*, reap is `leave`, rejoin is a fresh `join`, resume is the
-  token join — so the per-game `reconnect.matrix.test.ts` files read as
-  behaviour. Literal timers stay server territory.
-- The **ws-integration test** (`apps/server/src/gateway.integration.test.ts`,
-  Cycle 14) exercises the real socket path the FakeConn unit tests and the
-  browser E2E leave uncovered: `startSocketServer` on an ephemeral port, real
-  `ws` clients, JSON on the wire, a real `socket.close()` → grace → reap
-  (driven by an injected `schedule`, no wall-clock), token resume, and the
-  static-handler 404. Runs in `pnpm gate` (it is a vitest test, not e2e).
-- Tests are behavioural: assert on returned state, views and scores, not on
-  internal helper calls.
-- `apps/web` tests use React Testing Library, query by role and label, never
-  by test id or class name.
-- E2E uses multiple Playwright browser contexts in one test to exercise a real
-  multi-player round. It is **verification, not a red-green driver** — each
-  cycle's acceptance rows (in its plan file) drive the unit loop; the browser
-  E2E confirms the whole stack at cycle end. It is not part of `pnpm gate`; it
-  runs in CI on every PR and via `pnpm e2e` locally.
-- **E2E gotcha:** kill any stale server on **`:8080` (ws) and `:5173` (web)**
-  before `pnpm e2e`. Playwright reuses an already-running server outside CI
-  (`reuseExistingServer`), so a stale process makes the suite test *old* code —
-  and a stale `:5173` from `pnpm dev` even serves the **mock** transport, which
-  fails the whole real-socket round. The failure then looks like a real
-  regression when it is not.
+- **Dependency direction.** Dependencies point one way: `core <- games`;
+  `protocol` stands alone (zod only); `server` and `web` may use all three and
+  never import each other. `core` never imports `games` — the registry receives
+  games by injection. Enforced by `.dependency-cruiser.cjs`.
+- **Parse at the boundary.** Every client<->server message is a zod schema in
+  `packages/protocol`, parsed at both ends. Never cast an incoming payload with
+  `as`. Missing a shape? Add it to `protocol` first.
+- **View-only.** Clients only ever receive `view(state, viewer)` for themselves,
+  never raw game state. `view()` is a redaction boundary: a leak through it is as
+  severe as a crash, and the host screen's view is the strictest, since everyone
+  sees it.
+- **No persistence.** No database, no auth, no accounts. Rooms live in server
+  memory; a redeploy drops them, which is acceptable. Do not add persistence.
+- **No `any`.** A suppression (`@ts-expect-error`, `biome-ignore`, …) needs a
+  justification comment on the line above, and is banned in core/games.
+- **No new deps.** Do not add a dependency without asking. Current stack: pnpm,
+  TypeScript, vitest, zod, NestJS, ws, React, MUI, @dnd-kit, playwright; tooling
+  biome, dependency-cruiser, knip, jscpd, type-coverage, husky, lint-staged,
+  commitlint, gitleaks, fast-check (core/games tests only). No Python.
 
 ## Working style
 
-- Follow the RPI cycle: research, then a written plan in `docs/plan-N.md`,
-  then implement. Do not start implementing before the plan is approved.
-- **RPI is TDD inside.** In the implement step, work red → green → refactor:
-  write the failing unit test from the acceptance row first, then the code to
-  pass it. `core`/`games` are pure with a 100% threshold, so TDD is the natural
-  fit. Redaction tests (G8–G10) are written first, before the game logic.
-- One cycle per session. Start a fresh session for the next cycle and load
-  only the package that cycle touches, plus its plan file.
-- **Docs checkpoint.** Documentation is part of the work, not an afterthought.
-  Sweep every tracked markdown file (CLAUDE.md, README.md, SPEC.md, design.md,
-  `docs/`) and fix anything the work just made stale:
-  - always at the end of a cycle, before the PR that closes it;
-  - mid-cycle, immediately after any stage that changes deployment, the
-    protocol, the Game interface, or the design system — these invalidate
-    docs fastest, so they don't wait for cycle end.
-  A stage is not done while a doc it invalidated still says the old thing.
-  Record the sweep in the plan file (a one-line "docs checked" note per
-  checkpoint) so the next session can trust the docs without re-verifying.
-- When something in this file turns out to be wrong or unworkable, say so and
-  propose a change. Do not silently work around it.
+- Research, then a written plan in `docs/plan-N.md`, then implement. Do not
+  implement before the plan is approved. Inside implementation, TDD: failing
+  test first — redaction tests before game logic.
+- Docs are part of the work. Before the PR that closes a plan — and right after
+  any change to deployment, the protocol, the Game interface or the design
+  system — fix every markdown file the change made stale, and note
+  "docs checked" in the plan.
+- If a rule here is wrong or unworkable, say so and propose a change. Do not
+  silently work around it.

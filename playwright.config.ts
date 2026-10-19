@@ -5,7 +5,7 @@ const WEB_URL = 'http://localhost:5173';
 
 // The whole-stack E2E (5.3d): a multi-context round against the *real* server.
 // The web is served with VITE_WS_URL pointed at the ws server, so the browser
-// uses SocketTransport (not the mock) — rule 6, the URL is injected here, never
+// uses SocketTransport (not the mock) — the VITE_WS_URL rule, the URL is injected here, never
 // hardcoded in apps/web. Not run on pre-commit; it is the Cycle-5 verification.
 export default defineConfig({
   testDir: './e2e',
