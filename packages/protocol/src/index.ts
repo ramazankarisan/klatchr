@@ -70,7 +70,7 @@ export const clientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('leave'), code: inboundRoomCode }),
   // A connection-level keepalive (F3): the client pings periodically so an idle
   // lobby's socket isn't reaped by an intermediary while the host is still there.
-  // Carries nothing — the server just needs the traffic; it no-ops.
+  // The server answers with `pong`, so the client can detect a dead socket too.
   z.object({ type: z.literal('ping') }),
 ]);
 export type ClientMessage = z.infer<typeof clientMessage>;
@@ -103,5 +103,8 @@ export const serverMessage = z.discriminatedUnion('type', [
     roundsTotal: z.number(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string().optional() }),
+  // The reply to a client `ping`: proof the socket is alive end to end, so a client can
+  // tell a socket that merely *looks* open (a phone waking from sleep) from a live one.
+  z.object({ type: z.literal('pong') }),
 ]);
 export type ServerMessage = z.infer<typeof serverMessage>;

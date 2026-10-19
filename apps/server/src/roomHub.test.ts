@@ -267,12 +267,13 @@ describe('lifecycle guards and empty-room discard (the no-persistence rule)', ()
     expect(lastError(a).message).toBe('ROOM_CLOSED');
   });
 
-  it('discards the room when the last player leaves (P7)', async () => {
-    const [hub, , code] = await open();
+  it('keeps the room when the last player leaves while the host is still there (S11)', async () => {
+    const [hub, host, code] = await open();
     const only = at(await seat(hub, code, 1), 0);
     hub.handle(only, { type: 'leave', code });
     await flush();
-    expect(hub.hasRoom(code)).toBe(false);
+    expect(hub.hasRoom(code)).toBe(true);
+    expect(lastFrame(host).players).toHaveLength(0); // the board is live and waiting
   });
 
   it('keeps the room alive when the host socket drops, pending its grace window (7.1)', async () => {

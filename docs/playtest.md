@@ -24,7 +24,7 @@ just plays and follows instructions when named.
 | R1 | Mid-answer/vote, one phone **reloads the page** | Comes back into the same seat within seconds; nothing changes on the board or other phones |
 | R2 | One phone **backgrounds the app** for ~10s, returns | Same seat, same screen — a drop inside the grace window is invisible |
 | R3 | One phone turns on **airplane mode ~10s**, then off | "Reconnecting…" strip, then self-heals into the same seat |
-| R4 | One phone goes dark **for over a minute** (past the 30s grace), then rejoins with the **same nickname** | New seat, spectates the round in progress, is dealt in next round — and their **session score is back** (nickname reclaim) |
+| R4 | One phone goes dark **for over a minute** (past the 3-minute player grace), then rejoins with the **same nickname** | New seat, spectates the round in progress, is dealt in next round — and their **session score is back** (nickname reclaim) |
 | R5 | Same as R4 but rejoin with a **different nickname** | Fresh player, score starts at 0 — the parked score stays reserved for the old name until the game changes |
 | R6 | The **board** reloads mid-round | Host auto-resumes: same room, same round, phones unaffected |
 

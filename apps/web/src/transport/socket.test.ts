@@ -1,75 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { type SocketLike, SocketTransport } from './socket.js';
+import { SocketTransport } from './socket.js';
+import { net, fakeSocket, started } from './socket.testkit.js';
 import type { ConnStatus, ViewFrame } from './types.js';
-
-function fakeSocket() {
-  const on: Partial<
-    Record<'open' | 'message' | 'close' | 'error', (event: { data: unknown }) => void>
-  > = {};
-  const socket: SocketLike & { sent: string[] } = {
-    sent: [],
-    send(data: string) {
-      this.sent.push(data);
-    },
-    close() {},
-    addEventListener(
-      type: 'open' | 'message' | 'close' | 'error',
-      listener: (event: { data: unknown }) => void,
-    ) {
-      on[type] = listener;
-    },
-  };
-  return {
-    socket,
-    open: () => on.open?.({ data: '' }),
-    emit: (obj: unknown) => on.message?.({ data: JSON.stringify(obj) }),
-    emitRaw: (raw: unknown) => on.message?.({ data: raw }),
-    drop: () => on.close?.({ data: '' }),
-    error: () => on.error?.({ data: '' }),
-    last: () => JSON.parse(socket.sent.at(-1) ?? 'null'),
-    allSent: () => socket.sent.map((s) => JSON.parse(s)),
-  };
-}
-
-/** A controllable backoff clock — the transport's retry only fires when the test says so. */
-function manualClock() {
-  const queue: Array<() => void> = [];
-  let lastDelay = 0;
-  return {
-    clock: {
-      schedule(callback: () => void, ms: number) {
-        lastDelay = ms;
-        queue.push(callback);
-        return () => {};
-      },
-    },
-    runNext: () => queue.shift()?.(),
-    pending: () => queue.length,
-    lastDelay: () => lastDelay,
-  };
-}
-
-/** A fresh fake socket per `connect()` (reconnect makes a new one), plus a manual clock. */
-function net() {
-  const sockets: ReturnType<typeof fakeSocket>[] = [];
-  const { clock, runNext, pending, lastDelay } = manualClock();
-  return {
-    factory: () => {
-      const f = fakeSocket();
-      sockets.push(f);
-      return f.socket;
-    },
-    clock,
-    runNext,
-    pending,
-    lastDelay,
-    current: () => {
-      const f = sockets.at(-1);
-      if (f === undefined) throw new Error('no socket yet');
-      return f;
-    },
-  };
-}
 
 const lobbyFrame = (code: string) => ({
   type: 'frame',
@@ -87,7 +19,9 @@ const lobbyFrame = (code: string) => ({
 describe('SocketTransport (host)', () => {
   it('sends open on connect and rebuilds a host frame', () => {
     const f = fakeSocket();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, () => f.socket);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, () => f.socket),
+    );
     let frame: ViewFrame | null = null;
     t.subscribe((x) => {
       frame = x;
@@ -101,7 +35,9 @@ describe('SocketTransport (host)', () => {
 
   it('maps host actions to wire host/play messages', () => {
     const f = fakeSocket();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, () => f.socket);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, () => f.socket),
+    );
     f.open();
     f.emit(lobbyFrame('ABCD')); // learns the code
 
@@ -124,10 +60,12 @@ describe('SocketTransport (host)', () => {
 describe('SocketTransport (player)', () => {
   it('sends join, captures the reconnect token, and stamps its id onto frames', () => {
     const f = fakeSocket();
-    const t = new SocketTransport(
-      'ws://x',
-      { role: 'player', code: 'ABCD', nickname: 'Ada' },
-      () => f.socket,
+    const t = started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'player', code: 'ABCD', nickname: 'Ada' },
+        () => f.socket,
+      ),
     );
     let token = '';
     t.onReconnectToken = (x) => {
@@ -149,10 +87,12 @@ describe('SocketTransport (player)', () => {
 
   it('resends a stored reconnect token in the join', () => {
     const f = fakeSocket();
-    new SocketTransport(
-      'ws://x',
-      { role: 'player', code: 'ABCD', nickname: 'Ada', reconnectToken: 'old' },
-      () => f.socket,
+    started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'player', code: 'ABCD', nickname: 'Ada', reconnectToken: 'old' },
+        () => f.socket,
+      ),
     );
     f.open();
     expect(f.last()).toEqual({
@@ -165,7 +105,9 @@ describe('SocketTransport (player)', () => {
 
   it('drops an inbound that is not valid JSON or not a server message', () => {
     const f = fakeSocket();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket),
+    );
     let frame: ViewFrame | null = null;
     t.subscribe((x) => {
       frame = x;
@@ -180,7 +122,9 @@ describe('SocketTransport (player)', () => {
 describe('SocketTransport (connection status + reconnect, 7.2)', () => {
   it('reports connecting, then live once the socket opens', () => {
     const f = fakeSocket();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket),
+    );
     const seen: ConnStatus[] = [];
     t.subscribeStatus((s) => seen.push(s));
     expect(seen).toEqual(['connecting']);
@@ -190,11 +134,13 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 
   it('reconnects a dropped player and re-sends the join with the latest token', () => {
     const n = net();
-    const t = new SocketTransport(
-      'ws://x',
-      { role: 'player', code: 'ABCD', nickname: 'Ada' },
-      n.factory,
-      n.clock,
+    const t = started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'player', code: 'ABCD', nickname: 'Ada' },
+        n.factory,
+        n.clock,
+      ),
     );
     const seen: ConnStatus[] = [];
     t.subscribeStatus((s) => seen.push(s));
@@ -220,7 +166,9 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 
   it('reconnects a dropped host with resumeHost using the captured token (7.1)', () => {
     const n = net();
-    new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, n.factory, n.clock);
+    started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'Screen' }, n.factory, n.clock),
+    );
     n.current().open();
     expect(n.current().last()).toEqual({ type: 'open', nickname: 'Screen' });
     n.current().emit({ type: 'opened', code: 'WXYZ', hostToken: 'htok' });
@@ -233,7 +181,9 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 
   it('queues actions taken while reconnecting and flushes them after the re-handshake', () => {
     const n = net();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock),
+    );
     n.current().open();
     n.current().emit({ type: 'opened', code: 'WXYZ', hostToken: 'h' });
     n.current().drop();
@@ -247,7 +197,7 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 
   it('schedules a single retry even when close and error both fire for one drop', () => {
     const n = net();
-    new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock);
+    started(new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock));
     n.current().open();
     n.current().drop();
     n.current().error(); // same drop, second event — must not double-schedule
@@ -256,7 +206,7 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 
   it('backs off exponentially across repeated failures', () => {
     const n = net();
-    new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock);
+    started(new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, n.factory, n.clock));
     n.current().open();
     n.current().drop();
     expect(n.lastDelay()).toBe(500);
@@ -269,10 +219,12 @@ describe('SocketTransport (connection status + reconnect, 7.2)', () => {
 describe('SocketTransport (errors + host resume, 8.1)', () => {
   it('surfaces a server error to subscribers instead of dropping it', () => {
     const f = fakeSocket();
-    const t = new SocketTransport(
-      'ws://x',
-      { role: 'player', code: 'ZZZZ', nickname: 'Ada' },
-      () => f.socket,
+    const t = started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'player', code: 'ZZZZ', nickname: 'Ada' },
+        () => f.socket,
+      ),
     );
     const seen: Array<{ code: string; message?: string }> = [];
     t.subscribeError((e) => seen.push(e));
@@ -283,7 +235,9 @@ describe('SocketTransport (errors + host resume, 8.1)', () => {
 
   it('captures the host session from `opened` for a full-reload resume', () => {
     const f = fakeSocket();
-    const t = new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket);
+    const t = started(
+      new SocketTransport('ws://x', { role: 'host', nickname: 'S' }, () => f.socket),
+    );
     let session: { code: string; hostToken: string } | null = null;
     t.onHostSession = (s) => {
       session = s;
@@ -295,10 +249,12 @@ describe('SocketTransport (errors + host resume, 8.1)', () => {
 
   it('resumes as host on the first handshake when seeded with a stored session', () => {
     const f = fakeSocket();
-    new SocketTransport(
-      'ws://x',
-      { role: 'host', nickname: 'S', resume: { code: 'WXYZ', hostToken: 'htok' } },
-      () => f.socket,
+    started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'host', nickname: 'S', resume: { code: 'WXYZ', hostToken: 'htok' } },
+        () => f.socket,
+      ),
     );
     f.open();
     // First message is resumeHost, not a fresh open — the reloaded board re-attaches.

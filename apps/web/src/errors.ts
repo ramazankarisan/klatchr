@@ -43,6 +43,18 @@ const COPY: Record<string, ErrorCopy> = {
     title: "Couldn't join",
     body: 'Something went wrong — please try again.',
   },
+  SUPERSEDED: {
+    title: 'Opened somewhere else',
+    body: 'This seat is now on another tab or device. Carry on there, or rejoin here.',
+  },
+  SERVER_FULL: {
+    title: 'Klatchr is busy',
+    body: 'Too many rooms are open right now — try again in a minute.',
+  },
+  TOO_MANY_ROOMS: {
+    title: 'Too many rooms open',
+    body: 'This network already has several rooms open. Close one, then try again.',
+  },
 };
 
 export function describeError(message: string | undefined): ErrorCopy | null {

@@ -86,7 +86,7 @@ at all.
 | P4 | `selectGame` with an unregistered game id | Refused |
 | P5 | `gameEvent` arrives while the room is in LOBBY | Refused |
 | P6 | Host leaves | Room is closed (v1); promoting a player is out of scope |
-| P7 | Last player leaves | Room is discarded |
+| P7 | Last player leaves | ~~Room is discarded~~ — superseded (plan-15): the room stays open while the host is there; it closes only when the host goes (P6) |
 
 ### Guess Who Said It — `packages/games`
 

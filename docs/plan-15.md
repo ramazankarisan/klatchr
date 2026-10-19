@@ -270,3 +270,21 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
     prompts use it too. The name field gets a `maxLength`.
   - One `isAdvance`, shared from core.
   - Docs checked: packages/CLAUDE.md (roster semantics and the progress-count rule).
+- **PR 4:**
+  - Heartbeat: a ws ping every 20 s. A socket that missed one is dropped and enters
+    grace or reap.
+  - A `pong` reply to the client's `ping` (a protocol change).
+  - Handshake deadline: 10 s.
+  - Supersede: the old device gets `SUPERSEDED` and close code 4001, and the hub
+    unbinds it.
+  - Grace: players 3 min, host 60 s.
+  - P7 dropped: the room stays open with no players while the host is there.
+  - Caps: 1,000 rooms; 30 sockets per address (from `X-Forwarded-For` with
+    `TRUST_PROXY=1`); a 20/s token bucket per socket that closes the socket after
+    sustained flooding.
+  - Web: terminal errors stop the transport from reconnecting, which ends the
+    two-tab fight and the ghost re-join into a reused code. Recover copy for
+    `SUPERSEDED` and `SERVER_FULL`.
+  - Tests: S2, S3, S9, S11, S20.
+  - Docs checked: apps/server/CLAUDE.md, deploy.md (TRUST_PROXY; a Caddy reload drops
+    sockets), playtest.md (the grace), SPEC P7.

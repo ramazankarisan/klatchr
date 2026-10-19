@@ -26,5 +26,7 @@ ENV NODE_ENV=production
 COPY --from=build /app /app
 ENV WEB_DIST=/app/apps/web/dist
 ENV PORT=8080
+# Deployed behind Caddy (docs/deploy.md): trust its X-Forwarded-For for per-client limits.
+ENV TRUST_PROXY=1
 EXPOSE 8080
 CMD ["pnpm", "-C", "apps/server", "start"]

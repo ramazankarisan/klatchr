@@ -266,7 +266,7 @@ describe('leave', () => {
     expect(r.ok && r.value.closed).toBe(true);
   });
 
-  it('P7 the last player leaving discards the room', () => {
+  it('the last player leaving keeps the room open — the host may be waiting for people', () => {
     const r = roomReduce(
       room({ players: [player('a')] }),
       { type: 'leave' },
@@ -274,7 +274,7 @@ describe('leave', () => {
       ctxWith(),
     );
     expect(r.ok && r.value.players).toHaveLength(0);
-    expect(r.ok && r.value.closed).toBe(true);
+    expect(r.ok && r.value.closed).toBe(false); // only the host leaving closes it (P6)
   });
 
   it('a player leaving among others is removed, keeps the room open, and drops only its token', () => {

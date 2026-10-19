@@ -43,6 +43,26 @@ const MAX_BACKOFF_MS = 8_000;
 const KEEPALIVE_MS = 25_000;
 
 /**
+ * Server errors after which reconnecting can only do harm, so the transport stops for
+ * good: the seat moved to another device (reconnecting would steal it back, and the two
+ * would fight forever), the room is gone (a retry could even join a stranger's room that
+ * reused the code), or the server is full. The screen shows its recover card instead.
+ */
+const TERMINAL = new Set([
+  'SUPERSEDED',
+  'ROOM_CLOSED',
+  'NO_SUCH_ROOM',
+  'BAD_HOST_TOKEN',
+  'SERVER_FULL',
+  'TOO_MANY_ROOMS',
+  // A refused join never binds the socket, so retrying would only repeat it — and if a
+  // seat later freed up, silently seat a ghost the user had already walked away from.
+  'ROOM_FULL',
+  'EMPTY_NICKNAME',
+  'JOIN_FAILED',
+]);
+
+/**
  * A single-viewer `Transport` over one native WebSocket. It opens (host) or
  * joins (player) on connect, parses every inbound with `@klatchr/protocol`
  * (the parse-at-the-boundary rule — never `as`), and rebuilds the web
@@ -57,7 +77,10 @@ const KEEPALIVE_MS = 25_000;
  * queue and flush once the socket is back — nothing is lost.
  */
 export class SocketTransport implements Transport {
-  private socket: SocketLike;
+  // Created on first use, not in the constructor: a transport built during render (and
+  // discarded — React StrictMode builds state twice) must never open a socket, or the
+  // orphan would resume the same seat and supersede the transport actually in use.
+  private socket: SocketLike | null = null;
   private readonly listeners = new Set<(frame: ViewFrame) => void>();
   private readonly statusListeners = new Set<(status: ConnStatus) => void>();
   private readonly errorListeners = new Set<(error: TransportError) => void>();
@@ -75,6 +98,7 @@ export class SocketTransport implements Transport {
   private reconnectToken: string | undefined;
   private hostToken: string | undefined;
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  private stopped = false;
 
   /** Called with the fresh reconnect token whenever the server (re)issues one. */
   onReconnectToken: (token: string) => void = () => {};
@@ -94,10 +118,17 @@ export class SocketTransport implements Transport {
       this.code = init.resume.code;
       this.hostToken = init.resume.hostToken;
     }
-    this.socket = this.connect();
+  }
+
+  /** Open the first socket the moment anyone listens or sends. */
+  private ensureStarted(): void {
+    if (this.socket === null && !this.stopped) {
+      this.connect();
+    }
   }
 
   subscribe(onFrame: (frame: ViewFrame) => void): () => void {
+    this.ensureStarted();
     this.listeners.add(onFrame);
     if (this.last !== null) {
       onFrame(this.last);
@@ -108,6 +139,7 @@ export class SocketTransport implements Transport {
   }
 
   subscribeStatus(onStatus: (status: ConnStatus) => void): () => void {
+    this.ensureStarted();
     this.statusListeners.add(onStatus);
     onStatus(this.status);
     return () => {
@@ -116,6 +148,7 @@ export class SocketTransport implements Transport {
   }
 
   subscribeError(onError: (error: TransportError) => void): () => void {
+    this.ensureStarted();
     this.errorListeners.add(onError);
     return () => {
       this.errorListeners.delete(onError);
@@ -162,13 +195,16 @@ export class SocketTransport implements Transport {
     const ping: ClientMessage = { type: 'ping' };
     this.keepaliveTimer = setInterval(() => {
       if (this.open) {
-        this.socket.send(JSON.stringify(ping));
+        this.socket?.send(JSON.stringify(ping));
       }
     }, KEEPALIVE_MS);
   }
 
   /** A dropped socket: flip to reconnecting and schedule a backed-off retry (once per drop). */
   private handleDrop(): void {
+    if (this.stopped) {
+      return; // a terminal error ended this transport — never come back
+    }
     if (this.awaitingReconnect) {
       return; // close + error can both fire for one drop — schedule only once
     }
@@ -240,6 +276,9 @@ export class SocketTransport implements Transport {
       return;
     }
     if (message.type === 'error') {
+      if (message.message !== undefined && TERMINAL.has(message.message)) {
+        this.stop();
+      }
       // Surface it (8.1): a bad code / full room / closed room used to vanish here,
       // leaving the UI on an endless spinner. The screens map it to copy + a way back.
       const error: TransportError =
@@ -250,6 +289,17 @@ export class SocketTransport implements Transport {
         listener(error);
       }
     }
+  }
+
+  /** End this transport for good: no keepalive, no reconnect, socket closed. */
+  private stop(): void {
+    this.stopped = true;
+    this.open = false;
+    if (this.keepaliveTimer !== null) {
+      clearInterval(this.keepaliveTimer);
+      this.keepaliveTimer = null;
+    }
+    this.socket?.close();
   }
 
   private setStatus(status: ConnStatus): void {
@@ -297,10 +347,14 @@ export class SocketTransport implements Transport {
   }
 
   private dispatch(message: ClientMessage): void {
+    if (this.stopped) {
+      return; // a stopped transport sends nothing — its screen shows the recover card
+    }
     if (!this.open) {
+      this.ensureStarted();
       this.pending.push(message);
       return;
     }
-    this.socket.send(JSON.stringify(message));
+    this.socket?.send(JSON.stringify(message));
   }
 }
