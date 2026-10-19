@@ -139,3 +139,23 @@ describe('serverMessage', () => {
     ).toBe(false);
   });
 });
+
+describe('inbound bounds (plan-15 §1)', () => {
+  it('upper-cases and trims an inbound room code, so any-case links find the room', () => {
+    const parsed = clientMessage.safeParse({ type: 'join', code: ' wxyz ', nickname: 'Ada' });
+    expect(parsed.success && parsed.data.type === 'join' && parsed.data.code).toBe('WXYZ');
+  });
+
+  it('refuses oversized strings', () => {
+    const long = (n: number) => 'x'.repeat(n);
+    for (const message of [
+      { type: 'join', code: long(17), nickname: 'Ada' },
+      { type: 'join', code: 'WXYZ', nickname: long(101) },
+      { type: 'join', code: 'WXYZ', nickname: 'Ada', reconnectToken: long(129) },
+      { type: 'resumeHost', code: 'WXYZ', hostToken: long(129) },
+      { type: 'host', code: 'WXYZ', action: 'selectGame', gameId: long(65) },
+    ]) {
+      expect(clientMessage.safeParse(message).success).toBe(false);
+    }
+  });
+});

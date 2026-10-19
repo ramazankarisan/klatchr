@@ -1,5 +1,5 @@
 import type { GameDeps, GameError, Player, Result } from '@klatchr/core';
-import { guessWho } from './guessWho.js';
+import { MAX_ANSWER_LEN, guessWho } from './guessWho.js';
 import type { GWState } from './state.js';
 
 const deps: GameDeps = { random: () => 0, now: () => 0, round: 1 };
@@ -209,5 +209,30 @@ describe('roster events', () => {
     const state = seedGuess();
     const r = expectOk(guessWho.reduce(state, { type: 'playerLeft', id: 'a' }));
     expect(r).toEqual(state);
+  });
+});
+
+describe('answer text (plan-15 §1)', () => {
+  it('trims an answer before it becomes a card', () => {
+    const state = expectOk(
+      guessWho.reduce(collect(), { type: 'submit', playerId: 'a', text: '  apples  ' }),
+    );
+    expect(state.drafts.a).toBe('apples');
+  });
+
+  it('refuses a blank or whitespace-only answer with EMPTY_ANSWER', () => {
+    for (const text of ['', '   ', '\n\t', '\u200B', '\u2060\u200D']) {
+      const result = guessWho.reduce(collect(), { type: 'submit', playerId: 'a', text });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('EMPTY_ANSWER');
+      }
+    }
+  });
+
+  it('caps an answer at MAX_ANSWER_LEN visible characters without splitting an emoji', () => {
+    const text = '👍🏽'.repeat(MAX_ANSWER_LEN + 5);
+    const state = expectOk(guessWho.reduce(collect(), { type: 'submit', playerId: 'a', text }));
+    expect(state.drafts.a).toBe('👍🏽'.repeat(MAX_ANSWER_LEN));
   });
 });

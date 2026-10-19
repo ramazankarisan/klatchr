@@ -12,8 +12,14 @@ import { z } from 'zod';
  */
 
 // ---- shared leaves ----
-const roomCode = z.string(); // 4-letter code; existence/format is the server's call
-const nickname = z.string(); // core normalises + rejects empty (EMPTY_NICKNAME)
+// Upper bounds on every inbound string: generous for a real client, but nothing a
+// hostile one sends can grow server memory or every frame without limit.
+const roomCode = z.string().max(16); // 4-letter code; existence/format is the server's call
+// Inbound only: a code typed or linked in any case finds its room (the web upper-cases
+// too, but every client is untrusted).
+const inboundRoomCode = roomCode.transform((code) => code.trim().toUpperCase());
+const nickname = z.string().max(100); // core normalises (cap 20) + rejects empty
+const secret = z.string().max(128); // a server-minted host or reconnect token
 const playerId = z.string();
 const phase = z.enum(['LOBBY', 'IN_GAME', 'SCORES']);
 
@@ -34,21 +40,21 @@ export const clientMessage = z.discriminatedUnion('type', [
   // A host reconnecting to its own room: `hostToken` is the server-minted secret
   // from a prior `opened` (parallel to a player's `join` + `reconnectToken`). It
   // never appears in a `frame`, so it can't leak as roster data.
-  z.object({ type: z.literal('resumeHost'), code: roomCode, hostToken: z.string() }),
+  z.object({ type: z.literal('resumeHost'), code: inboundRoomCode, hostToken: secret }),
   // reconnectToken is a server-minted secret (from a prior `joined`), NOT the public
   // playerId — the id is broadcast in every roster, so it must not double as the
   // resume credential. See packages/core `playerIdForToken`.
   z.object({
     type: z.literal('join'),
-    code: roomCode,
+    code: inboundRoomCode,
     nickname,
-    reconnectToken: z.string().optional(),
+    reconnectToken: secret.optional(),
   }),
   z.object({
     type: z.literal('host'),
-    code: roomCode,
+    code: inboundRoomCode,
     action: z.enum(['selectGame', 'configureGame', 'startGame', 'endGame']),
-    gameId: z.string().optional(), // required only for selectGame; the server enforces that
+    gameId: z.string().max(64).optional(), // required only for selectGame; the server enforces that
     // Host-authored game setup (Cycle 11), carried only on a `configureGame`. Opaque on
     // the wire — the same z.unknown() discipline as `play.event`/`frame.gameView`; the
     // *game* validates its shape in init, not the protocol. Absent ⇒ the room clears back
@@ -57,11 +63,11 @@ export const clientMessage = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('play'),
-    code: roomCode,
+    code: inboundRoomCode,
     // opaque per-game event, but a play with no event at all is malformed
     event: z.unknown().refine((v) => v !== undefined, 'a play must carry an event'),
   }),
-  z.object({ type: z.literal('leave'), code: roomCode }),
+  z.object({ type: z.literal('leave'), code: inboundRoomCode }),
   // A connection-level keepalive (F3): the client pings periodically so an idle
   // lobby's socket isn't reaped by an intermediary while the host is still there.
   // Carries nothing — the server just needs the traffic; it no-ops.

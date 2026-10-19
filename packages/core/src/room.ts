@@ -7,6 +7,7 @@ import { type Result, err, ok } from './result.js';
 import { generateRoomCode } from './roomCode.js';
 import type { Phase, ReduceContext, Room, RoomError, RoomEvent } from './roomTypes.js';
 import { foldScores, omit, seatWindow } from './rounds.js';
+import { isRecord } from './text.js';
 
 export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set()): Room {
   return {
@@ -202,6 +203,11 @@ function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, 
 }
 
 function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room, RoomError> {
+  // The round's final advance moved the room to SCORES; a double-tapped or retried
+  // copy of it arrives here. Advance is idempotent by contract, so it is a quiet no-op.
+  if (room.phase === 'SCORES' && isAdvance(event)) {
+    return ok(room);
+  }
   if (room.phase !== 'IN_GAME') {
     return err({ code: 'GAME_EVENT_OUTSIDE_GAME' }); // P5
   }
@@ -236,6 +242,11 @@ function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Ro
   // Host abort still counts (D1): fold the partial round's scores, like a natural end.
   const sessionScores = foldScores(room.sessionScores, roundScores(room, game));
   return ok({ ...room, phase: 'SCORES', sessionScores });
+}
+
+/** `{ type: 'advance' }` — the platform-wide phase-advance convention. */
+function isAdvance(event: unknown): boolean {
+  return isRecord(event) && event.type === 'advance';
 }
 
 function requireHost(actor: Viewer): RoomError | null {

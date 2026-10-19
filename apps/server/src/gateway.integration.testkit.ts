@@ -20,6 +20,11 @@ export class WsClient {
   // Registered in the constructor, before 'open' can fire — awaiting `once` only
   // in open() would race the fast local connection and miss the event.
   private readonly opened: Promise<unknown>;
+  /** Resolves with the close code once the socket closes (server- or client-side). */
+  readonly closed: Promise<number>;
+  /** Client-side socket errors, recorded rather than thrown — a test that expects a
+   * server-side protocol close reads `closed`; any other test can assert this is empty. */
+  readonly errors: Error[] = [];
   readonly messages: ServerMessage[] = [];
   private readonly waiters: Array<{
     pred: (m: ServerMessage) => boolean;
@@ -30,6 +35,10 @@ export class WsClient {
   constructor(url: string) {
     this.socket = new WebSocket(url);
     this.opened = once(this.socket, 'open');
+    this.closed = new Promise((resolve) =>
+      this.socket.once('close', (code: number) => resolve(code)),
+    );
+    this.socket.on('error', (error) => this.errors.push(error));
     this.socket.on('close', () => {
       for (const waiter of this.waiters.splice(0)) {
         waiter.reject(new Error('socket closed while waiting for a message'));
@@ -68,6 +77,11 @@ export class WsClient {
   /** Send an off-schema / malformed payload, to exercise the parse boundary. */
   sendRaw(raw: string): void {
     this.socket.send(raw);
+  }
+
+  /** Send raw bytes as a *text* frame — e.g. invalid UTF-8 the server must refuse. */
+  sendTextBytes(bytes: Buffer): void {
+    this.socket.send(bytes, { binary: false });
   }
 
   close(): void {
