@@ -100,6 +100,15 @@ Fix:
 - **Changing the question set in SCORES** keeps the round index, so questions get skipped or
   the next start fails with `SESSION_COMPLETE`. Fix: a changed config resets the session
   round counter. The session scores stay.
+- **Follow-ups from the PR 1 and 2 reviews:**
+  - `boundedText` checks for blank text *after* capping, and also caps code units, so
+    stacked combining marks can't make a 60 KB "1-character" answer.
+  - The web join field gets a `maxLength` that matches the protocol bound.
+  - Host prompts go through `boundedText` too.
+  - Client-sent roster events (`playerJoined` / `playerLeft`) are refused at the
+    server, since only the room may author them.
+  - A game that returns an unchanged state is no longer re-broadcast.
+  - One `isAdvance`, shared from core.
 - **Known and accepted (D1, earlier cycle):** a host abort folds partial scores. This is
   documented, not changed.
 
@@ -230,3 +239,20 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - A late `advance` in SCORES is a no-op.
   - Tests: S1/S4/S21.
   - Docs checked: packages/CLAUDE.md (event guard in the checklist), protocol comments.
+- **PR 2:**
+  - Claude hooks: `.claude/hooks/guard-bash.mjs` denies skipping husky
+    (`--no-verify`, `HUSKY=0`) and pushes to main. It matches real usage only and
+    replays a case table in the gate. `guard-edit.mjs` asks before an agent edits a
+    wall file.
+  - New gate checks: no `as` in boundary code, no hardcoded host in web, a
+    dependency allowlist, redaction tests must cover the host and a player, and
+    conformance tests must run both kits.
+  - The bypass-justification rule is tightened, and the purity patterns are
+    extended.
+  - The license check moves into the gate. gitleaks is loud when missing, and
+    required in CI.
+  - CI: commitlint over the PR range, Node 22 (matching the Dockerfile), and the
+    duplicate audit is dropped.
+  - Known limit: `guard-edit` covers the Edit and Write tools, not shell writes. The
+    CI wall is the backstop.
+  - Docs checked: CLAUDE.md, README.md.

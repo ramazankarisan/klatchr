@@ -30,8 +30,8 @@ while IFS= read -r match; do
     continue
   fi
   above=$(sed -n "${prev}p" "$file")
-  # A justification is a comment line above (biome-ignore carries its own reason after ':').
-  if ! echo "$above" | grep -qE '(BYPASS-JUSTIFICATION:|//.+|/\*.+)'; then
+  # A justification is a whole comment line above — not code with a trailing comment.
+  if ! echo "$above" | grep -qE '^[[:space:]]*(//|/\*|\*)[[:space:]]*[[:alnum:]]'; then
     echo "✖ $file:$lineno — bypass needs a justification comment on the line above"
     status=1
   fi

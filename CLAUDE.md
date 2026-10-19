@@ -11,7 +11,9 @@ protocol), `apps/server/CLAUDE.md`, `apps/web/CLAUDE.md`, `e2e/CLAUDE.md`.
 ## Done means green
 
 Run `pnpm gate` before claiming any task done; it fails fast. Never report
-success for code you have not run. CI also runs `pnpm e2e` on every PR.
+success for code you have not run. CI also runs `pnpm e2e` on every PR. A red
+check means fix the code — never loosen the check. The wall's own files (gate,
+`.hooks/`, thresholds, CI) are guarded by `.claude/hooks/`.
 
 ## Architecture rules
 
