@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { boundedText } from '@klatchr/core';
 import { MAX_PROMPTS, MAX_PROMPT_LEN, type PromptPack } from '@klatchr/games';
 import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
@@ -92,7 +93,7 @@ export function PromptSetEditor({
   const remove = (index: number): void => commit(items.filter((_, i) => i !== index));
 
   const addCustom = (): void => {
-    const text = draft.trim().slice(0, MAX_PROMPT_LEN);
+    const text = boundedText(draft, MAX_PROMPT_LEN); // the same rule the game applies
     setDraft('');
     if (text.length > 0 && !has(text) && !full) {
       commit([...items, { text, source: 'yours' }]);

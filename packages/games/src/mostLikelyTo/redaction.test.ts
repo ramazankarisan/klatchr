@@ -6,7 +6,13 @@ const HOST: Viewer = { role: 'host' };
 const asPlayer = (id: string): Viewer => ({ role: 'player', id });
 
 function voteState(): MLTState {
-  return { phase: 'vote', prompt: 'A prompt?', roster: ['a', 'b', 'c'], votes: { a: 'b', b: 'a' } };
+  return {
+    phase: 'vote',
+    prompt: 'A prompt?',
+    roster: ['a', 'b', 'c'],
+    votes: { a: 'b', b: 'a' },
+    left: [],
+  };
 }
 
 function resultsState(): MLTState {
@@ -14,6 +20,7 @@ function resultsState(): MLTState {
     phase: 'results',
     prompt: 'A prompt?',
     roster: ['a', 'b', 'c'],
+    left: [],
     votes: { a: 'b', b: 'a', c: 'b' },
   };
 }

@@ -17,4 +17,6 @@ export interface GWState {
   skipped: readonly PlayerId[]; // players who chose not to answer but still guess (B4)
   cards: readonly AnswerCard[]; // built at collect -> guess
   guesses: Readonly<Record<PlayerId, Readonly<Record<string, PlayerId>>>>; // guesser -> (cardId -> author)
+  left: readonly PlayerId[]; // seated at init but gone since — they forfeit the round
+  salt: number; // drawn at init; breaks card-order ties so order never hints at an author
 }

@@ -1,5 +1,5 @@
 import type { Viewer } from '@klatchr/core';
-import { tally } from './scoring.js';
+import { candidates, tally } from './scoring.js';
 import type { MLTState } from './state.js';
 
 /**
@@ -17,8 +17,13 @@ export function viewFor(state: MLTState, viewer: Viewer): unknown {
 }
 
 function voteView(state: MLTState, viewer: Viewer) {
+  // Progress counts every vote cast, including one for a player who has since left:
+  // voiding it here would drop the count and tell the room someone voted for them.
+  // Such a vote only stops counting in the tally.
   const voted = Object.keys(state.votes);
-  const progress = { votedCount: voted.length, total: state.roster.length };
+  // A leaver who never voted can't anymore — they don't count toward "everyone".
+  const gone = state.left.filter((id) => !(id in state.votes)).length;
+  const progress = { votedCount: voted.length, total: state.roster.length - gone };
   if (viewer.role === 'host') {
     // who has voted, never for whom
     return { phase: 'vote', prompt: state.prompt, voted, ...progress };
@@ -26,7 +31,7 @@ function voteView(state: MLTState, viewer: Viewer) {
   return {
     phase: 'vote',
     prompt: state.prompt,
-    candidates: state.roster,
+    candidates: candidates(state),
     youVoted: voted.includes(viewer.id),
     // A player may see its *own* vote — that reveals nothing hidden.
     yourVote: state.votes[viewer.id],

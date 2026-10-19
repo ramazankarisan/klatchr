@@ -1,4 +1,4 @@
-import type { GameDeps } from '@klatchr/core';
+import { type GameDeps, boundedText } from '@klatchr/core';
 
 /** A themed set of prompts a host can pour into their working list (Cycle 11). Pure data. */
 export interface PromptPack {
@@ -24,7 +24,20 @@ export function validPrompts(config: unknown): readonly string[] | null {
   if (typeof config !== 'object' || config === null || !('prompts' in config)) {
     return null;
   }
-  const raw = config.prompts;
+  // The room holds one config object and re-reads it on every broadcast (roundCount),
+  // so clean each object once. A pure memo: same object in, same answer out.
+  const cached = cleaned.get(config);
+  if (cached !== undefined) {
+    return cached.prompts;
+  }
+  const prompts = clean(config.prompts);
+  cleaned.set(config, { prompts });
+  return prompts;
+}
+
+const cleaned = new WeakMap<object, { prompts: readonly string[] | null }>();
+
+function clean(raw: unknown): readonly string[] | null {
   if (!Array.isArray(raw)) {
     return null;
   }
@@ -35,7 +48,7 @@ export function validPrompts(config: unknown): readonly string[] | null {
     if (typeof item !== 'string') {
       continue;
     }
-    const text = item.trim().slice(0, MAX_LEN);
+    const text = boundedText(item, MAX_LEN); // trims, caps safely, '' when invisible-only
     const key = text.toLowerCase();
     if (text.length === 0 || seen.has(key)) {
       continue;

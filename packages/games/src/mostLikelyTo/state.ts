@@ -7,4 +7,5 @@ export interface MLTState {
   prompt: string;
   roster: readonly PlayerId[]; // the active seats init was handed (E2) — candidates and voters
   votes: Readonly<Record<PlayerId, PlayerId>>; // voter -> target, secret until results
+  left: readonly PlayerId[]; // seated at init but gone since — no longer a candidate
 }

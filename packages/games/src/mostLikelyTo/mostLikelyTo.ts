@@ -2,6 +2,7 @@ import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@kl
 import { err, isRecord, ok } from '@klatchr/core';
 import { MALFORMED_EVENT, isRosterEvent, strings } from '../eventGuard.js';
 import { choosePrompt, promptCount } from '../promptConfig.js';
+import { departed } from '../roster.js';
 import type { MLTEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
@@ -10,7 +11,7 @@ import { viewFor } from './view.js';
 
 function init(active: readonly Player[], deps: GameDeps, config?: unknown): MLTState {
   const prompt = choosePrompt(config, deps, PROMPTS);
-  return { phase: 'vote', prompt, roster: active.map((p) => p.id), votes: {} };
+  return { phase: 'vote', prompt, roster: active.map((p) => p.id), votes: {}, left: [] };
 }
 
 /** The shape check for an inbound event — the wire carries it as `unknown`. */
@@ -40,7 +41,9 @@ function reduce(state: MLTState, event: MLTEvent | RosterEvent): Result<MLTState
     case 'playerJoined':
       return ok(state); // E2: a mid-round joiner spectates — never enters the pool
     case 'playerLeft':
-      return ok(state); // keeps whatever vote they cast; stays a candidate
+      // Their own vote still counts, but they stop being a candidate: votes for them
+      // are void in the tally, and those voters may vote again.
+      return ok(departed(state, event.id));
   }
 }
 
@@ -54,7 +57,7 @@ function vote(
   if (!state.roster.includes(event.playerId)) {
     return err({ code: 'NOT_PLAYING' }); // a spectator can't vote
   }
-  if (!state.roster.includes(event.target)) {
+  if (!state.roster.includes(event.target) || state.left.includes(event.target)) {
     return err({ code: 'NOT_A_PLAYER' }); // must vote for a seated candidate (self allowed)
   }
   return ok({ ...state, votes: { ...state.votes, [event.playerId]: event.target } });

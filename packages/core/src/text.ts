@@ -12,17 +12,29 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
+// Code units allowed per visible character. One grapheme can stack any number of
+// combining marks, so a grapheme cap alone bounds nothing in bytes; real text (even a
+// family emoji, 11 units) stays well under this.
+const UNITS_PER_CHAR = 12;
+
 /**
  * Trim `raw` and cap it at `max` user-visible characters (grapheme clusters, so a
- * flag, a skin-toned or a ZWJ emoji is never split). Returns '' when nothing
- * visible is left — whitespace and invisible format characters alone (a zero-width
- * space) count as blank, though they are kept inside real text (a ZWJ joins 👩‍💻).
+ * flag, a skin-toned or a ZWJ emoji is never split) and at `max × 12` code units.
+ * Returns '' when nothing visible is left — whitespace and invisible format
+ * characters alone (a zero-width space) count as blank, though they are kept inside
+ * real text (a ZWJ joins 👩‍💻). Blankness is judged on the *capped* text, so visible
+ * characters past the cap can't smuggle an invisible result through.
  */
 export function boundedText(raw: string, max: number): string {
-  const trimmed = raw.trim();
-  if (trimmed.replace(/[\p{Cf}\s]/gu, '').length === 0) {
-    return '';
+  let kept = '';
+  let count = 0;
+  for (const { segment } of graphemes.segment(raw.trim())) {
+    if (count === max || kept.length + segment.length > max * UNITS_PER_CHAR) {
+      break;
+    }
+    kept += segment;
+    count += 1;
   }
-  const kept = Array.from(graphemes.segment(trimmed), (part) => part.segment).slice(0, max);
-  return kept.join('').trimEnd();
+  kept = kept.trimEnd();
+  return kept.replace(/[\p{Cf}\s]/gu, '').length === 0 ? '' : kept;
 }

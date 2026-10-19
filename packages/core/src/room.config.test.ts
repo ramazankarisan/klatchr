@@ -33,6 +33,38 @@ describe('configureGame (A1)', () => {
     expectErr(r, 'NOT_HOST');
   });
 
+  it('a changed set is a new session — first question, fresh tally (as re-picking the game)', () => {
+    const scores = room({
+      phase: 'SCORES',
+      selectedGameId: 'stub',
+      round: 2,
+      sessionScores: { a: 3 },
+    });
+    const r = roomReduce(
+      scores,
+      { type: 'configureGame', config: { prompts: ['q'] } },
+      HOST,
+      ctxWith(),
+    );
+    expect(r.ok && { round: r.value.round, sessionScores: r.value.sessionScores }).toEqual({
+      round: 0,
+      sessionScores: {},
+    });
+  });
+
+  it('re-saving the same set changes nothing (a spent set stays spent)', () => {
+    const spent = room({
+      phase: 'SCORES',
+      selectedGameId: 'stub',
+      round: 2,
+      gameConfig: { prompts: ['q1', 'q2'] },
+      sessionScores: { a: 3 },
+    });
+    const config = { prompts: ['q1', 'q2'] };
+    const r = roomReduce(spent, { type: 'configureGame', config }, HOST, ctxWith());
+    expect(r.ok && r.value).toBe(spent);
+  });
+
   it('is rejected once a game is running', () => {
     const r = roomReduce(
       room({ phase: 'IN_GAME' }),

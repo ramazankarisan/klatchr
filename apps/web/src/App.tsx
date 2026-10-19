@@ -80,7 +80,14 @@ function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }):
           },
         }}
       />
-      <TextField label="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+      <TextField
+        label="Your name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        // The protocol bound: a pasted long name is trimmed here, not refused by the
+        // server (which then caps it to 20 visible characters without splitting emoji).
+        slotProps={{ htmlInput: { maxLength: 100, autoComplete: 'nickname' } }}
+      />
       {resuming !== null ? (
         <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft }}>
           Resuming as{' '}

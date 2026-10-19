@@ -2,7 +2,7 @@ import { tally } from './scoring.js';
 import type { MLTState } from './state.js';
 
 function resultsState(votes: MLTState['votes']): MLTState {
-  return { phase: 'results', prompt: 'A prompt?', roster: ['a', 'b', 'c'], votes };
+  return { phase: 'results', prompt: 'A prompt?', roster: ['a', 'b', 'c'], votes, left: [] };
 }
 
 describe('scoring', () => {

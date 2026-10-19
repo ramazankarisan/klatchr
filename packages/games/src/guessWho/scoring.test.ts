@@ -8,6 +8,8 @@ function revealState(guesses: GWState['guesses']): GWState {
     roster: ['a', 'b', 'c'],
     drafts: {},
     skipped: [],
+    left: [],
+    salt: 0,
     cards: [
       { id: 'c0', text: 'apples', authorId: 'a' },
       { id: 'c1', text: 'bananas', authorId: 'b' },

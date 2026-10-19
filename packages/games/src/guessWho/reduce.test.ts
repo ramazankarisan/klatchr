@@ -114,12 +114,15 @@ describe('advance (G5, G7)', () => {
     expect(state.cards.map((c) => c.text)).toEqual(['apples', 'bananas', 'cherries']);
   });
 
-  it('G5 orders equal answers by author id, no RNG', () => {
-    let state = collect();
-    state = expectOk(guessWho.reduce(state, { type: 'submit', playerId: 'b', text: 'same' }));
-    state = expectOk(guessWho.reduce(state, { type: 'submit', playerId: 'a', text: 'same' }));
-    state = expectOk(guessWho.reduce(state, { type: 'advance', from: 'collect' }));
-    expect(state.cards.map((c) => c.authorId)).toEqual(['a', 'b']);
+  it('G5 orders cards by text, and the same round always orders them the same way', () => {
+    const build = (): GWState => {
+      let state = collect();
+      state = expectOk(guessWho.reduce(state, { type: 'submit', playerId: 'b', text: 'zebra' }));
+      state = expectOk(guessWho.reduce(state, { type: 'submit', playerId: 'a', text: 'apple' }));
+      return expectOk(guessWho.reduce(state, { type: 'advance', from: 'collect' }));
+    };
+    expect(build().cards.map((c) => c.text)).toEqual(['apple', 'zebra']);
+    expect(build().cards).toEqual(build().cards); // pure: no hidden randomness in reduce
   });
 
   it('G5 is idempotent on a phase mismatch (double-send)', () => {
@@ -205,10 +208,51 @@ describe('roster events', () => {
     expect(r).toEqual(state);
   });
 
-  it('a leave is a no-op — the player keeps whatever they submitted', () => {
+  it('a leaver keeps their card but forfeits the round (off the tally)', () => {
     const state = seedGuess();
     const r = expectOk(guessWho.reduce(state, { type: 'playerLeft', id: 'a' }));
-    expect(r).toEqual(state);
+    expect(r.cards).toEqual(state.cards); // their answer is still guessable
+    expect(r.left).toEqual(['a']);
+    const revealed = expectOk(guessWho.reduce(r, { type: 'advance', from: 'guess' }));
+    expect(guessWho.scores(revealed).map((s) => s.playerId)).toEqual(['b', 'c']);
+  });
+
+  it('a leave by someone not seated, or twice, changes nothing', () => {
+    const state = seedGuess();
+    expect(guessWho.reduce(state, { type: 'playerLeft', id: 'zz' })).toEqual({
+      ok: true,
+      value: state,
+    });
+    const once = expectOk(guessWho.reduce(state, { type: 'playerLeft', id: 'a' }));
+    expect(guessWho.reduce(once, { type: 'playerLeft', id: 'a' })).toEqual({
+      ok: true,
+      value: once,
+    });
+  });
+
+  it('a leaver who wrote nothing is no longer offered as an author', () => {
+    let state = expectOk(guessWho.reduce(collect(), { type: 'submit', playerId: 'a', text: 'x' }));
+    state = expectOk(guessWho.reduce(state, { type: 'submit', playerId: 'b', text: 'y' }));
+    state = expectOk(guessWho.reduce(state, { type: 'playerLeft', id: 'c' })); // c never answered
+    state = expectOk(guessWho.reduce(state, { type: 'advance', from: 'collect' }));
+    expect(guessWho.view(state, { role: 'host' })).toMatchObject({ candidates: ['a', 'b'] });
+    expect(guessWho.view(state, { role: 'player', id: 'a' })).toMatchObject({
+      candidates: ['a', 'b'],
+    });
+    const card = state.cards.find((c) => c.authorId === 'b')?.id ?? '';
+    const r = guessWho.reduce(state, { type: 'guess', playerId: 'a', cardId: card, author: 'c' });
+    expect(r).toEqual({ ok: false, error: { code: 'NOT_A_PLAYER' } });
+  });
+
+  it('a leaver who did answer stays a valid author — their card is still in play', () => {
+    const state = expectOk(guessWho.reduce(seedGuess(), { type: 'playerLeft', id: 'c' }));
+    expect(guessWho.view(state, { role: 'host' })).toMatchObject({ candidates: ['a', 'b', 'c'] });
+  });
+
+  it('a leaver who never answered stops holding up the collect count', () => {
+    let state = expectOk(guessWho.reduce(collect(), { type: 'submit', playerId: 'a', text: 'x' }));
+    state = expectOk(guessWho.reduce(state, { type: 'playerLeft', id: 'c' }));
+    expect(guessWho.view(state, { role: 'host' })).toMatchObject({ submittedCount: 1, total: 2 });
   });
 });
 
