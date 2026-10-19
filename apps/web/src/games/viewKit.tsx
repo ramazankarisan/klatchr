@@ -21,7 +21,7 @@ export function GameLabel({ name }: { name: string | undefined }): ReactNode {
     <Typography
       sx={{
         fontFamily: tokens.font.mono,
-        fontSize: 11,
+        fontSize: 'clamp(13px, 1.1vw, 20px)',
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
@@ -45,20 +45,29 @@ export function PlayerKicker({ children }: { children: ReactNode }): ReactNode {
 /** Eyebrow on the shared board. */
 export function HostKicker({ children }: { children: ReactNode }): ReactNode {
   return (
-    <Typography variant="overline" sx={{ color: tokens.color.markerDeep, display: 'block', mb: 1 }}>
+    <Typography
+      variant="overline"
+      sx={{
+        color: tokens.color.markerDeep,
+        display: 'block',
+        mb: 1,
+        fontSize: 'clamp(16px, 1.4vw, 24px)',
+        lineHeight: 1.4,
+      }}
+    >
       {children}
     </Typography>
   );
 }
 
-/** A big board prompt. On the shared screen it scales with the viewport (8.2) so
+/** A big board prompt. On the shared screen it scales with the viewport (8.2, UX-1) so
  * it reads across a room — clamped so it never gets tiny on a phone-mirrored board
  * nor overflows a wide projector. */
 export function Prompt({ text }: { text: string }): ReactNode {
   return (
     <Typography
       variant="h2"
-      sx={{ fontSize: 'clamp(28px, 4.4vw, 52px)', lineHeight: 1.05, maxWidth: '18ch' }}
+      sx={{ fontSize: 'clamp(36px, 4.6vw, 76px)', lineHeight: 1.08, maxWidth: '24ch' }}
     >
       {text}
     </Typography>
@@ -192,7 +201,7 @@ function RoundDoneBadge(): ReactNode {
         px: 1.25,
         py: 0.5,
         borderRadius: 1,
-        backgroundColor: tokens.color.teal,
+        backgroundColor: tokens.color.tealDeep,
         color: '#fff',
       }}
     >
@@ -310,4 +319,17 @@ export function TallyBars({
       })}
     </Box>
   );
+}
+
+/** The seated players' ids, in roster order — the ones a phase waits on (spectators who
+ * joined mid-round are not). Shared by every game's host progress. */
+export function seatedIds(players: readonly PublicPlayer[]): string[] {
+  return players.filter((p) => !p.spectator).map((p) => p.id);
+}
+
+/** A host view's "who has acted" list, read defensively: the phase guard only checks the
+ * discriminant, so an off-shape view (field missing or not a list) reads as nobody yet —
+ * the board never throws on it. */
+export function actedIds(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
 }

@@ -39,8 +39,8 @@ function CollectPhone({
             sx={{
               p: 1.5,
               borderRadius: `${tokens.radius.card}px`,
-              border: `1.5px solid ${tokens.color.teal}`,
-              color: tokens.color.teal,
+              border: `1.5px solid ${tokens.color.tealDeep}`,
+              color: tokens.color.tealDeep,
               fontWeight: 600,
             }}
           >
@@ -151,7 +151,7 @@ function GuessPhone({
         if (card.id === v.yourCardId) {
           return (
             <Card key={card.id} text={card.text}>
-              <Typography sx={{ fontSize: 12.5, color: tokens.color.teal, fontWeight: 700 }}>
+              <Typography sx={{ fontSize: 12.5, color: tokens.color.tealDeep, fontWeight: 700 }}>
                 ✓ Your card
               </Typography>
             </Card>
@@ -215,7 +215,7 @@ function RevealPhone({
               <NameLabel id={card.authorId} players={players} />
               {/* F9: your own pick vs. the truth for each card */}
               {own ? (
-                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: tokens.color.teal }}>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: tokens.color.tealDeep }}>
                   ✎ your card
                 </Typography>
               ) : mine !== undefined ? (
@@ -223,7 +223,7 @@ function RevealPhone({
                   sx={{
                     fontSize: 12.5,
                     fontWeight: 700,
-                    color: mine === card.authorId ? tokens.color.teal : tokens.color.bad,
+                    color: mine === card.authorId ? tokens.color.tealDeep : tokens.color.bad,
                   }}
                 >
                   {mine === card.authorId ? '✓' : '✕'} you guessed {nameOf(mine, players)}

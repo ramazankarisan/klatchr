@@ -41,10 +41,12 @@ consideration); the design-gallery chrome is theme-aware.
 | color.kraft2 | `#E7DCC8` | deeper kraft — dashed dividers, overflow tiles |
 | color.card | `#FBF6EC` | index card / name-tag surface |
 | color.ink | `#2B2620` | warm black text |
-| color.inkSoft | `#6B6154` | muted / secondary text |
-| color.marker | `#E8623D` | **primary / CTA** — the only "buzzer" |
-| color.markerDeep | `#C14A2B` | pressed / eyebrow |
-| color.teal | `#2E8B7B` | **correct / reveal** — earned, never shown before reveal |
+| color.inkSoft | `#5B5246` | muted / secondary text (UX-1: was `#6B6154`, darkened for AA on kraft) |
+| color.inkFaint | `#8C8274` | dashed outlines, quiet control borders — non-text only (UX-1) |
+| color.marker | `#E8623D` | the brand "buzzer" accent — selection rings, leader bars, the K (never under small white text) |
+| color.markerDeep | `#C14A2B` | **primary / CTA fill** with white text (UX-1, AA), eyebrows, small marker text |
+| color.teal | `#2E8B7B` | **correct / reveal** — earned, never shown before reveal; large marks and bars |
+| color.tealDeep | `#23695D` | small teal text, the ✓ stroke, and teal fills under white text (UX-1, AA) |
 | color.dymo | `#34302A` | label-maker tape ground (room code sits on it) |
 | color.players[8] | `#E8623D #E0A32E #2E8B7B #3E7CB1 #8A5A83 #6E7B3E #F2996E #55707A` | one marker per person |
 | font.display | `"Helvetica Neue", Arial, system-ui` 900 | headings + prompts |
@@ -61,8 +63,8 @@ consideration); the design-gallery chrome is theme-aware.
 **Component style.** Room code = mono on dark dymo tape. Name-tag = colored band
 + **display-bold name** (Cycle 8, option B — was hand-lettered). Index card =
 ruled cream, a strip of tape at top, slight hand-placed rotation (±1.5° max).
-Reveal = teal outlined "Said it" stamp, rotated. Primary button = marker-red
-pill; disabled/waiting reuses it dimmed. MUI is the component library (fixed
+Reveal = teal outlined "Said it" stamp, rotated. Primary button = markerDeep
+pill with white text (UX-1); disabled/waiting reuses it dimmed. MUI is the component library (fixed
 stack); these tokens map to an MUI theme (`theme.palette`, `theme.typography`,
 `shape`, `shadows`).
 
@@ -83,7 +85,7 @@ the approved cards:
   "your card" without matching on text (identical answers would otherwise
   collide). A placed guess can be re-opened and changed.
 - **Host scores (board):** a reveal-time round standings scoreboard, ranked,
-  leader in marker — **plus** a cross-round **cumulative** `SessionStandings` and a
+  leader in marker — **plus** a cross-round **cumulative** `SessionStandings` (on the board, UX-1 merges both into one ranked table) and a
   round-counter pill (Cycle 10, S6). The room accumulates each round's scores; the
   board shows both the round result and the running total, and a **game-over screen**
   with **End game** / **Change game** exits (the host is no longer stuck looping
@@ -114,7 +116,7 @@ on the Klatchr design project (cards `game-picker`, `most-likely-to-phone`,
 - **Player results (phone).** Your received-vote count (large), your own vote echoed as
   a chip, then the **counts-only** tally with the winner bar in marker. Who-voted-for-whom
   is never shown (toggle B).
-- **Host board — vote progress — one meter (B).** A single marker progress bar +
+- **Host board — vote progress — one meter (B).** A single marker progress bar (markerDeep since UX-1) +
   `N of M voted` + name chips (done vs pending). **No target, no running tally** — the
   host view is the strictest redaction. Scales to 50.
 - **Host board — results.** A winner spotlight (a *Most likely* stamp + name + count) over
@@ -221,13 +223,53 @@ project (card `cycle-12`); picked options:
   the round pill reads *"All N questions played"*, and there is **no "New round"**, only Change
   game / Leave. Built-in bank the same (plays its bank in order, then ends). The board reads
   `roundsTotal` from the frame.
-- **Leave & close room (F6).** A control (marker-red, board corner) closes the room for everyone
+- **Leave & close room (F6).** A control (board corner; UX-1 made it a quiet outlined control) closes the room for everyone
   and returns to the landing, where the host can host again **or** join as a player — the escape
   from the auto-resume that otherwise traps a host in one room. An accidental reload still
   auto-resumes; leaving is the deliberate way out.
 - **Confirm dialogs (F7).** One reusable MUI `Dialog` guards End game, Change game and Leave &
   close room. Cancel is the safe default; the confirm carries the action's weight (red to close).
 - **Packs (F5).** The "Spicy" pack is gone; every pack is now workplace-safe, warm and funny.
+
+## plan-15 UX-1 — readable from the couch (approved 2026-10-19)
+
+The host shared screen, re-scaled for a TV across a room and fixed for contrast. Sketch:
+[UX-1 board sketch](https://claude.ai/artifact/JL3kT8AdofagFCWa18tQUx) (TV lobby, TV answering,
+TV round done). Host board only; the phone is unchanged apart from the shared tokens.
+
+- **Board fills the TV.** `Board` (now `components/board.tsx`) is `width: min(100%, 1800px)`
+  with `clamp()` type throughout, replacing the 1280px cap. Prompt
+  `clamp(36px, 4.6vw, 76px)` (supersedes Cycle 8's `clamp(28px, 4.4vw, 52px)`); kickers
+  `clamp(16px, 1.4vw, 24px)`; player chips `clamp(22px, 1.9vw, 30px)` (≥22px on a TV).
+- **Code-first lobby.** In LOBBY the room code sits on hero dymo tape — the largest thing on
+  the board, `clamp(96px, 9.5vw, 168px)` — with a join line "Join at `<host>` · code `<CODE>`"
+  at `clamp(28px, 2.8vw, 44px)` beside the game picker and roster. The host is
+  `window.location.host` (the VITE_WS_URL rule — never baked). A `/<CODE>` deep link lands in
+  a later PR; until then the board does not show one. In-game and on SCORES the code shrinks
+  to the top-right corner with a small "join at `<host>`" line under it (latecomers join as
+  spectators).
+- **Contrast (WCAG AA).** Primary buttons are a markerDeep fill with white text (MUI
+  `primary.main`); small secondary text uses the darker `inkSoft #5B5246`; small teal text and
+  teal fills under white text use `tealDeep #23695D`. New tokens `inkFaint`, `tealDeep` (table
+  above).
+- **Who-has-acted chips, shared.** One `ActedProgress` (`games/progressChips.tsx`) serves Most
+  Likely To's vote progress and Guess Who's answer and guess progress: `N of M <verb>`, a
+  markerDeep progress bar, a card chip with a teal ✓ (inline stroke SVG, `aria-hidden`) per
+  seated player who has acted, a dashed `thinking…` chip per player still going. Count, bar
+  and chips all derive from the seated ids plus the view's "acted" list, so they always agree;
+  an off-shape list reads as nobody yet. Only *who* acted, never *what*, inside a region
+  labelled "Who has acted"; no player name appears anywhere else on the board before the
+  reveal. The lobby roster uses the same `BoardChip`.
+- **Round done.** The pill reads `Round N of M` in play and `Round N of M · standings` on the
+  standings screen (`Round N` / `Round N · standings` when unbounded) — it never says "done",
+  since End game can reach that screen mid-round — and `All N questions played` once the set
+  is spent (the game-over screen, unchanged). The two stacked standings (Guess Who's round
+  tally plus the cumulative `SessionStandings`) become **one ranked table** (`RoundStandings`):
+  `#`, Player, This round (`+N`, or `—`), Total. Ranking is competition ranking (ties share a
+  rank: 1, 1, 3) and every player on the top total (> 0) is highlighted (`#F6E2D4`) — one rule
+  shared with the phone's compact `SessionStandings` "Overall" list.
+- **Leave & close room…** moves out of the primary row to a quiet outlined control in the
+  board's top-right corner (still behind its confirm dialog).
 
 ## Screens (Cycle 4)
 

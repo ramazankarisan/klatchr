@@ -301,3 +301,26 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - The stored keys of a gone room are cleared (`onTerminal`).
   - Tests: S13, S14, S23, and the device events.
   - Docs checked: apps/web/CLAUDE.md (transport lifecycle).
+- **PR 6 (UX-1):** readable from the couch, host board only, against the approved sketch
+  (https://claude.ai/artifact/JL3kT8AdofagFCWa18tQUx).
+  - The board fills the TV (`min(100%, 1800px)` with clamp type). The lobby is code-first: the
+    code on hero tape, then "Join at `<host>` · code `<CODE>`" from `window.location.host` (the
+    `/CODE` deep link is the next PR). The prompt is `clamp(36px, 4.6vw, 76px)` and chips are
+    at least 22px. In-game and on SCORES the code sits in the corner with a "join at" line.
+  - Contrast (AA): primary buttons are white on markerDeep, `inkSoft` is now `#5B5246`, and
+    there is a new `tealDeep #23695D` for small teal text plus `inkFaint` for dashed outlines.
+  - Guess Who's host shows who has answered or guessed as name chips with a progress bar. The
+    chips are one `ActedProgress` shared with Most Likely To and show who acted, never what.
+    Count, bar and chips all derive from the seated ids (`seatedIds`) and the acted list
+    (`actedIds`, so an off-shape view never throws). A skipper who guesses is counted.
+  - Round done: the pill reads "Round N of M · standings" ("Round N · standings" when
+    unbounded), never "done", since End game can abort; it keeps "All N questions played" at
+    game over. One ranked standings table (this round + total) replaces Guess Who's round
+    tally and the stacked cumulative list. Ties share a rank (1, 1, 3) and every leader is
+    highlighted, by one ranking helper shared with the phone's list.
+  - Leave & close room… is now a corner control and still confirms.
+  - Tests: pill wording, the merged table and ties, derived and defensive progress chips in
+    both games, and the leave control. e2e: before the reveal, no player name may appear on
+    the host page outside the "Who has acted" region, and there is no "Said it" stamp; the
+    pill copy changed.
+  - Docs checked: design.md.

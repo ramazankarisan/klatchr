@@ -11,7 +11,7 @@ export const kraftBg = { backgroundColor: tokens.color.kraft, backgroundImage: g
 
 // While the socket heals (7.2) the surface behind the tape dims, so nobody reads a
 // stale state as live and stray taps don't land mid-drop (they queue in the transport).
-const dimWhileReconnecting = {
+export const dimWhileReconnecting = {
   opacity: 0.5,
   filter: 'saturate(0.85)',
   pointerEvents: 'none',
@@ -24,7 +24,7 @@ const dimWhileReconnecting = {
  * role `status`, polite live region) so assistive tech announces it and tests
  * find it by role/text.
  */
-function ReconnectingTape(): ReactNode {
+export function ReconnectingTape(): ReactNode {
   return (
     <Box
       component="output"
@@ -84,7 +84,7 @@ const srOnly = {
 
 /** The one visually-hidden `<h1>` a surface owns, so every screen has exactly one
  * top-level heading without a giant title competing with the design (8.2 a11y). */
-function ScreenTitle({ children }: { children: ReactNode }): ReactNode {
+export function ScreenTitle({ children }: { children: ReactNode }): ReactNode {
   return (
     <Box component="h1" sx={srOnly}>
       {children}
@@ -92,8 +92,25 @@ function ScreenTitle({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
+// The three tape sizes: a phone's header, the board's in-game corner, and the lobby hero —
+// code-first, the largest thing on the TV (UX-1) so the room can read it from the couch.
+const dymoSize = {
+  small: { fontSize: 13, px: 1, py: 0.4, letterSpacing: '0.24em' },
+  corner: { fontSize: 'clamp(20px, 2.2vw, 40px)', px: 2, py: 0.75, letterSpacing: '0.16em' },
+  hero: {
+    fontSize: { xs: 64, sm: 'clamp(96px, 9.5vw, 168px)' },
+    lineHeight: 1,
+    px: 'clamp(20px, 2.4vw, 40px)',
+    py: 'clamp(14px, 1.4vw, 26px)',
+    letterSpacing: '0.12em',
+  },
+} as const;
+
 /** Room code on label-maker (dymo) tape. */
-export function DymoCode({ code, small }: { code: string; small?: boolean }): ReactNode {
+export function DymoCode({
+  code,
+  size = 'corner',
+}: { code: string; size?: keyof typeof dymoSize }): ReactNode {
   return (
     <Box
       component="span"
@@ -101,14 +118,12 @@ export function DymoCode({ code, small }: { code: string; small?: boolean }): Re
       sx={{
         fontFamily: tokens.font.mono,
         fontWeight: 700,
-        letterSpacing: '0.24em',
-        fontSize: small ? 13 : { xs: 24, sm: 34, md: 42 },
+        ...dymoSize[size],
         color: '#f3ece0',
         backgroundColor: tokens.color.dymo,
-        px: small ? 1 : 2,
-        py: small ? 0.4 : 0.75,
         borderRadius: 1,
         display: 'inline-block',
+        boxShadow: '1px 3px 6px rgba(43,38,32,.14)',
       }}
     >
       {code}
@@ -162,8 +177,8 @@ export function Stamp(): ReactNode {
         fontSize: 12,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: tokens.color.teal,
-        border: `2.5px solid ${tokens.color.teal}`,
+        color: tokens.color.tealDeep,
+        border: `2.5px solid ${tokens.color.tealDeep}`,
         borderRadius: 1,
         px: 1,
         py: 0.25,
@@ -227,74 +242,6 @@ export function Recover({
       <Button variant="contained" size="large" sx={{ mt: 1 }} onClick={onAction}>
         {actionLabel}
       </Button>
-    </Box>
-  );
-}
-
-/** The host shared-screen board (8.2): its own wide, centered container so it
- * fills a TV/projector — not the phone-sized `lg` cap it used to inherit — with a
- * projector-scale room code and a generous content pad. A top bar carries the code
- * and join hint; the game's board sits below. */
-export function Board({
-  code,
-  hint,
-  badge,
-  children,
-  reconnecting,
-}: {
-  code: string;
-  hint?: ReactNode;
-  badge?: ReactNode;
-  children: ReactNode;
-  reconnecting?: boolean;
-}): ReactNode {
-  return (
-    <Box sx={{ width: '100%', maxWidth: 1280, mx: 'auto' }}>
-      <Box
-        sx={{
-          ...kraftBg,
-          border: `1px solid ${tokens.color.kraft2}`,
-          borderRadius: 2,
-          overflow: 'hidden',
-          boxShadow: '0 22px 50px -30px rgba(43,38,32,0.5)',
-          color: tokens.color.ink,
-        }}
-      >
-        <ScreenTitle>Klatchr — host board</ScreenTitle>
-        {reconnecting ? <ReconnectingTape /> : null}
-        <Box sx={reconnecting ? dimWhileReconnecting : undefined}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 2,
-              p: { xs: '16px 24px', md: '20px 40px' },
-              borderBottom: `2px dashed ${tokens.color.kraft2}`,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 2.5 } }}>
-              <Typography variant="overline" sx={{ color: tokens.color.inkSoft }}>
-                Room
-              </Typography>
-              <DymoCode code={code} />
-              {badge}
-            </Box>
-            {hint ? (
-              <Typography
-                sx={{
-                  fontSize: { xs: 13, md: 16 },
-                  color: tokens.color.inkSoft,
-                  textAlign: 'right',
-                }}
-              >
-                {hint}
-              </Typography>
-            ) : null}
-          </Box>
-          <Box sx={{ p: { xs: '24px', md: '40px' } }}>{children}</Box>
-        </Box>
-      </Box>
     </Box>
   );
 }

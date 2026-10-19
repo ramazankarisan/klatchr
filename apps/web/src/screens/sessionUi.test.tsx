@@ -63,7 +63,7 @@ describe('session UI — round, standings, and the host exits (10)', () => {
     );
     render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
     expect(screen.getByText(/standings so far/i)).toBeTruthy();
-    expect(screen.getByText(/game over · 2 rounds/i)).toBeTruthy();
+    expect(screen.getByText(/^round 2 · standings$/i)).toBeTruthy(); // UX-1: an unbounded session's pill
     expect(screen.getByRole('button', { name: /new round/i })).toBeTruthy();
     // "Change game" now confirms first, then re-opens the picker (F7).
     await user.click(screen.getByRole('button', { name: /change game/i }));
@@ -131,7 +131,12 @@ describe('session UI — round, standings, and the host exits (10)', () => {
   });
 
   it('B3 the host board shows the running game name in-game', () => {
-    const t = new FrameTransport(frame({ phase: 'IN_GAME', gameView: { phase: 'collect' } }));
+    const t = new FrameTransport(
+      frame({
+        phase: 'IN_GAME',
+        gameView: { phase: 'collect', prompt: 'Hi?', submitted: [], submittedCount: 0, total: 2 },
+      }),
+    );
     render(withTheme(<HostScreen transport={t} onExit={() => {}} />));
     expect(screen.getByText('Guess Who Said It')).toBeTruthy(); // the game-name label
   });

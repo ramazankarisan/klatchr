@@ -29,6 +29,15 @@ describe('vote board', () => {
     });
     expect(screen.getByText(/2 of 3 voted/i)).toBeTruthy();
     expect(screen.getByText('Ada')).toBeTruthy(); // a voter's name-chip, no target
+    expect(screen.getAllByText('thinking…')).toHaveLength(1); // only Cy is still voting (shared chips)
+    expect(screen.getByRole('progressbar', { name: '2 of 3 voted' })).toBeTruthy();
+  });
+});
+
+describe('vote board — off-shape view', () => {
+  it('reads a missing voted list as nobody yet — never throws', () => {
+    renderHost({ phase: 'vote', prompt: 'Most likely to nap?' });
+    expect(screen.getByText('0 of 3 voted')).toBeTruthy();
   });
 });
 

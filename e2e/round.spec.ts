@@ -190,7 +190,21 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   // "Standings" is reveal-only (the phrase "said it" is not — it is in the guess
   // kicker "Guess who said it" and the "name who said it" button).
   await expect(host.page.getByText('Standings')).toHaveCount(0);
-  await expect(host.page.getByText('Adalyn')).toHaveCount(0);
+  // UX-1: the board names who has *guessed* in its labelled progress region — so the page
+  // text outside that region must carry no player name at all, and no "Said it" stamp.
+  const hostCards = host.page.getByRole('list', { name: 'Answer cards' });
+  await expect(hostCards.getByRole('listitem')).toHaveCount(3);
+  await expect(host.page.getByRole('region', { name: 'Who has acted' })).toBeVisible();
+  const outsideProgress = await host.page.evaluate(() => {
+    const body = document.body.cloneNode(true);
+    if (!(body instanceof HTMLElement)) return '';
+    for (const el of body.querySelectorAll('[aria-label="Who has acted"]')) el.remove();
+    return body.textContent ?? '';
+  });
+  for (const p of PLAYERS) {
+    expect(outsideProgress).not.toContain(p.name);
+  }
+  await expect(host.page.getByText('Said it', { exact: true })).toHaveCount(0);
 
   // Exercise the real guess input over the socket: Adalyn names one card.
   await adalyn
@@ -207,9 +221,9 @@ test('a full round keeps answers and authorship secret, and resumes a dropped sl
   // The reveal now also carries the overall standings (B1), so a name can appear both
   // as an author chip and a standings row — first() is enough to prove it's revealed.
   await expect(cyrus.getByText('Adalyn').first()).toBeVisible(); // hidden a moment ago
-  // Two standings at reveal now (the round tally + the cumulative session tally, 10.4).
+  // One ranked standings table at reveal (this round + total, UX-1).
   await expect(host.page.getByText('Standings').first()).toBeVisible();
-  await expect(host.page.getByText('Adalyn').first()).toBeVisible(); // author chip + standings row
+  await expect(hostCards.getByText('Adalyn')).toBeVisible(); // now on her card
 });
 
 /**
@@ -342,7 +356,7 @@ test('a skipper still guesses, the board keeps a running tally, and the host can
   // Reveal → game-over screen: cumulative standings + a way back to pick another game.
   await host.page.getByRole('button', { name: STEP.reveal }).click();
   await expect(host.page.getByText(/standings so far/i)).toBeVisible();
-  await expect(host.page.getByText(/game over/i)).toBeVisible();
+  await expect(host.page.getByText(/^round 1 of \d+ · standings$/i)).toBeVisible(); // UX-1 pill
   await host.page.getByRole('button', { name: /change game/i }).click();
   await host.page
     .getByRole('dialog')

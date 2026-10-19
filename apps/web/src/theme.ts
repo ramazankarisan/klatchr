@@ -6,8 +6,9 @@ export const theme = createTheme({
   palette: {
     background: { default: tokens.color.kraft, paper: tokens.color.card },
     text: { primary: tokens.color.ink, secondary: tokens.color.inkSoft },
-    primary: { main: tokens.color.marker, dark: tokens.color.markerDeep, contrastText: '#ffffff' },
-    success: { main: tokens.color.teal, contrastText: '#ffffff' },
+    // UX-1: the CTA fill is markerDeep — white on marker (#E8623D) is only ~3:1; on markerDeep it passes AA.
+    primary: { main: tokens.color.markerDeep, dark: '#A63E22', contrastText: '#ffffff' },
+    success: { main: tokens.color.tealDeep, contrastText: '#ffffff' },
     divider: tokens.color.kraft2,
   },
   typography: {
