@@ -1,0 +1,42 @@
+# The no-new-deps rule, enforced: every dependency name in any package.json must be
+# listed here. Adding one is a reviewed edit to this file, never a silent install.
+# Workspace packages (@klatchr/*) are always allowed.
+@biomejs/biome
+@commitlint/cli
+@commitlint/config-conventional
+@dnd-kit/core
+@dnd-kit/sortable
+@dnd-kit/utilities
+@emotion/react
+@emotion/styled
+@mui/material
+@nestjs/common
+@nestjs/core
+@playwright/test
+@testing-library/react
+@testing-library/user-event
+@types/node
+@types/react
+@types/react-dom
+@types/ws
+@vitejs/plugin-react
+@vitest/coverage-v8
+concurrently
+dependency-cruiser
+fast-check
+husky
+jscpd
+jsdom
+knip
+lint-staged
+react
+react-dom
+reflect-metadata
+rxjs
+tsx
+type-coverage
+typescript
+vite
+vitest
+ws
+zod
