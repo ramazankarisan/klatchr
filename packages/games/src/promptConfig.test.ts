@@ -39,6 +39,13 @@ describe('validPrompts (A8)', () => {
 });
 
 describe('validPrompts bounds its scan (plan-15 §1)', () => {
+  it('cleans each config object once — the same object gives the same answer', () => {
+    const config = { prompts: ['  One?  ', 'Two?'] };
+    const first = validPrompts(config);
+    expect(first).toEqual(['One?', 'Two?']);
+    expect(validPrompts(config)).toBe(first);
+  });
+
   it('looks at no more than a bounded prefix of an oversized array', () => {
     // A usable prompt far past the scan window is never reached — the cost is bounded.
     const prompts = [...Array.from({ length: 10_000 }, () => ' '), 'Reachable?'];

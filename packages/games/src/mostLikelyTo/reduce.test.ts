@@ -115,11 +115,48 @@ describe('roster events', () => {
     expect(r).toEqual(state);
   });
 
-  it('a leave is a no-op — the player keeps whatever vote they cast', () => {
-    const state = expectOk(
+  it('a leaver stops being a candidate; votes for them are void in the tally', () => {
+    let state = expectOk(
       mostLikelyTo.reduce(voteRound(), { type: 'vote', playerId: 'a', target: 'b' }),
     );
-    const r = expectOk(mostLikelyTo.reduce(state, { type: 'playerLeft', id: 'b' }));
-    expect(r).toEqual(state);
+    state = expectOk(mostLikelyTo.reduce(state, { type: 'vote', playerId: 'b', target: 'c' }));
+    state = expectOk(mostLikelyTo.reduce(state, { type: 'playerLeft', id: 'b' }));
+    expect(mostLikelyTo.view(state, { role: 'player', id: 'a' })).toMatchObject({
+      candidates: ['a', 'c'],
+    });
+    const results = expectOk(mostLikelyTo.reduce(state, { type: 'advance', from: 'vote' }));
+    // b's own vote for c still counts; a's vote for the departed b is void.
+    expect(mostLikelyTo.scores(results)).toEqual([
+      { playerId: 'a', points: 0 },
+      { playerId: 'c', points: 1 },
+    ]);
+  });
+
+  it('progress still counts a vote for a leaver — voiding it would reveal who was voted for', () => {
+    let state = expectOk(
+      mostLikelyTo.reduce(voteRound(), { type: 'vote', playerId: 'a', target: 'b' }),
+    );
+    state = expectOk(mostLikelyTo.reduce(state, { type: 'playerLeft', id: 'b' }));
+    // b never voted and left, so "everyone" is now a and c; a's vote still shows as cast.
+    expect(mostLikelyTo.view(state, { role: 'host' })).toMatchObject({ votedCount: 1, total: 2 });
+  });
+
+  it('refuses a vote for a player who left', () => {
+    const state = expectOk(mostLikelyTo.reduce(voteRound(), { type: 'playerLeft', id: 'b' }));
+    const r = mostLikelyTo.reduce(state, { type: 'vote', playerId: 'a', target: 'b' });
+    expect(r).toEqual({ ok: false, error: { code: 'NOT_A_PLAYER' } });
+  });
+
+  it('a leave by someone not seated, or twice, changes nothing', () => {
+    const state = voteRound();
+    expect(mostLikelyTo.reduce(state, { type: 'playerLeft', id: 'zz' })).toEqual({
+      ok: true,
+      value: state,
+    });
+    const gone = expectOk(mostLikelyTo.reduce(state, { type: 'playerLeft', id: 'b' }));
+    expect(mostLikelyTo.reduce(gone, { type: 'playerLeft', id: 'b' })).toEqual({
+      ok: true,
+      value: gone,
+    });
   });
 });

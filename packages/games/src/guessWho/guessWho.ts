@@ -2,6 +2,8 @@ import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@kl
 import { boundedText, err, isRecord, ok } from '@klatchr/core';
 import { MALFORMED_EVENT, isRosterEvent, strings } from '../eventGuard.js';
 import { choosePrompt, promptCount } from '../promptConfig.js';
+import { departed } from '../roster.js';
+import { authors } from './authors.js';
 import type { GWEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
 import { tally } from './scoring.js';
@@ -18,6 +20,8 @@ function init(active: readonly Player[], deps: GameDeps, config?: unknown): GWSt
     skipped: [],
     cards: [],
     guesses: {},
+    left: [],
+    salt: Math.floor(deps.random() * 2 ** 32),
   };
 }
 
@@ -59,7 +63,9 @@ function reduce(state: GWState, event: GWEvent | RosterEvent): Result<GWState, G
     case 'playerJoined':
       return ok(state); // E2: a mid-round joiner spectates — never enters the pool
     case 'playerLeft':
-      return ok(state); // keeps whatever they already submitted
+      // Keeps whatever they already submitted (their card stays guessable), but they
+      // forfeit the round and no longer hold up the room's progress.
+      return ok(departed(state, event.id));
   }
 }
 
@@ -138,7 +144,7 @@ function guess(
   if (card.authorId === event.playerId) {
     return err({ code: 'OWN_CARD' });
   }
-  if (!state.roster.includes(event.author)) {
+  if (!authors(state).includes(event.author)) {
     return err({ code: 'NOT_A_PLAYER' });
   }
   const prior = state.guesses[event.playerId] ?? {};
@@ -149,17 +155,27 @@ function guess(
 }
 
 /**
- * Freeze drafts into anonymised cards, ordered by a (text, authorId) key so the
- * display order is decoupled from author and stable — no RNG (reduce is pure).
- * The exact collation is irrelevant to anonymity; it only needs to be a total
- * order that carries no author signal.
+ * Freeze drafts into anonymised cards, ordered by text so the order carries no author
+ * signal. Identical answers ("pizza" twice) tie on text; breaking the tie by author id
+ * would reveal who wrote which (ids are public in every roster), so the tie is broken
+ * by a hash of the id salted with the round's random salt. Pure: the salt came from
+ * `deps.random` at init.
  */
 function buildCards(state: GWState): readonly AnswerCard[] {
-  const key = (id: string, text: string): string => `${text}|${id}`; // text, then id: a total order
-  const entries = Object.entries(state.drafts).sort(([aId, aText], [bId, bText]) =>
-    key(aId, aText).localeCompare(key(bId, bText)),
+  const tie = (id: string): number => fnv1a(`${state.salt}:${id}`);
+  const entries = Object.entries(state.drafts).sort(
+    ([aId, aText], [bId, bText]) => aText.localeCompare(bText) || tie(aId) - tie(bId),
   );
   return entries.map(([authorId, text], i) => ({ id: `c${i}`, text, authorId }));
+}
+
+/** FNV-1a, 32-bit — a small deterministic string hash (not for security). */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return hash;
 }
 
 export const guessWho: Game<GWState, GWEvent> = {

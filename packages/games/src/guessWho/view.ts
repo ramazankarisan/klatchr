@@ -1,4 +1,5 @@
 import type { Viewer } from '@klatchr/core';
+import { authors } from './authors.js';
 import { tally } from './scoring.js';
 import type { GWState } from './state.js';
 
@@ -20,7 +21,9 @@ export function viewFor(state: GWState, viewer: Viewer): unknown {
 function collectView(state: GWState, viewer: Viewer) {
   // Resolved = answered OR skipped (B4) — the host counts both as "done".
   const resolved = [...new Set([...Object.keys(state.drafts), ...state.skipped])];
-  const progress = { submittedCount: resolved.length, total: state.roster.length };
+  // A leaver who never answered can't anymore — they don't count toward "everyone".
+  const waitingOnNoOne = state.left.filter((id) => !resolved.includes(id)).length;
+  const progress = { submittedCount: resolved.length, total: state.roster.length - waitingOnNoOne };
   if (viewer.role === 'host') {
     return { phase: 'collect', prompt: state.prompt, submitted: resolved, ...progress }; // who, never the text
   }
@@ -37,13 +40,13 @@ function guessView(state: GWState, viewer: Viewer) {
   const cards = state.cards.map((card) => ({ id: card.id, text: card.text })); // authorId stripped
   if (viewer.role === 'host') {
     const guessed = Object.keys(state.guesses);
-    return { phase: 'guess', prompt: state.prompt, cards, candidates: state.roster, guessed };
+    return { phase: 'guess', prompt: state.prompt, cards, candidates: authors(state), guessed };
   }
   return {
     phase: 'guess',
     prompt: state.prompt,
     cards,
-    candidates: state.roster,
+    candidates: authors(state),
     myGuesses: state.guesses[viewer.id] ?? {},
     // A player may know *its own* card id — it authored that answer, so this
     // reveals nothing hidden. Lets the phone mark "your card" without matching

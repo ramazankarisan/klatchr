@@ -6,6 +6,7 @@ import {
   type RoomEvent,
   type Score,
   type Viewer,
+  isAdvance,
   isRecord,
   playerIdForToken,
   roomReduce,
@@ -385,11 +386,6 @@ function hostEvent(action: HostAction, gameId?: string, config?: unknown): RoomE
     case 'endGame':
       return { type: 'endGame' };
   }
-}
-
-/** `{ type: 'advance' }` is the platform-wide phase-advance convention (packages/CLAUDE.md). */
-function isAdvance(event: unknown): boolean {
-  return isRecord(event) && event.type === 'advance';
 }
 
 /** Overwrite any client-supplied playerId with the authenticated one (authority). */

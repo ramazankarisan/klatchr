@@ -14,10 +14,18 @@ objects — never mutate the input. Enforced by `.hooks/check-purity.sh`.
 - **`view(state, viewer)` is a redaction boundary.** It returns only what that
   viewer may see. The host screen (`{ role: 'host' }`) is seen by everyone, so
   its redaction is the strictest. A leak through `view()` is as severe as a crash.
-- **Roster changes arrive as `RosterEvent`s in `reduce`.** A known id rejoining
-  resumes its slot; a new id mid-round is a spectator; a leaver keeps what they
-  submitted. The room forfeits a mid-round leaver's round: only seated players'
-  scores are folded or shown (`roundScores` in `core/src/room.ts`).
+- **Roster changes arrive as `RosterEvent`s in `reduce`.** Only the room authors
+  them; core refuses one sent by a client (`FORBIDDEN_EVENT`). A known id rejoining
+  resumes its slot; a new id mid-round is a spectator. A leaver keeps what they
+  submitted, but they forfeit the round. They drop off the game's own tally and
+  candidate lists, and stop counting toward "everyone has acted". The room
+  forfeits their round too (`roundScores` in `core/src/room.ts`).
+- **Never let a progress count leak hidden data.** A change visible to the room,
+  such as someone leaving, must not shift a count in a way that reveals a secret.
+  For example, a vote for a player who has left still counts as cast; it is only
+  void in the final tally.
+- A reducer that changes nothing returns the **same state object**. The room then
+  hands back the same room, and the server sends nothing.
 - **Phase advance is a host-driven game event** `{ type: 'advance', from }`.
   The reducer no-ops when `state.phase !== from` (idempotent double-send) and
   never waits for everyone to act. The server forwards it only from the host.

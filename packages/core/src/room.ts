@@ -1,5 +1,6 @@
 import { MAX_PLAYERS } from './bounds.js';
 import type { RoomDeps } from './deps.js';
+import { isAdvance, isRosterType } from './eventShapes.js';
 import type { AnyGame, RosterEvent, Score } from './game.js';
 import type { Player, Viewer } from './ids.js';
 import { normaliseNickname } from './nickname.js';
@@ -7,7 +8,6 @@ import { type Result, err, ok } from './result.js';
 import { generateRoomCode } from './roomCode.js';
 import type { Phase, ReduceContext, Room, RoomError, RoomEvent } from './roomTypes.js';
 import { foldScores, omit, seatWindow } from './rounds.js';
-import { isRecord } from './text.js';
 
 export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set()): Room {
   return {
@@ -168,7 +168,14 @@ function configureGame(room: Room, config: unknown, actor: Viewer): Result<Room,
   if (guard !== null) {
     return err(guard);
   }
-  return ok({ ...room, gameConfig: config });
+  // A *changed* set is a new session, the same as re-picking the game: walk it from its
+  // first question with a fresh tally, rather than resuming the old set's index (which
+  // skipped questions). Re-saving the same set changes nothing. Comparing the serialised
+  // blobs is equality only — the room still never interprets a config.
+  if (JSON.stringify(config) === JSON.stringify(room.gameConfig)) {
+    return ok(room);
+  }
+  return ok({ ...room, gameConfig: config, round: 0, sessionScores: {} });
 }
 
 function startGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, RoomError> {
@@ -211,6 +218,11 @@ function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room,
   if (room.phase !== 'IN_GAME') {
     return err({ code: 'GAME_EVENT_OUTSIDE_GAME' }); // P5
   }
+  // Roster facts are the room's to author (forwardRoster); a client forging one could
+  // otherwise make a game drop or seat a player.
+  if (isRosterType(event)) {
+    return err({ code: 'FORBIDDEN_EVENT' });
+  }
   const game = activeGame(room, ctx);
   if (game === undefined) {
     return err({ code: 'GAME_NOT_REGISTERED' });
@@ -220,6 +232,9 @@ function gameEvent(room: Room, event: unknown, ctx: ReduceContext): Result<Room,
     return err({ code: 'GAME_REJECTED', message: result.error.code });
   }
   const complete = game.isComplete(result.value); // fold once on entry to SCORES (S6)
+  if (result.value === room.gameState && !complete) {
+    return ok(room); // the game changed nothing (an idempotent no-op) — nothing to re-send
+  }
   const phase: Phase = complete ? 'SCORES' : 'IN_GAME';
   const sessionScores = complete
     ? foldScores(room.sessionScores, roundScores({ ...room, gameState: result.value }, game))
@@ -242,11 +257,6 @@ function endGame(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Ro
   // Host abort still counts (D1): fold the partial round's scores, like a natural end.
   const sessionScores = foldScores(room.sessionScores, roundScores(room, game));
   return ok({ ...room, phase: 'SCORES', sessionScores });
-}
-
-/** `{ type: 'advance' }` — the platform-wide phase-advance convention. */
-function isAdvance(event: unknown): boolean {
-  return isRecord(event) && event.type === 'advance';
 }
 
 function requireHost(actor: Viewer): RoomError | null {

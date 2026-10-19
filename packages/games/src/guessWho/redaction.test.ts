@@ -1,4 +1,5 @@
 import type { Viewer } from '@klatchr/core';
+import { guessWho } from './guessWho.js';
 import type { GWState } from './state.js';
 import { viewFor } from './view.js';
 
@@ -12,6 +13,8 @@ function collectState(): GWState {
     roster: ['a', 'b', 'c'],
     drafts: { a: 'apples', b: 'bananas' },
     skipped: [],
+    left: [],
+    salt: 0,
     cards: [],
     guesses: {},
   };
@@ -24,6 +27,8 @@ function guessState(): GWState {
     roster: ['a', 'b', 'c'],
     drafts: { a: 'apples', b: 'bananas', c: 'cherries' },
     skipped: [],
+    left: [],
+    salt: 0,
     cards: [
       { id: 'c0', text: 'apples', authorId: 'a' },
       { id: 'c1', text: 'bananas', authorId: 'b' },
@@ -130,5 +135,34 @@ describe('redaction (G8–G10)', () => {
     const v = viewFor({ ...guessState(), phase: 'reveal' }, HOST);
     expect(keysOf(v)).not.toContain('myGuesses');
     expect(keysOf(v)).not.toContain('guesses');
+  });
+});
+
+describe('identical answers carry no author signal (plan-15 §3)', () => {
+  /** Who wrote the first of two identical "pizza" cards, for a round whose salt
+   * comes from `random`. Player ids are public, so this must not be predictable. */
+  function firstPizzaAuthor(random: number): string {
+    const seat = (id: string) => ({ id, nickname: id, joinedDuringGame: false, spectator: false });
+    let state = guessWho.init([seat('p15'), seat('p17'), seat('p20')], {
+      random: () => random,
+      now: () => 0,
+      round: 1,
+    });
+    for (const [playerId, text] of [
+      ['p15', 'pizza'],
+      ['p17', 'pizza'],
+      ['p20', 'tacos'],
+    ] as const) {
+      const r = guessWho.reduce(state, { type: 'submit', playerId, text });
+      state = r.ok ? r.value : state;
+    }
+    const advanced = guessWho.reduce(state, { type: 'advance', from: 'collect' });
+    const cards = advanced.ok ? advanced.value.cards : [];
+    return cards.find((card) => card.text === 'pizza')?.authorId ?? '';
+  }
+
+  it('the order of identical cards depends on the round salt, not on the author ids', () => {
+    const firsts = new Set(Array.from({ length: 16 }, (_, i) => firstPizzaAuthor(i / 16)));
+    expect(firsts).toEqual(new Set(['p15', 'p17'])); // both orders occur — no fixed rule to exploit
   });
 });

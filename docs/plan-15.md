@@ -256,3 +256,17 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - Known limit: `guard-edit` covers the Edit and Write tools, not shell writes. The
     CI wall is the backstop.
   - Docs checked: CLAUDE.md, README.md.
+- **PR 3:**
+  - Identical answers are ordered by a salted hash, not by author id: a redaction
+    leak, now covered by a redaction test.
+  - A player who leaves forfeits the round in both games. They drop off the tally,
+    the Most Likely To candidates and the progress totals. Their own vote or answer
+    still counts, and a vote for them is void in the tally only, so progress counts
+    leak nothing.
+  - A client-sent roster event is refused with `FORBIDDEN_EVENT`.
+  - An unchanged game state is not re-broadcast.
+  - A *changed* question set starts a new session, the same as re-picking the game: first question, fresh tally. Re-saving the same set is a no-op, so a spent set stays spent.
+  - `boundedText` checks for blank text after capping, plus a code-unit cap, and
+    prompts use it too. The name field gets a `maxLength`.
+  - One `isAdvance`, shared from core.
+  - Docs checked: packages/CLAUDE.md (roster semantics and the progress-count rule).
