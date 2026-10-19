@@ -21,6 +21,7 @@ class FrameTransport implements Transport {
     return () => {};
   }
   send(_action: Action): void {}
+  dispose(): void {}
 }
 
 const players = (n: number): ViewFrame['players'] =>

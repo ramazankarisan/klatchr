@@ -1,80 +1,34 @@
 import type { Viewer } from '@klatchr/core';
 import { type ClientMessage, type ServerMessage, serverMessage } from '@klatchr/protocol';
+import { watchDevice } from './device.js';
+import {
+  BASE_BACKOFF_MS,
+  CONNECT_TIMEOUT_MS,
+  KEEPALIVE_MS,
+  LIVENESS_MS,
+  MAX_BACKOFF_MS,
+  PROBE_MS,
+  type ReconnectClock,
+  type SocketFactory,
+  type SocketInit,
+  type SocketLike,
+  defaultClock,
+  defaultFactory,
+} from './socket.parts.js';
 import type { Action, ConnStatus, Transport, TransportError, ViewFrame } from './types.js';
+import { TERMINAL, toFrame, toWire } from './wire.js';
 
-/** The slice of the browser `WebSocket` we use — injectable so tests fake it. */
-export interface SocketLike {
-  send(data: string): void;
-  close(): void;
-  addEventListener(
-    type: 'open' | 'message' | 'close' | 'error',
-    listener: (event: { data: unknown }) => void,
-  ): void;
-}
-
-type SocketFactory = (url: string) => SocketLike;
-
-/** How this connection identifies itself to the server. */
-export type SocketInit =
-  // `resume` (from a persisted host session) makes the very first handshake a
-  // `resumeHost` instead of `open` — so a reloaded host re-attaches its own room
-  // rather than opening a new one (8.1).
-  | { role: 'host'; nickname: string; resume?: { code: string; hostToken: string } }
-  | { role: 'player'; code: string; nickname: string; reconnectToken?: string };
-
-/** Deferred callback used for the reconnect backoff — injectable so tests drive it. */
-interface ReconnectClock {
-  schedule(callback: () => void, ms: number): () => void;
-}
-
-const defaultFactory: SocketFactory = (url) => new WebSocket(url);
-const defaultClock: ReconnectClock = {
-  schedule: (callback, ms) => {
-    const handle = setTimeout(callback, ms);
-    return () => clearTimeout(handle);
-  },
-};
-
-// Capped exponential backoff between reconnect attempts: 0.5s, 1s, 2s … up to 8s.
-const BASE_BACKOFF_MS = 500;
-const MAX_BACKOFF_MS = 8_000;
-// Keepalive cadence (F3): ping this often while connected so a quiet lobby's socket
-// isn't reaped by an idle intermediary. Its own timer, not the reconnect clock.
-const KEEPALIVE_MS = 25_000;
+export type { SocketInit, SocketLike } from './socket.parts.js';
 
 /**
- * Server errors after which reconnecting can only do harm, so the transport stops for
- * good: the seat moved to another device (reconnecting would steal it back, and the two
- * would fight forever), the room is gone (a retry could even join a stranger's room that
- * reused the code), or the server is full. The screen shows its recover card instead.
- */
-const TERMINAL = new Set([
-  'SUPERSEDED',
-  'ROOM_CLOSED',
-  'NO_SUCH_ROOM',
-  'BAD_HOST_TOKEN',
-  'SERVER_FULL',
-  'TOO_MANY_ROOMS',
-  // A refused join never binds the socket, so retrying would only repeat it — and if a
-  // seat later freed up, silently seat a ghost the user had already walked away from.
-  'ROOM_FULL',
-  'EMPTY_NICKNAME',
-  'JOIN_FAILED',
-]);
-
-/**
- * A single-viewer `Transport` over one native WebSocket. It opens (host) or
- * joins (player) on connect, parses every inbound with `@klatchr/protocol`
- * (the parse-at-the-boundary rule — never `as`), and rebuilds the web
- * `ViewFrame` from the wire frame plus its own resolved viewer (host is known; a player's id arrives in
- * `joined`). Redaction already happened server-side; this only forwards.
+ * A single-viewer `Transport` over one native WebSocket. It opens (host) or joins
+ * (player), parses every inbound with `@klatchr/protocol` (never `as`), and rebuilds
+ * the web `ViewFrame` with its own viewer. Redaction already happened server-side.
  *
- * It heals itself (7.2): on a `close`/`error` it retries with capped exponential
- * backoff, re-running its handshake — a player re-sends `join { reconnectToken }`,
- * a host re-sends `resumeHost { code, hostToken }` (the secret captured from the
- * `opened` ack). A `connecting | live | reconnecting` status rides alongside the
- * frames so the UI can show a "Reconnecting…" indicator. Actions taken mid-drop
- * queue and flush once the socket is back — nothing is lost.
+ * It heals itself: a drop, a stuck connect or a silent socket (no pong) leads to a
+ * backed-off retry that re-runs the handshake (`join { reconnectToken }` or
+ * `resumeHost`); a wake or a network coming back retries at once. Actions taken
+ * mid-drop queue and flush on reconnect. A terminal error, or `dispose()`, ends it.
  */
 export class SocketTransport implements Transport {
   // Created on first use, not in the constructor: a transport built during render (and
@@ -99,17 +53,32 @@ export class SocketTransport implements Transport {
   private hostToken: string | undefined;
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private stopped = false;
+  // Cancel handles for the pending backoff retry, the liveness watchdog, the connect
+  // timeout, and the window listeners (visibility / online).
+  private cancelBackoff: (() => void) | null = null;
+  private cancelWatchdog: (() => void) | null = null;
+  private cancelConnectTimeout: (() => void) | null = null;
+  private unwatchWindow: (() => void) | null = null;
+  // Started once, on first use. Each socket gets a generation; abandoning one bumps it,
+  // so a stale socket's late events are ignored without ever nulling `socket`.
+  private started = false;
+  private generation = 0;
 
   /** Called with the fresh reconnect token whenever the server (re)issues one. */
   onReconnectToken: (token: string) => void = () => {};
   /** Called with the host's resume credentials each time the server acks `opened`. */
   onHostSession: (session: { code: string; hostToken: string }) => void = () => {};
+  /** Called once with the terminal error that ended this transport (see TERMINAL). */
+  onTerminal: (message: string) => void = () => {};
 
   constructor(
     private readonly url: string,
     private readonly init: SocketInit,
     private readonly factory: SocketFactory = defaultFactory,
     private readonly clock: ReconnectClock = defaultClock,
+    // The liveness watchdog, connect timeout and wake probe — separate from the backoff
+    // clock so a test can drive one without the other.
+    private readonly timers: ReconnectClock = defaultClock,
   ) {
     this.viewer = init.role === 'host' ? { role: 'host' } : { role: 'player', id: '' };
     this.reconnectToken = init.role === 'player' ? init.reconnectToken : undefined;
@@ -122,9 +91,19 @@ export class SocketTransport implements Transport {
 
   /** Open the first socket the moment anyone listens or sends. */
   private ensureStarted(): void {
-    if (this.socket === null && !this.stopped) {
+    if (!this.started && !this.stopped) {
+      this.started = true;
+      this.watchWindow();
       this.connect();
     }
+  }
+
+  /** End this transport: the screen that owned it is gone. No socket, no timers. */
+  dispose(): void {
+    this.stop();
+    this.listeners.clear();
+    this.statusListeners.clear();
+    this.errorListeners.clear();
   }
 
   subscribe(onFrame: (frame: ViewFrame) => void): () => void {
@@ -159,22 +138,88 @@ export class SocketTransport implements Transport {
     if (this.code === null) {
       return; // no room yet — host controls only appear after the first frame
     }
-    this.dispatch(this.toWire(action, this.code));
+    this.dispatch(toWire(action, this.code));
   }
 
   /** Open a fresh socket and wire its lifecycle. Reused for the first connect and every retry. */
   private connect(): SocketLike {
     this.open = false;
     const socket = this.factory(this.url);
-    socket.addEventListener('open', () => this.handleOpen());
-    socket.addEventListener('message', (event) => this.handleMessage(event.data));
-    socket.addEventListener('close', () => this.handleDrop());
-    socket.addEventListener('error', () => this.handleDrop());
+    // Events from a socket this transport has abandoned or replaced are ignored: a late
+    // close from the old one must not tear down the new one.
+    this.generation += 1;
+    const generation = this.generation;
+    const current = (): boolean => generation === this.generation;
+    socket.addEventListener('open', () => current() && this.handleOpen());
+    socket.addEventListener('message', (event) => current() && this.handleMessage(event.data));
+    socket.addEventListener('close', () => current() && this.handleDrop());
+    socket.addEventListener('error', () => current() && this.handleDrop());
     this.socket = socket;
+    this.cancelConnectTimeout?.();
+    this.cancelConnectTimeout = this.timers.schedule(() => {
+      if (current() && !this.open) {
+        this.forceReconnect(); // stuck connecting — try a fresh socket
+      }
+    }, CONNECT_TIMEOUT_MS);
     return socket;
   }
 
+  /** Abandon the current socket (it is dead or stuck) and go through the normal retry. */
+  private forceReconnect(): void {
+    this.generation += 1; // from here on, the stale socket's events are ignored
+    this.handleDrop(); // schedules the backed-off retry
+    this.socket?.close();
+  }
+
+  /** Reset the liveness watchdog: any inbound message proves the socket is alive. */
+  private armWatchdog(ms = LIVENESS_MS): void {
+    this.cancelWatchdog?.();
+    this.cancelWatchdog = this.timers.schedule(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        // A hidden tab's timers are throttled (Chrome batches them to once a minute),
+        // so silence proves nothing; the probe on becoming visible checks for real.
+        this.armWatchdog();
+        return;
+      }
+      if (this.open) {
+        this.forceReconnect();
+      }
+    }, ms);
+  }
+
+  /** Retry now instead of waiting out the backoff (the network just came back). Only
+   * from the backoff wait: a socket already connecting is left to its own timeout. */
+  private reconnectNow(): void {
+    if (this.stopped || !this.awaitingReconnect) {
+      return;
+    }
+    this.cancelBackoff?.();
+    this.cancelBackoff = null;
+    this.awaitingReconnect = false;
+    this.connect();
+  }
+
+  /** React to the device, not just the socket (see watchDevice). */
+  private watchWindow(): void {
+    this.unwatchWindow?.();
+    this.unwatchWindow = watchDevice({
+      visible: () => {
+        if (this.open) {
+          // Probe a seemingly open socket: it must answer the ping quickly.
+          this.socket?.send(JSON.stringify({ type: 'ping' } satisfies ClientMessage));
+          this.armWatchdog(PROBE_MS);
+        } else {
+          this.reconnectNow();
+        }
+      },
+      online: () => this.reconnectNow(),
+    });
+  }
+
   private handleOpen(): void {
+    this.cancelConnectTimeout?.();
+    this.cancelConnectTimeout = null;
+    this.armWatchdog();
     this.open = true;
     this.attempt = 0;
     this.awaitingReconnect = false;
@@ -213,7 +258,10 @@ export class SocketTransport implements Transport {
     this.setStatus('reconnecting');
     const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** this.attempt);
     this.attempt += 1;
-    this.clock.schedule(() => {
+    this.cancelWatchdog?.();
+    this.cancelConnectTimeout?.(); // this socket is done — its timeout must not fire later
+    this.cancelBackoff = this.clock.schedule(() => {
+      this.cancelBackoff = null;
       this.awaitingReconnect = false;
       this.connect();
     }, delay);
@@ -234,6 +282,10 @@ export class SocketTransport implements Transport {
   }
 
   private handleMessage(data: unknown): void {
+    if (this.stopped) {
+      return; // late messages after a terminal error or dispose change nothing
+    }
+    this.armWatchdog(); // anything at all from the server proves the socket is alive
     if (typeof data !== 'string') {
       return;
     }
@@ -269,7 +321,7 @@ export class SocketTransport implements Transport {
     }
     if (message.type === 'frame') {
       this.code = message.code;
-      this.last = this.toFrame(message);
+      this.last = toFrame(message, this.viewer);
       for (const listener of this.listeners) {
         listener(this.last);
       }
@@ -278,6 +330,7 @@ export class SocketTransport implements Transport {
     if (message.type === 'error') {
       if (message.message !== undefined && TERMINAL.has(message.message)) {
         this.stop();
+        this.onTerminal(message.message);
       }
       // Surface it (8.1): a bad code / full room / closed room used to vanish here,
       // leaving the UI on an endless spinner. The screens map it to copy + a way back.
@@ -299,6 +352,14 @@ export class SocketTransport implements Transport {
       clearInterval(this.keepaliveTimer);
       this.keepaliveTimer = null;
     }
+    for (const cancel of [this.cancelBackoff, this.cancelWatchdog, this.cancelConnectTimeout]) {
+      cancel?.();
+    }
+    this.cancelBackoff = null;
+    this.cancelWatchdog = null;
+    this.cancelConnectTimeout = null;
+    this.unwatchWindow?.();
+    this.unwatchWindow = null;
     this.socket?.close();
   }
 
@@ -309,40 +370,6 @@ export class SocketTransport implements Transport {
     this.status = status;
     for (const listener of this.statusListeners) {
       listener(status);
-    }
-  }
-
-  private toFrame(frame: Extract<ServerMessage, { type: 'frame' }>): ViewFrame {
-    return {
-      code: frame.code,
-      phase: frame.phase,
-      viewer: this.viewer,
-      players: frame.players,
-      selectedGameId: frame.selectedGameId,
-      gameView: frame.gameView,
-      scores: frame.scores,
-      sessionScores: frame.sessionScores,
-      round: frame.round,
-      roundsTotal: frame.roundsTotal,
-    };
-  }
-
-  private toWire(action: Action, code: string): ClientMessage {
-    switch (action.type) {
-      case 'selectGame':
-        return { type: 'host', code, action: 'selectGame', gameId: action.gameId };
-      case 'configureGame':
-        return { type: 'host', code, action: 'configureGame', config: action.config };
-      case 'startGame':
-        return { type: 'host', code, action: 'startGame' };
-      case 'endGame':
-        return { type: 'host', code, action: 'endGame' };
-      case 'leave':
-        return { type: 'leave', code };
-      case 'gameEvent':
-        // `?? null` pins the type non-undefined, which the wire schema requires
-        // (a play must carry an event); real game events are never undefined.
-        return { type: 'play', code, event: action.event ?? null };
     }
   }
 

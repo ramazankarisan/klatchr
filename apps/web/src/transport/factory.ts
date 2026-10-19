@@ -27,11 +27,18 @@ export function resolveWsUrl(
 
 const wsUrl = (): string | undefined => resolveWsUrl(import.meta.env.VITE_WS_URL, window.location);
 
+// Per tab (sessionStorage), not per browser: a reload of this tab resumes the board, but a
+// new tab does not take it over from the first. (A *duplicated* tab copies sessionStorage
+// and does resume — the original then shows "Opened somewhere else" rather than freezing.)
 const HOST_KEY = 'klatchr:host';
+// A room that is gone takes its stored resume keys with it (a reused code later must
+// not show "resuming as …" or replay a dead token).
+const GONE = new Set(['ROOM_CLOSED', 'NO_SUCH_ROOM', 'BAD_HOST_TOKEN']);
 
 /** The persisted host session (if any), so a full page reload can resume the room (8.1). */
 export function storedHostSession(): { code: string; hostToken: string } | null {
-  const raw = localStorage.getItem(HOST_KEY);
+  migrateLegacyHostSession();
+  const raw = sessionStorage.getItem(HOST_KEY);
   if (raw === null) {
     return null;
   }
@@ -49,9 +56,22 @@ export function storedHostSession(): { code: string; hostToken: string } | null 
   return null;
 }
 
+/** Earlier builds kept the host session in localStorage: move it into this tab once, so a
+ * host mid-game when this ships still resumes on reload, and drop the browser-wide copy. */
+function migrateLegacyHostSession(): void {
+  const legacy = localStorage.getItem(HOST_KEY);
+  if (legacy === null) {
+    return;
+  }
+  localStorage.removeItem(HOST_KEY);
+  if (sessionStorage.getItem(HOST_KEY) === null) {
+    sessionStorage.setItem(HOST_KEY, legacy);
+  }
+}
+
 /** Forget the host session (a resume failed, or the room ended) so it can't loop. */
 export function clearHostSession(): void {
-  localStorage.removeItem(HOST_KEY);
+  sessionStorage.removeItem(HOST_KEY);
 }
 
 export function createHostTransport(
@@ -66,7 +86,12 @@ export function createHostTransport(
     resume === undefined ? { role: 'host', nickname } : { role: 'host', nickname, resume };
   const transport = new SocketTransport(url, init);
   // Persist the host session (code + secret) so a full reload resumes this room.
-  transport.onHostSession = (session) => localStorage.setItem(HOST_KEY, JSON.stringify(session));
+  transport.onHostSession = (session) => sessionStorage.setItem(HOST_KEY, JSON.stringify(session));
+  transport.onTerminal = (message) => {
+    if (GONE.has(message)) {
+      clearHostSession();
+    }
+  };
   return transport;
 }
 
@@ -125,5 +150,11 @@ export function createPlayerTransport(code: string, nickname: string): Transport
   const transport = new SocketTransport(url, init);
   // E3: persist the resume secret so a refresh resumes the same slot.
   transport.onReconnectToken = (token) => localStorage.setItem(key, token);
+  transport.onTerminal = (message) => {
+    if (GONE.has(message)) {
+      localStorage.removeItem(key);
+      localStorage.removeItem(nickKey(code));
+    }
+  };
   return transport;
 }

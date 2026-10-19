@@ -22,5 +22,5 @@ Thin NestJS + `ws` host for the pure room reducer. Rooms live in memory.
 - `src/gateway.integration.test.ts` runs real `ws` clients on an ephemeral port
   (wire JSON, real close → grace → reap, token resume). It runs in `pnpm gate`.
 - `pnpm bots --players N [--chaos] [--game id] [--url ws://…]` is a manual
-  load/soak against a running server (`bots.ts`); not part of gate or e2e. Past 30
+  load/soak against a running server (`bots.ts`); not part of gate or e2e. Past 200
   bots, start the server with `MAX_CONNS_PER_IP` raised (one address, many sockets).

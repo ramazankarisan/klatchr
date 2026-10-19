@@ -244,6 +244,9 @@ class MockTransport implements Transport {
   send(action: Action): void {
     this.engine.send(this.viewer, action);
   }
+
+  /** Nothing to release: the mock engine lives and dies with this transport. */
+  dispose(): void {}
 }
 
 /** Dev/test host board: you drive the round, bots respond. */

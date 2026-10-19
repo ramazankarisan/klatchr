@@ -26,6 +26,7 @@ class FakeTransport implements Transport {
     return () => {};
   }
   send(_action: Action): void {}
+  dispose(): void {}
   drive(status: ConnStatus): void {
     this.status = status;
     act(() => {

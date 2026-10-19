@@ -30,20 +30,27 @@ describe('resolveWsUrl', () => {
 });
 
 describe('host session persistence (8.1)', () => {
-  afterEach(() => localStorage.clear());
+  afterEach(() => sessionStorage.clear());
 
   it('round-trips a stored host session and clears it', () => {
     expect(storedHostSession()).toBeNull();
-    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ', hostToken: 'htok' }));
+    sessionStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ', hostToken: 'htok' }));
     expect(storedHostSession()).toEqual({ code: 'WXYZ', hostToken: 'htok' });
     clearHostSession();
     expect(storedHostSession()).toBeNull();
   });
 
+  it('moves a legacy browser-wide session into this tab once', () => {
+    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ', hostToken: 'htok' }));
+    expect(storedHostSession()).toEqual({ code: 'WXYZ', hostToken: 'htok' });
+    expect(localStorage.getItem('klatchr:host')).toBeNull(); // no browser-wide copy left
+    expect(storedHostSession()).toEqual({ code: 'WXYZ', hostToken: 'htok' });
+  });
+
   it('ignores a corrupt or wrong-shaped entry', () => {
-    localStorage.setItem('klatchr:host', 'not json');
+    sessionStorage.setItem('klatchr:host', 'not json');
     expect(storedHostSession()).toBeNull();
-    localStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ' })); // missing hostToken
+    sessionStorage.setItem('klatchr:host', JSON.stringify({ code: 'WXYZ' })); // missing hostToken
     expect(storedHostSession()).toBeNull();
   });
 });

@@ -119,9 +119,18 @@ export function App(): ReactNode {
       : { mode: 'host', transport: createHostTransport('Host', resume) };
   });
 
+  // Leaving a screen ends its link for good — no orphan socket left reconnecting (and
+  // possibly re-joining a room code reused by strangers) behind the new screen.
+  const leave = (next: Screen): void => {
+    if (screen.mode === 'host' || screen.mode === 'player') {
+      screen.transport.dispose();
+    }
+    setScreen(next);
+  };
+
   const toLanding = (): void => {
     clearHostSession(); // a failed resume / closed room must not resume again
-    setScreen({ mode: 'landing' });
+    leave({ mode: 'landing' });
   };
 
   // Landing/join are narrow forms (a phone-sized container); the host board and the
@@ -155,7 +164,7 @@ export function App(): ReactNode {
           <HostScreen transport={screen.transport} onExit={toLanding} />
         </Box>
       ) : (
-        <PlayerScreen transport={screen.transport} onExit={() => setScreen({ mode: 'join' })} />
+        <PlayerScreen transport={screen.transport} onExit={() => leave({ mode: 'join' })} />
       )}
     </Box>
   );

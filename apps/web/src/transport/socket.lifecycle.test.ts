@@ -96,3 +96,23 @@ describe('lazy start (plan-15 §4)', () => {
     expect(n.current().last()).toEqual({ type: 'open', nickname: 'S' });
   });
 });
+
+describe('onTerminal', () => {
+  it('reports the terminal error once, so the app can forget a gone room’s stored keys', () => {
+    const n = net();
+    const t = started(
+      new SocketTransport(
+        'ws://x',
+        { role: 'player', code: 'ABCD', nickname: 'A' },
+        n.factory,
+        n.clock,
+      ),
+    );
+    const ended: string[] = [];
+    t.onTerminal = (message) => ended.push(message);
+    n.current().open();
+    n.current().emit({ type: 'error', code: 'ABCD', message: 'GAME_REJECTED: WRONG_PHASE' });
+    n.current().emit({ type: 'error', code: 'ABCD', message: 'ROOM_CLOSED' });
+    expect(ended).toEqual(['ROOM_CLOSED']);
+  });
+});

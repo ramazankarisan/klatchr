@@ -288,3 +288,16 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - Tests: S2, S3, S9, S11, S20.
   - Docs checked: apps/server/CLAUDE.md, deploy.md (TRUST_PROXY; a Caddy reload drops
     sockets), playtest.md (the grace), SPEC P7.
+- **PR 5:**
+  - Client liveness: any inbound message (the new `pong`) re-arms a 40 s watchdog,
+    and silence means reconnect. The keepalive is now 15 s.
+  - Connect timeout: 8 s.
+  - Back in view: a ping that must be answered within 4 s, or retry at once if the
+    socket is down. Back online: retry at once.
+  - Late events from abandoned sockets are ignored.
+  - `Transport.dispose()` is called on every screen exit.
+  - The host session moves to `sessionStorage`, so a second tab no longer steals
+    the board.
+  - The stored keys of a gone room are cleared (`onTerminal`).
+  - Tests: S13, S14, S23, and the device events.
+  - Docs checked: apps/web/CLAUDE.md (transport lifecycle).

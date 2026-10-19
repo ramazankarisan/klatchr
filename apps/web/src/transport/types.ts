@@ -77,4 +77,6 @@ export interface Transport {
   /** Register for server-reported errors (bad code, full room, closed room, …). */
   subscribeError(onError: (error: TransportError) => void): () => void;
   send(action: Action): void;
+  /** End the link for good — call when the screen that owns it goes away. */
+  dispose(): void;
 }
