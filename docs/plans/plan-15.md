@@ -45,7 +45,7 @@ Fix:
   - Add `socket.on('error', terminate)`.
   - Wrap `hub.receive`/`disconnect` in try/catch: log, send an error frame, keep running.
   - Add a last-resort `uncaughtException` handler that logs.
-  - Set `maxPayload: 16 KiB`.
+  - Set `maxPayload: 64 KiB`.
   - Add a `.catch` to `serve` that returns 500.
 - **Games** (typed rejections, never a throw):
   - Add a `default:` branch in each reducer that returns `UNKNOWN_EVENT`.
@@ -180,8 +180,8 @@ Fix:
   - CI badge.
 - **`ARCHITECTURE.md`** (human-facing: dependency direction, Game contract, room lifecycle,
   reconnect policy) plus a few short ADRs.
-- **History:** move `docs/plan-*.md` and `SPEC.md` to `docs/history/`, with an index. Split
-  design.md's cycle changelog into `docs/history/design-changelog.md`.
+- **History:** move `docs/plan-*.md` and `SPEC.md` to `docs/plans/`, with an index. Split
+  design.md's cycle changelog into `docs/plans/design-changelog.md`.
 - **Hygiene:**
   - Stale comments (`vitest.setup.ts`, `vite.config.ts`, `playwright.config.ts`).
   - deploy.md: the Ubuntu version.
@@ -279,7 +279,7 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
     unbinds it.
   - Grace: players 3 min, host 60 s.
   - P7 dropped: the room stays open with no players while the host is there.
-  - Caps: 1,000 rooms; 30 sockets per address (from `X-Forwarded-For` with
+  - Caps: 1,000 rooms; 200 sockets per address (from `X-Forwarded-For` with
     `TRUST_PROXY=1`); a 20/s token bucket per socket that closes the socket after
     sustained flooding.
   - Web: terminal errors stop the transport from reconnecting, which ends the
@@ -356,3 +356,17 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
     and off-shape counts; live regions. e2e: opening `/<code>` lands on a pre-filled join form,
     seats the player, and Leave room unseats them.
   - Docs checked: design.md.
+- **PR 8 (reviewer readiness):**
+  - README rewritten: the pitch, a live link, screenshots of the real stack, "why
+    it's built this way", an architecture diagram (mermaid), run-locally notes,
+    the quality wall and the agentic method.
+  - New `ARCHITECTURE.md`.
+  - Plans and SPEC moved to `docs/plans/`, with an index.
+  - Stale cycle comments fixed (vite, vitest setup, playwright).
+  - `package.json` metadata added; `engines.node` raised to 22 to match CI and
+    the Dockerfile.
+  - Deferred from §9: the ADRs (ARCHITECTURE.md records the decisions instead)
+    and splitting design.md's cycle changelog.
+  - Owner decisions still open: a LICENSE, and the GitHub description and topics.
+  - Docs checked: CLAUDE.md (plan path), README.md, ARCHITECTURE.md,
+    docs/plans/README.md.
