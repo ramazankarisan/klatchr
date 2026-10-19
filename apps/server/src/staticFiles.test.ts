@@ -7,7 +7,12 @@ import { createStaticHandler } from './staticFiles.js';
 
 /** A minimal ServerResponse double that records status, headers and body. */
 function fakeRes() {
+  let finish: () => void = () => {};
+  const done = new Promise<void>((r) => {
+    finish = r;
+  });
   const res = {
+    done,
     status: 0,
     headers: {} as Record<string, string>,
     body: '',
@@ -20,6 +25,7 @@ function fakeRes() {
       if (chunk !== undefined) {
         this.body = chunk instanceof Buffer ? chunk.toString() : String(chunk);
       }
+      finish();
     },
   };
   return res;
@@ -27,11 +33,11 @@ function fakeRes() {
 
 const req = (url: string): IncomingMessage => ({ url }) as IncomingMessage;
 
-/** Drive the handler and await its async file read (it fires and forgets internally). */
+/** Drive the handler and await the response ending (its file read fires and forgets internally). */
 async function hit(handler: ReturnType<typeof createStaticHandler>, url: string) {
   const res = fakeRes();
   handler(req(url), res as unknown as ServerResponse);
-  await new Promise((r) => setTimeout(r, 10));
+  await res.done;
   return res;
 }
 

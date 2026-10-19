@@ -3,5 +3,5 @@
   "compilerOptions": {
     "experimentalDecorators": true
   },
-  "include": ["src", "bots.ts"]
+  "include": ["src", "bots.ts", "bots.views.ts"]
 }
