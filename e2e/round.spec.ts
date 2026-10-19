@@ -304,6 +304,33 @@ test('a mistyped room code shows a recover card, never an endless spinner (8.1)'
 });
 
 /**
+ * UX-2 join link: the board shows `<host>/<CODE>`; a phone that opens it lands on the join
+ * form with the code filled in (served by the SPA fallback, read client-side), needs only a
+ * name, and is seated. Leaving from the waiting room gives the seat up for real.
+ */
+test('a player opening /<code> lands on the join form with the code filled in (UX-2)', async ({
+  browser,
+}) => {
+  const host = await openHost(browser);
+  await expect(host.page.getByText(new RegExp(`^Join at \\S+/${host.code}$`))).toBeVisible();
+
+  const page = await (await browser.newContext()).newPage();
+  await page.goto(`/${host.code.toLowerCase()}`);
+  await expect(page.getByRole('region', { name: `Joining room ${host.code}` })).toBeVisible();
+  await expect(page.getByLabel('Your name')).toBeFocused();
+  await page.getByLabel('Your name').fill('Adalyn');
+  await page.getByRole('button', { name: 'Join the room' }).click();
+  await expect(page.getByRole('heading', { name: /You.re in/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/); // the link is spent — a reload won't re-read it
+  await expect(host.page.getByText('Adalyn', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Leave room' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Leave room' }).click();
+  await expect(page.getByRole('heading', { name: /grab a name-tag/i })).toBeVisible();
+  await expect(host.page.getByText('Adalyn', { exact: true })).toHaveCount(0);
+});
+
+/**
  * 8.1 host survival: a host reload used to abandon the live room (only the player
  * token was persisted), so the board dropped back to the landing and the room was
  * reaped. Now the host session (code + `hostToken`) is persisted and the client

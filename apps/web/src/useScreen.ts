@@ -13,6 +13,8 @@ import { useStatus } from './useStatus.js';
 interface ScreenState {
   frame: ViewFrame | null;
   reconnecting: boolean;
+  /** The link is up and handshaken right now, so a send goes out at once (not queued). */
+  live: boolean;
   recover: ReturnType<typeof recoverFor>;
 }
 
@@ -22,7 +24,12 @@ export function useScreen(
   recoverLabel: string,
 ): ScreenState {
   const frame = useFrame(transport);
-  const reconnecting = useStatus(transport) === 'reconnecting';
+  const status = useStatus(transport);
   const error = useError(transport);
-  return { frame, reconnecting, recover: recoverFor(error, onExit, recoverLabel) };
+  return {
+    frame,
+    reconnecting: status === 'reconnecting',
+    live: status === 'live',
+    recover: recoverFor(error, onExit, recoverLabel),
+  };
 }

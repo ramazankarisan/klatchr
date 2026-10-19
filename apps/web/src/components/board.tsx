@@ -1,7 +1,14 @@
 import { Box, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import { tokens } from '../tokens.js';
-import { DymoCode, ReconnectingTape, ScreenTitle, dimWhileReconnecting, kraftBg } from './paper.js';
+import {
+  DymoCode,
+  LiveRegion,
+  ReconnectingTape,
+  ScreenTitle,
+  dimWhileReconnecting,
+  kraftBg,
+} from './paper.js';
 
 /** Board-scale type: clamped to the viewport so it reads from the couch on a 1080p/4K TV
  * and still fits a laptop (UX-1). Shared by the host screen's own pieces. */
@@ -13,8 +20,9 @@ export const tvType = {
 } as const;
 
 /** The lobby's code-first join block: the room code on hero tape (the largest thing on the
- * board), then "Join at <host> · code <CODE>". The host is this page's own origin — the
- * VITE_WS_URL rule: never a baked host. (A `/<CODE>` deep link is a later PR.) */
+ * board), then the join link "Join at <host>/<CODE>" (UX-2: the link opens the join form with
+ * the code filled in). The host is this page's own origin — the VITE_WS_URL rule: never a
+ * baked host. */
 function JoinHero({ code, joinHost }: { code: string; joinHost: string }): ReactNode {
   const quiet = { fontSize: 'clamp(18px, 1.6vw, 26px)', color: tokens.color.inkSoft } as const;
   return (
@@ -28,11 +36,7 @@ function JoinHero({ code, joinHost }: { code: string; joinHost: string }): React
           <Typography sx={{ fontSize: 'clamp(28px, 2.8vw, 44px)', overflowWrap: 'anywhere' }}>
             Join at{' '}
             <Box component="b" sx={{ fontFamily: tokens.font.mono }}>
-              {joinHost}
-            </Box>{' '}
-            · code{' '}
-            <Box component="b" sx={{ fontFamily: tokens.font.mono }}>
-              {code}
+              {joinHost}/{code}
             </Box>
           </Typography>
         </Box>
@@ -48,7 +52,7 @@ function CornerCode({ code, joinHost }: { code: string; joinHost: string }): Rea
       <DymoCode code={code} />
       {joinHost === '' ? null : (
         <Typography sx={{ fontSize: 'clamp(13px, 1vw, 18px)', color: tokens.color.inkSoft }}>
-          join at {joinHost}
+          join at {joinHost}/{code}
         </Typography>
       )}
     </Box>
@@ -67,8 +71,10 @@ export function Board({
   corner,
   joinHost,
   codeFirst = false,
+  heroFoot,
   children,
   reconnecting,
+  announce,
 }: {
   code: string;
   hint?: ReactNode;
@@ -78,8 +84,12 @@ export function Board({
   joinHost?: string;
   /** The lobby: show the code-first join hero instead of the corner code. */
   codeFirst?: boolean;
+  /** Under the join hero in the code-first lobby — the picked game's how-to-play (UX-2). */
+  heroFoot?: ReactNode;
   children: ReactNode;
   reconnecting?: boolean;
+  /** The phase, for the board's polite live region (UX-2). */
+  announce?: string;
 }): ReactNode {
   return (
     <Box sx={{ width: 'min(100%, 1800px)', mx: 'auto' }}>
@@ -89,11 +99,12 @@ export function Board({
           border: `1px solid ${tokens.color.kraft2}`,
           borderRadius: 2,
           overflow: 'hidden',
-          boxShadow: '0 22px 50px -30px rgba(43,38,32,0.5)',
+          boxShadow: tokens.elevation.board,
           color: tokens.color.ink,
         }}
       >
         <ScreenTitle>Klatchr — host board</ScreenTitle>
+        <LiveRegion text={announce} />
         {reconnecting ? <ReconnectingTape /> : null}
         <Box sx={reconnecting ? dimWhileReconnecting : undefined}>
           <Box
@@ -145,7 +156,12 @@ export function Board({
                   alignItems: 'start',
                 }}
               >
-                <JoinHero code={code} joinHost={joinHost ?? ''} />
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', gap: 'clamp(24px, 3vw, 48px)' }}
+                >
+                  <JoinHero code={code} joinHost={joinHost ?? ''} />
+                  {heroFoot}
+                </Box>
                 <Box sx={{ minWidth: 0 }}>{children}</Box>
               </Box>
             ) : (

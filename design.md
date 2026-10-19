@@ -244,8 +244,8 @@ TV round done). Host board only; the phone is unchanged apart from the shared to
 - **Code-first lobby.** In LOBBY the room code sits on hero dymo tape — the largest thing on
   the board, `clamp(96px, 9.5vw, 168px)` — with a join line "Join at `<host>` · code `<CODE>`"
   at `clamp(28px, 2.8vw, 44px)` beside the game picker and roster. The host is
-  `window.location.host` (the VITE_WS_URL rule — never baked). A `/<CODE>` deep link lands in
-  a later PR; until then the board does not show one. In-game and on SCORES the code shrinks
+  `window.location.host` (the VITE_WS_URL rule — never baked). (UX-2 below replaces the join
+  line with the `<host>/<CODE>` link.) In-game and on SCORES the code shrinks
   to the top-right corner with a small "join at `<host>`" line under it (latecomers join as
   spectators).
 - **Contrast (WCAG AA).** Primary buttons are a markerDeep fill with white text (MUI
@@ -270,6 +270,52 @@ TV round done). Host board only; the phone is unchanged apart from the shared to
   shared with the phone's compact `SessionStandings` "Overall" list.
 - **Leave & close room…** moves out of the primary row to a quiet outlined control in the
   board's top-right corner (still behind its confirm dialog).
+
+## plan-15 UX-2 — join and orientation (approved 2026-10-19)
+
+Zero-friction join and knowing what's going on, on the phone and the TV lobby. Sketch:
+[UX sketch](https://claude.ai/artifact/JL3kT8AdofagFCWa18tQUx) (phone join, phone waiting
+room, phone after answering, and the TV lobby's how-to-play card). No new tokens.
+
+- **Join link.** The board's join line is now the link itself: "Join at `<host>/<CODE>`" in the
+  lobby and "join at `<host>/<CODE>`" in the corner (the host is still `window.location.host`).
+  Opening `/<CODE>` or `?code=CODE` lands on the join form with the code filled in and focus on
+  the name. A code must be one core's `generateRoomCode` could mint (its alphabet and length,
+  via `isRoomCode`), in any case; anything else opens the landing. The SPA fallback (server static handler, Vite dev) serves the
+  shell for the path. Once used (a join, Back, "Not this room?", a resuming host session, or
+  hosting) the address is replaced with `/`. That is a `replaceState`, with no reload and no new history entry, so a leave or a
+  reload never re-reads a stale code and the browser's back button is never trapped.
+- **Join form.** A Back control (a chevron plus "Back", 44px) returns to the landing. A linked
+  code shows as a card instead of the code field: "Joining room" over the code in mono, and a
+  "Not this room?" link that clears it back to an empty, focused code field. A quiet hint under
+  the name reads "The host's screen shows the code. Opened a link? It's filled in for you."
+- **How to play.** Each game's web registry entry carries a three-step `howTo`. The TV lobby
+  shows it as a card under the join hero: "How to play · `<game>`", with the steps in three
+  columns and numbers in markerDeep. The phone waiting room shows it as an "UP NEXT" card with
+  the game name and a numbered list.
+- **Phone waiting room.** The phone header stays (wordmark, room code on tape, game label).
+  Under it are your name-tag (the ringed `PlayerDot` plus name, display bold) and a quiet
+  outlined "Leave room". Leave room confirms in the shared `ConfirmDialog`, then sends
+  `leave` and returns to the join form. It forgets the room's resume secret and saved name only
+  if the link was live, so the leave really went out. Otherwise the leave is only queued and
+  is dropped on dispose, so the token is kept: the seat is reaped after the grace, or a rejoin
+  reclaims it. Below
+  come the h2 "You're in! Waiting for the host to start.", the UP NEXT card (or "The host is
+  picking a game."), "In the room (N)" name chips with yours marked "(you)", and a quiet foot
+  note: "Keep this page open — you can lock your phone; your seat waits 3 minutes."
+- **After you act.** On the phone, Guess Who (after answering or skipping) and Most Likely To
+  (after voting) show "N of M answered/voted", the shared `ProgressBar` (a markerDeep
+  `progressbar` with its count, also used by the board's `ActedProgress`), and a "look up at
+  the big screen" line, inside an `<output>` (`role="status"`, `aria-live="polite"`). These are counts
+  only: the player views carry how many have acted but not who, so the sketch's
+  "Waiting on X and Y" is left out rather than widening the views. An off-shape count renders
+  nothing.
+- **Phase announcements.** `Board` and `Phone` each hold one always-mounted, visually hidden
+  polite live region. It says "Now: `<phase>`": the lobby, the game's own phase name (each
+  registry entry has a `phaseNames` record keyed by the view's `phase`, e.g. Answering,
+  Guessing who said it, Voting), or Standings.
+- **Tokens in code.** `tokens.elevation.lift` and `tokens.elevation.board` (the table's
+  values) replace every copy of those shadow literals in `apps/web`.
 
 ## Screens (Cycle 4)
 

@@ -31,7 +31,7 @@ export function RoundPill({
         fontWeight: 800,
         color: tokens.color.ink,
         backgroundColor: tokens.color.card,
-        boxShadow: '1px 3px 6px rgba(43,38,32,.14)',
+        boxShadow: tokens.elevation.lift,
         borderRadius: 999,
         px: 'clamp(14px, 1.4vw, 24px)',
         py: 'clamp(4px, 0.6vw, 10px)',

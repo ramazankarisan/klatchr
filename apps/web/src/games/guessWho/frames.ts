@@ -71,3 +71,17 @@ export function guessWhoStep(view: unknown): HostStep {
   }
   return { label: 'New round', advance: null }; // reveal is terminal
 }
+
+/** The three-step how-to-play (UX-2), shown on the TV lobby and the phone waiting room. */
+export const guessWhoHowTo = [
+  'Everyone answers the question on their phone — nobody sees who wrote what.',
+  'The answers go up on the big screen, with no names.',
+  'Guess who wrote each one. A point per right guess.',
+] as const;
+
+/** Each phase in words, for the screen-reader phase announcement (UX-2). */
+export const guessWhoPhaseNames: Readonly<Record<string, string>> = {
+  collect: 'Answering',
+  guess: 'Guessing who said it',
+  reveal: 'The reveal',
+};

@@ -26,6 +26,11 @@ export const tokens = {
     mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
   },
   radius: { card: 6, control: 8, pill: 999 },
+  // design.md elevation: the paper lift on cards/tags, and the board panel.
+  elevation: {
+    lift: '1px 3px 6px rgba(43,38,32,.14)',
+    board: '0 22px 50px -30px rgba(43,38,32,.5)',
+  },
 } as const;
 
 /** A stable marker color per player — by roster position, else hashed from id. */

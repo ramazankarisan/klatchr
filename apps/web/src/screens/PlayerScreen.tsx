@@ -5,10 +5,15 @@ import { SessionStandings } from '../components/standings.js';
 import { gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
 import { tokens } from '../tokens.js';
+import { forgetPlayerSession } from '../transport/factory.js';
 import type { Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
+import { phaseAnnouncement } from './phaseLabel.js';
+import { PhoneLobby } from './phoneLobby.js';
 
-function Brand({ code, name }: { code: string; name: string }): ReactNode {
+/** The phone header: the wordmark, your name (omitted in the waiting room, whose name-tag
+ * carries it) and the room code on tape. */
+function Brand({ code, name }: { code: string; name?: string }): ReactNode {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <Typography variant="h3" sx={{ fontSize: 19 }}>
@@ -18,7 +23,9 @@ function Brand({ code, name }: { code: string; name: string }): ReactNode {
         latchr
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ fontSize: 12, color: tokens.color.inkSoft }}>{name}</Typography>
+        {name !== undefined ? (
+          <Typography sx={{ fontSize: 12, color: tokens.color.inkSoft }}>{name}</Typography>
+        ) : null}
         <DymoCode code={code} size="small" />
       </Box>
     </Box>
@@ -85,7 +92,7 @@ export function PlayerScreen({
   transport,
   onExit,
 }: { transport: Transport; onExit: () => void }): ReactNode {
-  const { frame, reconnecting, recover } = useScreen(transport, onExit, 'Try another code');
+  const { frame, reconnecting, live, recover } = useScreen(transport, onExit, 'Try another code');
 
   // One opaque seam: the game view builds its own event; the transport wraps it
   // in a `play`. Adding a game needs no new callback here.
@@ -123,6 +130,7 @@ export function PlayerScreen({
     views === null ? null : (
       <views.Player view={frame.gameView} players={frame.players} youId={id} onEvent={onEvent} />
     );
+  const announce = phaseAnnouncement(frame);
   const header = (
     <>
       <Brand code={frame.code} name={me?.nickname ?? 'You'} />
@@ -140,7 +148,7 @@ export function PlayerScreen({
       frame.players.some((p) => p.id === s.playerId),
     );
     return (
-      <Phone reconnecting={reconnecting}>
+      <Phone reconnecting={reconnecting} announce={announce}>
         {header}
         {terminal ? play() : <Centered title="That’s a wrap!" body="The host ended the round." />}
         {anyScores ? (
@@ -149,12 +157,39 @@ export function PlayerScreen({
       </Phone>
     );
   }
+  if (frame.phase === 'LOBBY') {
+    // The waiting room (UX-2): the header (code tape, game label, and between rounds the
+    // session line), then its own top row — your name-tag and Leave room.
+    return (
+      <Phone reconnecting={reconnecting} announce={announce}>
+        <Brand code={frame.code} />
+        <GameLabel name={game?.name} />
+        <SessionLine frame={frame} id={id} />
+        <PhoneLobby
+          code={frame.code}
+          youId={id}
+          players={frame.players}
+          game={game}
+          onLeave={() => {
+            // A deliberate leave gives the seat up: tell the room, then App disposes this
+            // transport on the way back to the join form. Forget the resume secret only if
+            // the leave really went out — on a link that is not live it is only queued, and
+            // dispose drops it, so the seat lingers for the grace and the kept token can
+            // still reclaim it.
+            transport.send({ type: 'leave' });
+            if (live) {
+              forgetPlayerSession(frame.code);
+            }
+            onExit();
+          }}
+        />
+      </Phone>
+    );
+  }
   return (
-    <Phone reconnecting={reconnecting}>
+    <Phone reconnecting={reconnecting} announce={announce}>
       {header}
-      {frame.phase === 'LOBBY' ? (
-        <Centered title="You’re in" body="Grab a seat — watch the board for the first prompt." />
-      ) : me?.spectator === true ? (
+      {me?.spectator === true ? (
         <Centered
           title="You’re up next round"
           body={`This round is full${seats !== undefined ? ` (${seats} seats)` : ''}. You’ll be dealt in when the host starts again.`}

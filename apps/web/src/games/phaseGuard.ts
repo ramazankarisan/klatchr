@@ -3,7 +3,8 @@
  * returns `unknown` across the transport; each game keeps its own view unions
  * but narrows them the same way — by the `phase` string.
  */
-function phaseOf(view: unknown): string | null {
+/** A view's `phase` discriminant, or null when it has none. */
+export function phaseOf(view: unknown): string | null {
   if (typeof view === 'object' && view !== null && 'phase' in view) {
     const { phase } = view as { phase: unknown };
     return typeof phase === 'string' ? phase : null;

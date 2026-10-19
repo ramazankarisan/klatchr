@@ -135,17 +135,17 @@ describe('board chrome (UX-1)', () => {
     (_: string, el: Element | null): boolean =>
       el?.tagName === 'P' && el.textContent === text;
 
-  it('the lobby is code-first: the code on hero tape and a "Join at <host> · code" line', () => {
+  it('the lobby is code-first: the code on hero tape and a "Join at <host>/<CODE>" link', () => {
     renderHost(frame({ phase: 'LOBBY', round: 0, scores: null, sessionScores: [] }));
     expect(screen.getAllByLabelText('room code WXYZ')).toHaveLength(1);
-    expect(screen.getByText(paragraph(`Join at ${window.location.host} · code WXYZ`))).toBeTruthy();
-    expect(screen.queryByText(`${window.location.host}/WXYZ`)).toBeNull(); // no deep link yet
+    // UX-2: the /CODE link now opens the join form pre-filled, so the board shows it.
+    expect(screen.getByText(paragraph(`Join at ${window.location.host}/WXYZ`))).toBeTruthy();
   });
 
   it('in play and on SCORES the corner keeps the code and a join line for latecomers', () => {
     renderHost(frame({ phase: 'IN_GAME', gameView: null }));
     expect(screen.getAllByLabelText('room code WXYZ')).toHaveLength(1);
-    expect(screen.getByText(`join at ${window.location.host}`)).toBeTruthy();
+    expect(screen.getByText(`join at ${window.location.host}/WXYZ`)).toBeTruthy();
   });
 
   it('Leave & close room is a corner control, outside the primary row, still confirmed', async () => {

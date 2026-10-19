@@ -130,12 +130,21 @@ export function rememberQuestions(code: string, gameId: string, prompts: readonl
   localStorage.setItem(questionsKey(code, gameId), JSON.stringify(prompts));
 }
 
+const reconnectKey = (code: string): string => `klatchr:reconnect:${code}`;
+
+/** A player left the room on purpose (UX-2): its seat is gone, so drop the resume secret and
+ * the saved name — a later join with the same code is a fresh one, not a "resuming as …". */
+export function forgetPlayerSession(code: string): void {
+  localStorage.removeItem(reconnectKey(code));
+  localStorage.removeItem(nickKey(code));
+}
+
 export function createPlayerTransport(code: string, nickname: string): Transport {
   const url = wsUrl();
   if (url === undefined) {
     return mockPlayerTransport();
   }
-  const key = `klatchr:reconnect:${code}`;
+  const key = reconnectKey(code);
   const stored = localStorage.getItem(key);
   const init: SocketInit =
     stored === null
@@ -152,8 +161,7 @@ export function createPlayerTransport(code: string, nickname: string): Transport
   transport.onReconnectToken = (token) => localStorage.setItem(key, token);
   transport.onTerminal = (message) => {
     if (GONE.has(message)) {
-      localStorage.removeItem(key);
-      localStorage.removeItem(nickKey(code));
+      forgetPlayerSession(code);
     }
   };
   return transport;

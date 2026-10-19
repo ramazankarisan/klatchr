@@ -5,7 +5,7 @@ export type { Player, PlayerId, Viewer } from './ids.js';
 export { type NormalisedNickname, normaliseNickname } from './nickname.js';
 export { createRegistry, type Registry } from './registry.js';
 export { type Result, err, ok } from './result.js';
-export { generateRoomCode } from './roomCode.js';
+export { generateRoomCode, isRoomCode } from './roomCode.js';
 export { isAdvance } from './eventShapes.js';
 export { boundedText, isRecord } from './text.js';
 export { createRoom, playerIdForToken, roomReduce, roundScores } from './room.js';

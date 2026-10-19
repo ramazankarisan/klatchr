@@ -324,3 +324,35 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
     the host page outside the "Who has acted" region, and there is no "Said it" stamp; the
     pill copy changed.
   - Docs checked: design.md.
+- **PR 7 (UX-2):** join and orientation, against the approved sketch
+  (https://claude.ai/artifact/JL3kT8AdofagFCWa18tQUx).
+  - A `/<CODE>` or `?code=` link opens the join form with the code filled in and focus on the
+    name. Codes are checked with core's `isRoomCode` (the `generateRoomCode` alphabet and
+    length). "Not this room?" clears the code. Once used, and on a host resume or hosting, the
+    address goes back to `/` with `replaceState`, so there is no reload and no new history
+    entry. The board's join line is
+    now "Join at `<host>/<CODE>`".
+  - The join form has a Back control to the landing. No history entries are pushed, so browser
+    back is never trapped.
+  - Each game's web registry entry has a three-step `howTo`, shown on the TV lobby (under the
+    join hero, only when it has steps) and in the phone waiting room. Each entry also has a
+    `phaseNames` record.
+  - The phone waiting room keeps the header (code tape, game label) and adds your name-tag
+    and Leave room. Leave room is confirmed and sends `leave`. It forgets the resume secret
+    and saved name only when the link is live; otherwise the queued leave is dropped, so the
+    token is kept to reclaim the seat. The waiting room also has "You're in! Waiting for the host to
+    start.", the game up next with its how-to, "In the room (N)" chips, and a note that the
+    phone can be locked (seat held 3 minutes).
+  - After acting, the phone shows "N of M answered/voted" with the shared `ProgressBar`
+    (also used by `ActedProgress`) in a polite status. The shadows now come from
+    `tokens.elevation`.
+    These are counts only: the player views carry no who-has-acted ids, so the sketch's
+    "Waiting on X and Y" is left out and the views are unchanged.
+  - Phase announcements: one always-mounted polite live region on `Board` and on `Phone`
+    ("Now: `<phase>`").
+  - Tests: link parsing (unit); join prefill, Back, Not this room and history (RTL); the phone
+    lobby (game, how-to, roster, header, leave confirm and cancel, leave while not live); App
+    clearing the path on host resume and hosting; invalid codes falling to the landing; the TV how-to; after-act progress
+    and off-shape counts; live regions. e2e: opening `/<code>` lands on a pre-filled join form,
+    seats the player, and Leave room unseats them.
+  - Docs checked: design.md.

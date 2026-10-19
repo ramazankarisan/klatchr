@@ -61,7 +61,9 @@ describe('Reconnecting… indicator (7.2)', () => {
 
     t.drive('reconnecting');
     expect(tape()).toBeTruthy();
-    expect(screen.getByRole('status')).toBeTruthy();
+    expect(
+      screen.getAllByRole('status').some((s) => /reconnecting/i.test(s.textContent ?? '')),
+    ).toBe(true);
 
     t.drive('live');
     expect(tape()).toBeNull(); // heals → indicator gone

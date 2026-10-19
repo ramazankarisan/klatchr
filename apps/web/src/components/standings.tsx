@@ -66,8 +66,8 @@ export function SessionStandings({
                 backgroundColor: tokens.color.card,
                 border: `1px solid ${lead ? tokens.color.marker : '#eaddc6'}`,
                 boxShadow: lead
-                  ? `0 0 0 1px ${tokens.color.marker}, 1px 3px 6px rgba(43,38,32,.14)`
-                  : '1px 3px 6px rgba(43,38,32,.14)',
+                  ? `0 0 0 1px ${tokens.color.marker}, ${tokens.elevation.lift}`
+                  : tokens.elevation.lift,
               }}
             >
               <Typography
@@ -186,7 +186,7 @@ export function RoundStandings({
           backgroundColor: tokens.color.card,
           borderRadius: `${tokens.radius.card}px`,
           overflow: 'hidden',
-          boxShadow: '1px 3px 6px rgba(43,38,32,.14)',
+          boxShadow: tokens.elevation.lift,
           fontSize: 'clamp(18px, 2vw, 34px)',
         }}
       >
