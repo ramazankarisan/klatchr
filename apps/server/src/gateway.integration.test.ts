@@ -2,7 +2,7 @@ import { get } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WsClient, fakeTimerDeps, fireUntil, settle } from './gateway.integration.testkit.js';
 import { RoomHub } from './roomHub.js';
-import { type SocketServer, startSocketServer } from './socketServer.js';
+import { MAX_PAYLOAD_BYTES, type SocketServer, startSocketServer } from './socketServer.js';
 
 /**
  * ws-integration (plan-14 L3): the real socket path — the gateway's wiring, JSON
@@ -152,5 +152,62 @@ describe('ws-integration: startup', () => {
     await startWith(); // holds an ephemeral port
     const second = startSocketServer(new RoomHub(fakeTimerDeps().deps), { port: server.port });
     await expect(second).rejects.toMatchObject({ code: 'EADDRINUSE' });
+  });
+});
+
+describe('ws-integration: one bad client never takes the server down (S1)', () => {
+  beforeEach(async () => {
+    await startWith();
+  });
+
+  /** A live room with one seated player, to prove it keeps working afterwards. */
+  async function liveRoom(): Promise<[WsClient, string]> {
+    const [host, code] = await openRoom();
+    await seat(code, 'Ada');
+    await host.waitForFrame((f) => f.players.length === 1);
+    return [host, code];
+  }
+
+  it('an invalid UTF-8 text frame closes only that socket', async () => {
+    const [host, code] = await liveRoom();
+    const rogue = new WsClient(url);
+    await rogue.open();
+    rogue.sendTextBytes(Buffer.from([0xff, 0xfe]));
+    expect(await rogue.closed).toBe(1007); // invalid frame payload data
+    await seat(code, 'Bo'); // the server and the room are still up
+    await host.waitForFrame((f) => f.players.length === 2);
+  });
+
+  it('a frame over the payload cap closes only that socket', async () => {
+    const [host, code] = await liveRoom();
+    const rogue = new WsClient(url);
+    await rogue.open();
+    rogue.sendRaw(JSON.stringify({ type: 'open', nickname: 'x'.repeat(MAX_PAYLOAD_BYTES) }));
+    expect(await rogue.closed).toBe(1009); // message too big
+    await seat(code, 'Bo');
+    await host.waitForFrame((f) => f.players.length === 2);
+  });
+
+  it('a malformed game event is a typed error, and the room plays on', async () => {
+    const [host, code] = await liveRoom();
+    const [b] = await seat(code, 'Bo');
+    await seat(code, 'Cy');
+    host.send({ type: 'host', code, action: 'selectGame', gameId: 'most-likely-to' });
+    host.send({ type: 'host', code, action: 'startGame' });
+    await b.waitForFrame((f) => f.phase === 'IN_GAME');
+    for (const event of [null, { type: 'x' }, { type: 'vote', target: 7 }]) {
+      b.send({ type: 'play', code, event });
+    }
+    await settle();
+    expect(b.messages.filter((m) => m.type === 'error')).toHaveLength(3);
+    host.send({ type: 'play', code, event: { type: 'advance', from: 'vote' } });
+    await host.waitForFrame((f) => f.phase === 'SCORES'); // the room still advances
+    await settle();
+
+    // A double-tapped final advance is a silent no-op: no error, no re-broadcast.
+    const before = host.messages.length;
+    host.send({ type: 'play', code, event: { type: 'advance', from: 'vote' } });
+    await settle();
+    expect(host.messages.length).toBe(before);
   });
 });

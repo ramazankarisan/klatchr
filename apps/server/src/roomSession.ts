@@ -6,6 +6,7 @@ import {
   type RoomEvent,
   type Score,
   type Viewer,
+  isRecord,
   playerIdForToken,
   roomReduce,
   roundScores,
@@ -268,7 +269,11 @@ export class RoomSession {
       roomDeps: this.deps.roomDeps,
       gameDeps: this.deps.gameDeps,
     });
-    if (result.ok) {
+    // A game event that changed nothing (a late advance in SCORES) is not re-sent to
+    // every screen. Only game events: a token resume also returns the same room, but
+    // the returning connection still needs its frame.
+    const noOp = result.ok && event.type === 'gameEvent' && result.value === this.room;
+    if (result.ok && !noOp) {
       this.room = result.value;
       this.scheduleBroadcast();
     }
@@ -303,18 +308,20 @@ export class RoomSession {
       this.onClosed(this.room.code, conns); // hand the bystanders back so the hub unbinds them
       return;
     }
+    // Session length: the active game's roundCount for the host config, so the host ends
+    // the game once the questions are spent; 0 when no game is selected (unbounded).
+    // Computed once per broadcast — it reads the host config, the same for every viewer.
+    const { selectedGameId, gameConfig } = this.room;
+    const activeGame = selectedGameId === null ? undefined : this.registry.get(selectedGameId);
+    const roundsTotal = activeGame?.roundCount?.(gameConfig) ?? 0;
     for (const [conn, viewer] of this.members) {
-      conn.send(this.frameFor(viewer));
+      conn.send(this.frameFor(viewer, roundsTotal));
     }
   }
 
-  private frameFor(viewer: Viewer): ServerMessage {
-    const { code, phase, players, selectedGameId, sessionScores, round, gameConfig } = this.room;
+  private frameFor(viewer: Viewer, roundsTotal: number): ServerMessage {
+    const { code, phase, players, selectedGameId, sessionScores, round } = this.room;
     const game = this.gameFor(viewer);
-    // Session length (Cycle 12): the active game's roundCount for the host config, so the host
-    // ends the game once the questions are spent. 0 when no game is selected (unbounded).
-    const activeGame = selectedGameId === null ? undefined : this.registry.get(selectedGameId);
-    const roundsTotal = activeGame?.roundCount?.(gameConfig) ?? 0;
     return {
       type: 'frame',
       code,
@@ -380,16 +387,12 @@ function hostEvent(action: HostAction, gameId?: string, config?: unknown): RoomE
   }
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 /** `{ type: 'advance' }` is the platform-wide phase-advance convention (packages/CLAUDE.md). */
 function isAdvance(event: unknown): boolean {
-  return isObject(event) && event.type === 'advance';
+  return isRecord(event) && event.type === 'advance';
 }
 
 /** Overwrite any client-supplied playerId with the authenticated one (authority). */
 function stampPlayerId(event: unknown, playerId: string): unknown {
-  return isObject(event) ? { ...event, playerId } : event;
+  return isRecord(event) ? { ...event, playerId } : event;
 }

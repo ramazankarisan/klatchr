@@ -33,7 +33,10 @@ objects — never mutate the input. Enforced by `.hooks/check-purity.sh`.
 Touches only `games/src/<game>/` and `apps/web`. If it needs a `core` change,
 the interface is wrong — stop and say so; never special-case a game in core.
 
-1. The pure module: `state`, `events`, `reduce`, `view`, `scores`.
+1. The pure module: `state`, `events`, `reduce`, `view`, `scores`. `reduce`
+   first checks the event's shape (`games/src/eventGuard.ts`): the wire carries it as
+   `unknown`, and a throw would take every room down. `hostileEvents.test.ts`
+   checks every registered game.
 2. Register it in `games/src/index.ts`.
 3. A unit test for every transition, rejections included (see above).
 4. `redaction.test.ts` covering both a player and the host viewer (the gate

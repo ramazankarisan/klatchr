@@ -1,5 +1,6 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
-import { err, ok } from '@klatchr/core';
+import { boundedText, err, isRecord, ok } from '@klatchr/core';
+import { MALFORMED_EVENT, isRosterEvent, strings } from '../eventGuard.js';
 import { choosePrompt, promptCount } from '../promptConfig.js';
 import type { GWEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
@@ -20,7 +21,32 @@ function init(active: readonly Player[], deps: GameDeps, config?: unknown): GWSt
   };
 }
 
+/** One answer's cap, in visible characters — it is shown on every screen. */
+export const MAX_ANSWER_LEN = 200;
+
+/** The shape check for an inbound event — the wire carries it as `unknown`. */
+function isEvent(event: unknown): event is GWEvent | RosterEvent {
+  if (!isRecord(event)) {
+    return false;
+  }
+  switch (event.type) {
+    case 'submit':
+      return strings(event, 'playerId', 'text');
+    case 'skip':
+      return strings(event, 'playerId');
+    case 'guess':
+      return strings(event, 'playerId', 'cardId', 'author');
+    case 'advance':
+      return event.from === 'collect' || event.from === 'guess';
+    default:
+      return isRosterEvent(event);
+  }
+}
+
 function reduce(state: GWState, event: GWEvent | RosterEvent): Result<GWState, GameError> {
+  if (!isEvent(event)) {
+    return err(MALFORMED_EVENT); // unknown type or wrong field types — refused, never thrown
+  }
   switch (event.type) {
     case 'submit':
       return submit(state, event);
@@ -57,7 +83,13 @@ function submit(
   if (blocked !== null) {
     return err(blocked);
   }
-  return ok({ ...state, drafts: { ...state.drafts, [event.playerId]: event.text } });
+  // Trim and cap (never splitting an emoji); a blank or invisible-only answer would be
+  // an empty card everyone must still guess, so it is refused — the player can skip.
+  const text = boundedText(event.text, MAX_ANSWER_LEN);
+  if (text.length === 0) {
+    return err({ code: 'EMPTY_ANSWER' });
+  }
+  return ok({ ...state, drafts: { ...state.drafts, [event.playerId]: text } });
 }
 
 function skip(

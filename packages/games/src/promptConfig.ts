@@ -9,6 +9,9 @@ export interface PromptPack {
 
 export const MAX_PROMPTS = 50; // a sane ceiling on an authored set
 export const MAX_LEN = 200; // one question's character cap
+// How many raw entries are ever looked at. The blob is host-sent and re-read on every
+// broadcast (`roundCount`), so an oversized array must not cost more than this.
+const MAX_SCAN = MAX_PROMPTS * 4;
 
 /**
  * Read a host-authored prompt list out of an opaque config blob. Defensive on purpose:
@@ -28,7 +31,7 @@ export function validPrompts(config: unknown): readonly string[] | null {
   const seen = new Set<string>();
   const cleaned: string[] = [];
   // Array.isArray narrows to any[]; take each element as unknown so nothing is `any`.
-  for (const item of Array.from<unknown>(raw)) {
+  for (const item of Array.from<unknown>(raw.slice(0, MAX_SCAN))) {
     if (typeof item !== 'string') {
       continue;
     }

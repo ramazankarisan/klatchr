@@ -1,5 +1,6 @@
 import type { Game, GameDeps, GameError, Player, Result, RosterEvent } from '@klatchr/core';
-import { err, ok } from '@klatchr/core';
+import { err, isRecord, ok } from '@klatchr/core';
+import { MALFORMED_EVENT, isRosterEvent, strings } from '../eventGuard.js';
 import { choosePrompt, promptCount } from '../promptConfig.js';
 import type { MLTEvent } from './events.js';
 import { PROMPTS } from './prompts.js';
@@ -12,7 +13,25 @@ function init(active: readonly Player[], deps: GameDeps, config?: unknown): MLTS
   return { phase: 'vote', prompt, roster: active.map((p) => p.id), votes: {} };
 }
 
+/** The shape check for an inbound event — the wire carries it as `unknown`. */
+function isEvent(event: unknown): event is MLTEvent | RosterEvent {
+  if (!isRecord(event)) {
+    return false;
+  }
+  switch (event.type) {
+    case 'vote':
+      return strings(event, 'playerId', 'target');
+    case 'advance':
+      return event.from === 'vote';
+    default:
+      return isRosterEvent(event);
+  }
+}
+
 function reduce(state: MLTState, event: MLTEvent | RosterEvent): Result<MLTState, GameError> {
+  if (!isEvent(event)) {
+    return err(MALFORMED_EVENT); // unknown type or wrong field types — refused, never thrown
+  }
   switch (event.type) {
     case 'vote':
       return vote(state, event);

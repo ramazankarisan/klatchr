@@ -185,6 +185,23 @@ describe('gameEvent', () => {
     );
   });
 
+  it('treats a late advance in SCORES as a no-op (a double-tapped final advance)', () => {
+    const scores = room({ phase: 'SCORES', selectedGameId: 'stub' });
+    const event = { type: 'advance', from: 'vote' };
+    const result = roomReduce(scores, { type: 'gameEvent', event }, HOST, ctxWith());
+    expect(result).toEqual({ ok: true, value: scores });
+  });
+
+  it('still refuses any other game event in SCORES', () => {
+    const scores = room({ phase: 'SCORES', selectedGameId: 'stub' });
+    for (const event of [{ type: 'vote' }, null, 'advance']) {
+      expectErr(
+        roomReduce(scores, { type: 'gameEvent', event }, asPlayer('x'), ctxWith()),
+        'GAME_EVENT_OUTSIDE_GAME',
+      );
+    }
+  });
+
   it('refuses when the active game is missing from the registry', () => {
     const start = room({ phase: 'IN_GAME', selectedGameId: 'ghost' });
     expectErr(

@@ -42,7 +42,14 @@ export function createStaticHandler(
   }
   const index = join(root, 'index.html');
   return (req, res) => {
-    void serve(root, index, req, res);
+    serve(root, index, req, res).catch(() => {
+      // A read that fails after the path checks (e.g. a directory named like a file)
+      // must answer, not become an unhandled rejection that kills the process.
+      if (!res.headersSent) {
+        res.writeHead(500);
+      }
+      res.end();
+    });
   };
 }
 

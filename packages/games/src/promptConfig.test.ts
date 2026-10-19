@@ -38,6 +38,14 @@ describe('validPrompts (A8)', () => {
   });
 });
 
+describe('validPrompts bounds its scan (plan-15 §1)', () => {
+  it('looks at no more than a bounded prefix of an oversized array', () => {
+    // A usable prompt far past the scan window is never reached — the cost is bounded.
+    const prompts = [...Array.from({ length: 10_000 }, () => ' '), 'Reachable?'];
+    expect(validPrompts({ prompts })).toBeNull();
+  });
+});
+
 describe('choosePrompt (A1) — in-order walk, a set is the session', () => {
   it('walks an authored set in order, one per round, no repeat within the session', () => {
     const config = { prompts: ['Q1', 'Q2', 'Q3'] };
