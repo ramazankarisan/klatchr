@@ -92,6 +92,17 @@ export function ScreenTitle({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
+/** A surface's one polite live region (UX-2). It is always mounted — a region that mounts
+ * together with its text is often not read — so a screen reader hears each new phase name
+ * ("Now: Answering") as the text changes, without moving focus. Visually hidden. */
+export function LiveRegion({ text }: { text: string | undefined }): ReactNode {
+  return (
+    <Box component="output" aria-live="polite" sx={srOnly}>
+      {text}
+    </Box>
+  );
+}
+
 // The three tape sizes: a phone's header, the board's in-game corner, and the lobby hero —
 // code-first, the largest thing on the TV (UX-1) so the room can read it from the couch.
 const dymoSize = {
@@ -123,7 +134,7 @@ export function DymoCode({
         backgroundColor: tokens.color.dymo,
         borderRadius: 1,
         display: 'inline-block',
-        boxShadow: '1px 3px 6px rgba(43,38,32,.14)',
+        boxShadow: tokens.elevation.lift,
       }}
     >
       {code}
@@ -254,7 +265,8 @@ export function Recover({
 export function Phone({
   children,
   reconnecting,
-}: { children: ReactNode; reconnecting?: boolean }): ReactNode {
+  announce,
+}: { children: ReactNode; reconnecting?: boolean; announce?: string }): ReactNode {
   return (
     <Box
       sx={{
@@ -268,6 +280,7 @@ export function Phone({
       }}
     >
       <ScreenTitle>Klatchr</ScreenTitle>
+      <LiveRegion text={announce} />
       {reconnecting ? <ReconnectingTape /> : null}
       <Box
         sx={{

@@ -36,8 +36,8 @@ function GamePicker({
               border: `1px solid ${sel ? tokens.color.markerDeep : '#e8dcc6'}`,
               borderRadius: `${tokens.radius.card}px`,
               boxShadow: sel
-                ? `0 0 0 1px ${tokens.color.markerDeep}, 1px 3px 6px rgba(43,38,32,.14)`
-                : '1px 3px 6px rgba(43,38,32,.14)',
+                ? `0 0 0 1px ${tokens.color.markerDeep}, ${tokens.elevation.lift}`
+                : tokens.elevation.lift,
             }}
           >
             <Box

@@ -1,21 +1,22 @@
-import { Box, Button, Container, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
 import { kraftBg } from './components/paper.js';
+import { codeFromLocation, forgetJoinLink } from './joinLink.js';
 import { HostScreen } from './screens/HostScreen.js';
 import { PlayerScreen } from './screens/PlayerScreen.js';
+import { JoinForm } from './screens/joinForm.js';
 import { tokens } from './tokens.js';
 import {
   clearHostSession,
   createHostTransport,
   createPlayerTransport,
   storedHostSession,
-  storedNick,
 } from './transport/factory.js';
 import type { Transport } from './transport/types.js';
 
 type Screen =
   | { mode: 'landing' }
-  | { mode: 'join' }
+  | { mode: 'join'; linkedCode: string | null }
   | { mode: 'host'; transport: Transport }
   | { mode: 'player'; transport: Transport };
 
@@ -46,77 +47,18 @@ function Landing({ onHost, onJoin }: { onHost: () => void; onJoin: () => void })
   );
 }
 
-function JoinForm({ onJoin }: { onJoin: (code: string, name: string) => void }): ReactNode {
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  // F1: if this code has a saved session, a rejoin resumes it and keeps the old
-  // name — say so rather than silently swallowing whatever they type now.
-  const resuming = code.length === 4 ? storedNick(code) : null;
-  return (
-    <Box
-      component="form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onJoin(code, name.trim());
-      }}
-      sx={{ ...column, gap: 2.5, maxWidth: 360 }}
-    >
-      <Typography variant="h2" component="h1" sx={{ fontSize: 32 }}>
-        Grab a name-tag
-      </Typography>
-      <TextField
-        label="Room code"
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        autoFocus
-        slotProps={{
-          htmlInput: {
-            maxLength: 4,
-            autoCapitalize: 'characters',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-            inputMode: 'text',
-          },
-        }}
-      />
-      <TextField
-        label="Your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        // The protocol bound: a pasted long name is trimmed here, not refused by the
-        // server (which then caps it to 20 visible characters without splitting emoji).
-        slotProps={{ htmlInput: { maxLength: 100, autoComplete: 'nickname' } }}
-      />
-      {resuming !== null ? (
-        <Typography sx={{ fontSize: 13, color: tokens.color.inkSoft }}>
-          Resuming as{' '}
-          <Box component="span" sx={{ fontWeight: 700, color: tokens.color.ink }}>
-            {resuming}
-          </Box>{' '}
-          — your seat &amp; score are saved.
-        </Typography>
-      ) : null}
-      <Button
-        type="submit"
-        variant="contained"
-        size="large"
-        disabled={code.length < 4 || name.trim() === ''}
-      >
-        Join the room
-      </Button>
-    </Box>
-  );
-}
-
 export function App(): ReactNode {
   // On load, resume a persisted host session (8.1) — a reloaded host re-attaches its
   // own room via `resumeHost` instead of dropping back to the landing.
   const [screen, setScreen] = useState<Screen>(() => {
     const resume = storedHostSession();
-    return resume === null
-      ? { mode: 'landing' }
-      : { mode: 'host', transport: createHostTransport('Host', resume) };
+    if (resume !== null) {
+      forgetJoinLink(); // the board wins; a /CODE in its address must not be read later
+      return { mode: 'host', transport: createHostTransport('Host', resume) };
+    }
+    // UX-2: a /CODE (or ?code=) link opens the join form with the code filled in.
+    const linkedCode = codeFromLocation(window.location);
+    return linkedCode === null ? { mode: 'landing' } : { mode: 'join', linkedCode };
   });
 
   // Leaving a screen ends its link for good — no orphan socket left reconnecting (and
@@ -130,6 +72,7 @@ export function App(): ReactNode {
 
   const toLanding = (): void => {
     clearHostSession(); // a failed resume / closed room must not resume again
+    forgetJoinLink();
     leave({ mode: 'landing' });
   };
 
@@ -142,14 +85,22 @@ export function App(): ReactNode {
         <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
           {screen.mode === 'landing' ? (
             <Landing
-              onHost={() => setScreen({ mode: 'host', transport: createHostTransport('Host') })}
-              onJoin={() => setScreen({ mode: 'join' })}
+              onHost={() => {
+                forgetJoinLink();
+                setScreen({ mode: 'host', transport: createHostTransport('Host') });
+              }}
+              onJoin={() => setScreen({ mode: 'join', linkedCode: null })}
             />
           ) : (
             <JoinForm
+              linkedCode={screen.linkedCode}
               onJoin={(code, name) =>
                 setScreen({ mode: 'player', transport: createPlayerTransport(code, name) })
               }
+              onBack={() => {
+                forgetJoinLink();
+                setScreen({ mode: 'landing' });
+              }}
             />
           )}
         </Container>
@@ -164,7 +115,10 @@ export function App(): ReactNode {
           <HostScreen transport={screen.transport} onExit={toLanding} />
         </Box>
       ) : (
-        <PlayerScreen transport={screen.transport} onExit={() => leave({ mode: 'join' })} />
+        <PlayerScreen
+          transport={screen.transport}
+          onExit={() => leave({ mode: 'join', linkedCode: null })}
+        />
       )}
     </Box>
   );

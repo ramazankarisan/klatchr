@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { nameOf } from '../../players.js';
 import { tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
+import { PhoneProgress } from '../phoneProgress.js';
 import { NamePicker, PlayerKicker, PlayerResults, TallyBars, gamePlayerView } from '../viewKit.js';
 import { type ResultsView, type VotePlayerView, asPlayerView } from './frames.js';
 
@@ -31,11 +32,18 @@ function VotePhone({
         onPick={onVote}
       />
       {v.yourVote !== undefined ? (
-        <Typography
-          sx={{ mt: 'auto', color: tokens.color.tealDeep, fontWeight: 700, fontSize: 13.5 }}
-        >
-          ✓ Voted for {nameOf(v.yourVote, players)} — tap another to change
-        </Typography>
+        <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Typography sx={{ color: tokens.color.tealDeep, fontWeight: 700, fontSize: 13.5 }}>
+            ✓ Voted for {nameOf(v.yourVote, players)} — tap another to change
+          </Typography>
+          {/* UX-2: how far the room has got — a count, never who (the view has no ids). */}
+          <PhoneProgress
+            done={v.votedCount}
+            total={v.total}
+            verb="voted"
+            next="Look up at the big screen for the results."
+          />
+        </Box>
       ) : null}
     </Box>
   );

@@ -3,6 +3,7 @@ import { type ReactNode, useState } from 'react';
 import { nameOf } from '../../players.js';
 import { tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
+import { PhoneProgress } from '../phoneProgress.js';
 import { NameLabel, NamePicker, PlayerKicker, PlayerResults, gamePlayerView } from '../viewKit.js';
 import { type GuessPlayerView, type RevealView, asPlayerView } from './frames.js';
 
@@ -10,12 +11,16 @@ function CollectPhone({
   prompt,
   youSubmitted,
   youSkipped,
+  submittedCount,
+  total,
   onSubmit,
   onSkip,
 }: {
   prompt: string;
   youSubmitted: boolean;
   youSkipped: boolean;
+  submittedCount: number;
+  total: number;
   onSubmit: (text: string) => void;
   onSkip: () => void;
 }): ReactNode {
@@ -46,9 +51,13 @@ function CollectPhone({
           >
             {youSubmitted ? '✓ Answer taped up' : '✓ Skipped — you’ll still guess'}
           </Box>
-          <Button variant="contained" disabled fullWidth>
-            Waiting for the room…
-          </Button>
+          {/* UX-2: how far the room has got — a count, never who (the view has no ids). */}
+          <PhoneProgress
+            done={submittedCount}
+            total={total}
+            verb="answered"
+            next="Look up at the big screen when the cards appear."
+          />
         </Box>
       ) : (
         <Box
@@ -248,6 +257,8 @@ export const PlayerView = gamePlayerView(asPlayerView, (v, { players, youId, onE
         prompt={v.prompt}
         youSubmitted={v.youSubmitted}
         youSkipped={v.youSkipped}
+        submittedCount={v.submittedCount}
+        total={v.total}
         onSubmit={(text) => onEvent({ type: 'submit', text })}
         onSkip={() => onEvent({ type: 'skip' })}
       />

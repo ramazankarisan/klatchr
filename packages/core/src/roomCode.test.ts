@@ -1,4 +1,4 @@
-import { generateRoomCode } from './roomCode.js';
+import { generateRoomCode, isRoomCode } from './roomCode.js';
 
 describe('generateRoomCode', () => {
   it('is four uppercase letters', () => {
@@ -15,5 +15,18 @@ describe('generateRoomCode', () => {
     let i = 0;
     const random = () => seq[i++] ?? 0;
     expect(generateRoomCode(random, new Set(['AAAA']))).toBe('BAAA');
+  });
+});
+
+describe('isRoomCode', () => {
+  it('accepts exactly what generateRoomCode can mint', () => {
+    expect(isRoomCode(generateRoomCode(() => 0.99, new Set()))).toBe(true);
+    expect(isRoomCode('WXYZ')).toBe(true);
+  });
+
+  it('rejects the wrong length, case or alphabet', () => {
+    for (const code of ['', 'ABC', 'ABCDE', 'wxyz', 'AB1D', 'ÄBCD', 'AB D']) {
+      expect(isRoomCode(code)).toBe(false);
+    }
   });
 });

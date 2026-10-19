@@ -45,3 +45,16 @@ export function mostLikelyToStep(view: unknown): HostStep {
   }
   return { label: 'New round', advance: null }; // results is terminal
 }
+
+/** The three-step how-to-play (UX-2), shown on the TV lobby and the phone waiting room. */
+export const mostLikelyToHowTo = [
+  'A question goes up: who in the room is most likely to…?',
+  'Vote for someone on your phone. Votes are secret.',
+  'The tally goes up on the big screen. Most votes takes the round.',
+] as const;
+
+/** Each phase in words, for the screen-reader phase announcement (UX-2). */
+export const mostLikelyToPhaseNames: Readonly<Record<string, string>> = {
+  vote: 'Voting',
+  results: 'The results',
+};

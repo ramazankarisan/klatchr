@@ -3,10 +3,14 @@ import type { ReactNode } from 'react';
 import type { PublicPlayer } from '../transport/types.js';
 import { HostView as GuessWhoHost } from './guessWho/HostView.js';
 import { PlayerView as GuessWhoPlayer } from './guessWho/PlayerView.js';
-import { guessWhoStep } from './guessWho/frames.js';
+import { guessWhoHowTo, guessWhoPhaseNames, guessWhoStep } from './guessWho/frames.js';
 import { HostView as MostLikelyToHost } from './mostLikelyTo/HostView.js';
 import { PlayerView as MostLikelyToPlayer } from './mostLikelyTo/PlayerView.js';
-import { mostLikelyToStep } from './mostLikelyTo/frames.js';
+import {
+  mostLikelyToHowTo,
+  mostLikelyToPhaseNames,
+  mostLikelyToStep,
+} from './mostLikelyTo/frames.js';
 import type { HostStep, PlayerViewProps } from './viewProps.js';
 
 /**
@@ -21,6 +25,10 @@ interface GameViews {
   Host: (props: { view: unknown; players: readonly PublicPlayer[] }) => ReactNode;
   Player: (props: PlayerViewProps) => ReactNode;
   hostStep: (gameView: unknown) => HostStep;
+  // UX-2: each game-view phase in words (the screen-reader announcement), and a short
+  // three-step how-to-play for the TV lobby and the phone waiting room.
+  phaseNames: Readonly<Record<string, string>>;
+  howTo: readonly string[];
   // Themed prompt packs the host can pour into their question set (Cycle 11); the shared
   // PromptSetEditor renders them. Omitted for a game that takes no host-authored setup.
   packs?: readonly PromptPack[];
@@ -31,12 +39,16 @@ const registry: Record<string, GameViews> = {
     Host: GuessWhoHost,
     Player: GuessWhoPlayer,
     hostStep: guessWhoStep,
+    phaseNames: guessWhoPhaseNames,
+    howTo: guessWhoHowTo,
     packs: guessWhoPacks,
   },
   'most-likely-to': {
     Host: MostLikelyToHost,
     Player: MostLikelyToPlayer,
     hostStep: mostLikelyToStep,
+    phaseNames: mostLikelyToPhaseNames,
+    howTo: mostLikelyToHowTo,
     packs: mostLikelyToPacks,
   },
 };
@@ -54,6 +66,7 @@ export interface GameOption {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  howTo: readonly string[];
 }
 
 export function gameCatalog(): GameOption[] {
@@ -65,5 +78,6 @@ export function gameCatalog(): GameOption[] {
       description: game.description,
       minPlayers: game.minPlayers,
       maxPlayers: game.maxPlayers,
+      howTo: registry[game.id]?.howTo ?? [],
     }));
 }

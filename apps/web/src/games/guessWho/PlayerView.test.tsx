@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@mui/material/styles';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { theme } from '../../theme.js';
@@ -49,6 +49,22 @@ describe('collect', () => {
     renderView({ ...collect, youSubmitted: true });
     expect(screen.getByText(/answer taped up/i)).toBeTruthy();
     expect(screen.queryByLabelText(/your answer/i)).toBeNull();
+  });
+
+  it('UX-2 after submitting shows N of M answered as a polite status, naming nobody', () => {
+    renderView({ ...collect, youSubmitted: true, submittedCount: 2, total: 3 });
+    const status = screen.getByRole('status');
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(within(status).getByText('2 of 3 answered')).toBeTruthy();
+    const bar = within(status).getByRole('progressbar', { name: '2 of 3 answered' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('2');
+    expect(bar.getAttribute('aria-valuemax')).toBe('3');
+    expect(within(status).queryByText(/marcus|lena/i)).toBeNull(); // the view has no ids
+  });
+
+  it('UX-2 an off-shape count shows no progress rather than NaN', () => {
+    renderView({ ...collect, youSkipped: true, submittedCount: 'two' });
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('F12/B4 skip sends a skip event (not a blank card) so the host sees it', async () => {

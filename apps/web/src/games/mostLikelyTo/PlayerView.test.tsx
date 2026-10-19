@@ -44,6 +44,18 @@ describe('vote', () => {
     expect(screen.getByRole('button', { name: /^You$/ })).toBeTruthy();
   });
 
+  it('UX-2 after voting shows N of M voted as a polite status; none before you vote', () => {
+    renderView({ ...vote, youVoted: true, yourVote: 'p3', votedCount: 1, total: 3 });
+    const status = screen.getByRole('status');
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.textContent).toMatch(/^1 of 3 voted/);
+  });
+
+  it('UX-2 shows no vote progress before you vote', () => {
+    renderView(vote);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('reflects your own vote back', () => {
     renderView({ ...vote, youVoted: true, yourVote: 'p3' });
     expect(screen.getByText(/voted for lena/i)).toBeTruthy();

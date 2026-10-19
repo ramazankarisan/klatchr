@@ -4,6 +4,7 @@ import { tvType } from '../components/board.js';
 import { nameOf } from '../players.js';
 import { tokens } from '../tokens.js';
 import type { PublicPlayer } from '../transport/types.js';
+import { ProgressBar } from './progressBar.js';
 
 /**
  * "Who has acted" on the shared board (MLT vote progress, Guess Who answer/guess progress):
@@ -55,7 +56,7 @@ export function BoardChip({
           ? { border: `2px dashed ${tokens.color.inkFaint}`, color: tokens.color.inkSoft }
           : {
               backgroundColor: tokens.color.card,
-              boxShadow: '1px 3px 6px rgba(43,38,32,.14)',
+              boxShadow: tokens.elevation.lift,
               border: '2px solid transparent',
             }),
       }}
@@ -99,7 +100,6 @@ export function ActedProgress({
   const count = ids.filter((id) => done.includes(id)).length;
   const total = ids.length;
   const label = `${count} of ${total} ${verb}`;
-  const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <Box
       component="section"
@@ -112,24 +112,7 @@ export function ActedProgress({
         >
           {label}
         </Typography>
-        <Box
-          role="progressbar"
-          aria-label={label}
-          aria-valuemin={0}
-          aria-valuemax={total}
-          aria-valuenow={count}
-          sx={{
-            flex: 1,
-            height: 'clamp(12px, 1vw, 18px)',
-            borderRadius: 999,
-            backgroundColor: tokens.color.kraft2,
-            overflow: 'hidden',
-          }}
-        >
-          <Box
-            sx={{ height: '100%', width: `${pct}%`, backgroundColor: tokens.color.markerDeep }}
-          />
-        </Box>
+        <ProgressBar done={count} total={total} label={label} height="clamp(12px, 1vw, 18px)" />
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(8px, 0.9vw, 14px)' }}>
         {ids.map((id) => (

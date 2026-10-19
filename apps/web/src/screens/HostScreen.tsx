@@ -4,6 +4,7 @@ import { Board, tvType } from '../components/board.js';
 import { ConfirmDialog, confirmDialogFor } from '../components/confirmDialog.js';
 import { Recover } from '../components/paper.js';
 import { RoundStandings } from '../components/standings.js';
+import { BoardHowTo } from '../games/howTo.js';
 import { gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
 import { tokens } from '../tokens.js';
@@ -12,6 +13,7 @@ import { useScreen } from '../useScreen.js';
 import { CustomizeQuestions } from './customizeQuestions.js';
 import { Lobby } from './hostLobby.js';
 import { LeaveControl, RoundPill, joinHost } from './hostParts.js';
+import { phaseAnnouncement } from './phaseLabel.js';
 
 /** The host's one control button, resolved for any game from the current frame. */
 function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
@@ -118,7 +120,7 @@ export function HostScreen({
     : exhausted && showPicker
       ? 'Pick a game to play again.'
       : startHint(controlFrame);
-  const gameName = gameCatalog().find((g) => g.id === frame.selectedGameId)?.name;
+  const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
   const confirmProps = confirmDialogFor(confirm, frame.code, {
     end: () => send({ type: 'endGame' }),
     change: () => setPicking(true),
@@ -133,6 +135,9 @@ export function HostScreen({
       // Code-first only in the real lobby; in-game the code sits small in the corner.
       joinHost={joinHost()}
       codeFirst={frame.phase === 'LOBBY'}
+      heroFoot={
+        game !== undefined && game.howTo.length > 0 ? <BoardHowTo game={game} /> : undefined
+      }
       badge={
         frame.round > 0 ? (
           <RoundPill
@@ -145,6 +150,7 @@ export function HostScreen({
       }
       corner={<LeaveControl onLeave={() => setConfirm('leave')} />}
       reconnecting={reconnecting}
+      announce={phaseAnnouncement(frame)}
     >
       {showPicker ? (
         <>
@@ -163,7 +169,7 @@ export function HostScreen({
       ) : (
         <Box>
           <Box sx={{ mb: 1 }}>
-            <GameLabel name={gameName} />
+            <GameLabel name={game?.name} />
           </Box>
           <views.Host view={frame.gameView} players={frame.players} />
         </Box>

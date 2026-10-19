@@ -74,12 +74,18 @@ export function Prompt({ text }: { text: string }): ReactNode {
   );
 }
 
-/** The player's marker-colour dot. */
+/** The player's marker-colour dot; `border` rings it in ink (the phone name-tag, UX-2). */
 export function PlayerDot({
   id,
   players,
   size = 12,
-}: { id: string; players: readonly PublicPlayer[]; size?: number }): ReactNode {
+  border = false,
+}: {
+  id: string;
+  players: readonly PublicPlayer[];
+  size?: number;
+  border?: boolean;
+}): ReactNode {
   return (
     <Box
       component="span"
@@ -89,6 +95,7 @@ export function PlayerDot({
         borderRadius: '50%',
         flex: '0 0 auto',
         backgroundColor: playerColor(id, players),
+        ...(border ? { border: `2px solid ${tokens.color.ink}` } : {}),
       }}
     />
   );
