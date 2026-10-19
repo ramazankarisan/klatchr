@@ -12,12 +12,34 @@ import { type ServerDeps, realDeps } from './serverDeps.js';
  * raw wire strings, and this parses every inbound with `@klatchr/protocol`
  * (the parse-at-the-boundary rule) before routing. All redaction/authority lives in the session.
  */
+/** The most live rooms one server holds — a public server must not let a script
+ * open rooms until memory runs out. Generous for real use. */
+const MAX_ROOMS = 1_000;
+/** The most live rooms one client address may hold open as host, so one script can't
+ * fill the server-wide cap (rooms with no players now stay open while their host is). */
+const MAX_ROOMS_PER_ADDRESS = 10;
+
 export class RoomHub {
   private readonly rooms = new Map<string, RoomSession>();
   private readonly sessionOf = new Map<Connection, RoomSession>();
   private readonly registry: Registry = createRegistry(games);
 
-  constructor(private readonly deps: ServerDeps = realDeps()) {}
+  constructor(
+    private readonly deps: ServerDeps = realDeps(),
+    private readonly limits: { maxRooms: number; maxRoomsPerAddress?: number } = {
+      maxRooms: MAX_ROOMS,
+      maxRoomsPerAddress: MAX_ROOMS_PER_ADDRESS,
+    },
+  ) {}
+
+  // room code -> the address that opened it, and the live count per address.
+  private readonly openedBy = new Map<string, string>();
+  private readonly roomsPerAddress = new Map<string, number>();
+
+  /** True once this connection has joined or opened a room (the handshake is done). */
+  isBound(conn: Connection): boolean {
+    return this.sessionOf.has(conn);
+  }
 
   /** True while the room is live — for tests and lifecycle assertions. */
   hasRoom(code: string): boolean {
@@ -72,7 +94,8 @@ export class RoomHub {
         return;
       }
       case 'ping':
-        return; // keepalive (F3): the traffic is the point; nothing to do
+        conn.send({ type: 'pong' }); // keepalive (F3) + proof of life for the client
+        return;
     }
   }
 
@@ -88,18 +111,53 @@ export class RoomHub {
       conn.send({ type: 'error', code: '', message: 'ALREADY_IN_ROOM' });
       return;
     }
+    if (this.rooms.size >= this.limits.maxRooms) {
+      conn.send({ type: 'error', code: '', message: 'SERVER_FULL' });
+      return;
+    }
+    const address = conn.address;
+    const perAddress = this.limits.maxRoomsPerAddress ?? MAX_ROOMS_PER_ADDRESS;
+    if (address !== undefined && (this.roomsPerAddress.get(address) ?? 0) >= perAddress) {
+      conn.send({ type: 'error', code: '', message: 'TOO_MANY_ROOMS' });
+      return;
+    }
     const room = createRoom(this.deps.roomDeps, new Set(this.rooms.keys()));
-    const session = new RoomSession(room, this.registry, this.deps, (code, conns) => {
-      this.rooms.delete(code);
-      // Unbind every connection closed out with the room, so a bystander whose
-      // room vanished under them can open or join a new one (not ALREADY_IN_ROOM).
-      for (const conn of conns) {
-        this.sessionOf.delete(conn);
-      }
-    });
+    const session = new RoomSession(
+      room,
+      this.registry,
+      this.deps,
+      (code, conns) => {
+        this.rooms.delete(code);
+        this.forgetOpener(code);
+        // Unbind every connection closed out with the room, so a bystander whose
+        // room vanished under them can open or join a new one (not ALREADY_IN_ROOM).
+        for (const conn of conns) {
+          this.sessionOf.delete(conn);
+        }
+      },
+      (superseded) => this.sessionOf.delete(superseded),
+    );
     this.rooms.set(room.code, session);
+    if (address !== undefined) {
+      this.openedBy.set(room.code, address);
+      this.roomsPerAddress.set(address, (this.roomsPerAddress.get(address) ?? 0) + 1);
+    }
     this.sessionOf.set(conn, session);
     session.addHost(conn);
+  }
+
+  private forgetOpener(code: string): void {
+    const address = this.openedBy.get(code);
+    if (address === undefined) {
+      return;
+    }
+    this.openedBy.delete(code);
+    const left = (this.roomsPerAddress.get(address) ?? 1) - 1;
+    if (left <= 0) {
+      this.roomsPerAddress.delete(address);
+    } else {
+      this.roomsPerAddress.set(address, left);
+    }
   }
 
   private joinRoom(

@@ -8,4 +8,8 @@ import type { ServerMessage } from '@klatchr/protocol';
  */
 export interface Connection {
   send(message: ServerMessage): void;
+  /** End this link from the server side (e.g. superseded by another device). */
+  close(): void;
+  /** The client's network address, when the transport knows it — for per-client limits. */
+  readonly address?: string;
 }

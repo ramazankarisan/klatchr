@@ -16,8 +16,12 @@ type ErrorMessage = Extract<ServerMessage, { type: 'error' }>;
 
 export class FakeConn implements Connection {
   readonly received: ServerMessage[] = [];
+  closed = false;
   send(message: ServerMessage): void {
     this.received.push(message);
+  }
+  close(): void {
+    this.closed = true;
   }
 }
 

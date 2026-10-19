@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { type ClientMessage, type ServerMessage, serverMessage } from '@klatchr/protocol';
-import { WebSocket } from 'ws';
+import { type ClientOptions, WebSocket } from 'ws';
 import type { ServerDeps } from './serverDeps.js';
 import { realDeps } from './serverDeps.js';
 
@@ -32,8 +32,8 @@ export class WsClient {
     reject: (e: Error) => void;
   }> = [];
 
-  constructor(url: string) {
-    this.socket = new WebSocket(url);
+  constructor(url: string, options?: ClientOptions) {
+    this.socket = new WebSocket(url, options);
     this.opened = once(this.socket, 'open');
     this.closed = new Promise((resolve) =>
       this.socket.once('close', (code: number) => resolve(code)),

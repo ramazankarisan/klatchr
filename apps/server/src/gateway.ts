@@ -27,9 +27,15 @@ export class SocketGateway implements OnApplicationBootstrap, OnApplicationShutd
     // PaaS injects PORT; e2e sets WS_PORT; otherwise the default.
     const port = Number(process.env.PORT ?? process.env.WS_PORT ?? DEFAULT_PORT);
     const distDir = process.env.WEB_DIST;
+    // Behind Caddy every socket arrives from the proxy, so per-client limits read the
+    // client address from X-Forwarded-For — only when the deployment says it is proxied.
+    const trustProxy = process.env.TRUST_PROXY === '1';
+    // A bot soak (pnpm bots) opens many sockets from one address; it raises the cap.
+    const maxConnsPerIp = Number(process.env.MAX_CONNS_PER_IP) || undefined;
+    const limits = maxConnsPerIp === undefined ? { trustProxy } : { trustProxy, maxConnsPerIp };
     this.server = await startSocketServer(
       this.hub,
-      distDir === undefined ? { port } : { port, distDir },
+      distDir === undefined ? { port, ...limits } : { port, distDir, ...limits },
     );
   }
 

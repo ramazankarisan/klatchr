@@ -129,7 +129,12 @@ sudo docker run -d --restart unless-stopped --name klatchr -p 127.0.0.1:8080:808
 
 **Live rooms are in memory (no persistence — see CLAUDE.md)** — a redeploy or a VM reboot ends any game in
 progress. That is acceptable: "available for everyone" means the *server* is always
-reachable, not that a round survives a restart.
+reachable, not that a round survives a restart. `systemctl reload caddy` also drops every live
+WebSocket; clients reconnect into their rooms within the grace window.
+
+**Per-client limits trust Caddy.** The image sets `TRUST_PROXY=1`, so the per-address limits (sockets,
+rooms opened) read the client from the last `X-Forwarded-For` hop, the one Caddy appends. Only publish
+the container on `127.0.0.1` (as above): exposed directly, anyone could forge that header.
 
 ## Gotchas we actually hit
 

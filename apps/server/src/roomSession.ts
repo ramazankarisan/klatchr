@@ -7,20 +7,22 @@ import {
   type Score,
   type Viewer,
   isAdvance,
-  isRecord,
   playerIdForToken,
   roomReduce,
   roundScores,
 } from '@klatchr/core';
 import type { ServerMessage } from '@klatchr/protocol';
 import type { Connection } from './connection.js';
+import { type HostAction, hostEvent, stampPlayerId } from './roomEvents.js';
 import type { ServerDeps } from './serverDeps.js';
 
-type HostAction = 'selectGame' | 'configureGame' | 'startGame' | 'endGame';
-
-/** How long a dropped player's slot survives before it is reaped (a reload/flaky
- * network reconnects with the same token inside this window and resumes). */
-const RECONNECT_GRACE_MS = 30_000;
+/** How long a dropped player's slot survives before it is reaped (a reload, a flaky
+ * network or a locked phone reconnects with the same token inside this window and
+ * resumes). Phones routinely sleep through a minute while the host talks, so this is
+ * generous; the host's `advance` never waits on a missing player anyway. */
+const PLAYER_GRACE_MS = 180_000;
+/** How long an abandoned board keeps the room alive (a host reload or Wi-Fi blip). */
+const HOST_GRACE_MS = 60_000;
 
 /**
  * One live room: the pure `core` room plus the connections attached to it. It
@@ -54,6 +56,9 @@ export class RoomSession {
     // Called once the room has closed: the hub drops it from the registry *and*
     // unbinds every still-attached connection (the bystanders closed out with it).
     private readonly onClosed: (code: string, conns: readonly Connection[]) => void,
+    // Called when a connection is pushed out by a newer one for the same seat, so the
+    // hub unbinds it (it may open or join afresh, but no longer acts in this room).
+    private readonly onSuperseded: (conn: Connection) => void = () => {},
   ) {
     this.room = room;
     this.hostToken = deps.roomDeps.secret();
@@ -212,7 +217,7 @@ export class RoomSession {
       this.hostReaper = undefined;
       // The board was abandoned: close the room as a host leave (P6).
       this.apply({ type: 'leave' }, { role: 'host' });
-    }, RECONNECT_GRACE_MS);
+    }, HOST_GRACE_MS);
   }
 
   private cancelHostReap(): void {
@@ -225,19 +230,32 @@ export class RoomSession {
   private evictHost(): void {
     for (const [conn, viewer] of this.members) {
       if (viewer.role === 'host') {
-        this.members.delete(conn);
+        this.supersede(conn);
       }
     }
+  }
+
+  /**
+   * A newer connection took over this one's seat (a second tab, the phone after the
+   * laptop). Tell the old one why and close it, instead of leaving it frozen on its
+   * last frame; a client that sees SUPERSEDED stops reconnecting, so the two never
+   * fight over the seat.
+   */
+  private supersede(conn: Connection): void {
+    this.members.delete(conn);
+    conn.send(this.errorMsg('SUPERSEDED'));
+    conn.close();
+    this.onSuperseded(conn);
   }
 
   private scheduleReap(playerId: string): void {
     this.cancelReap(playerId); // a fresh drop restarts the window
     const cancel = this.deps.schedule(() => {
       this.reapers.delete(playerId);
-      // The slot was abandoned: leave as that player (drops it and its token,
-      // and closes the room if it was the last one).
+      // The slot was abandoned: leave as that player (drops it and its token; the
+      // room itself stays open while its host is there).
       this.apply({ type: 'leave' }, { role: 'player', id: playerId });
-    }, RECONNECT_GRACE_MS);
+    }, PLAYER_GRACE_MS);
     this.reapers.set(playerId, cancel);
   }
 
@@ -259,7 +277,7 @@ export class RoomSession {
   private evict(playerId: string): void {
     for (const [conn, viewer] of this.members) {
       if (viewer.role === 'player' && viewer.id === playerId) {
-        this.members.delete(conn);
+        this.supersede(conn);
       }
     }
   }
@@ -370,25 +388,4 @@ export class RoomSession {
     const message = error.message === undefined ? error.code : `${error.code}: ${error.message}`;
     conn.send(this.errorMsg(message));
   }
-}
-
-/** Map a host action to a core event; null iff selectGame arrived without a gameId. */
-function hostEvent(action: HostAction, gameId?: string, config?: unknown): RoomEvent | null {
-  switch (action) {
-    case 'selectGame':
-      return gameId === undefined ? null : { type: 'selectGame', gameId };
-    case 'configureGame':
-      // Forwarded opaque — the room stores it, the game validates it. An absent config
-      // is valid (clears the room back to the game's built-in default).
-      return { type: 'configureGame', config };
-    case 'startGame':
-      return { type: 'startGame' };
-    case 'endGame':
-      return { type: 'endGame' };
-  }
-}
-
-/** Overwrite any client-supplied playerId with the authenticated one (authority). */
-function stampPlayerId(event: unknown, playerId: string): unknown {
-  return isRecord(event) ? { ...event, playerId } : event;
 }

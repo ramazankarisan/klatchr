@@ -90,16 +90,25 @@ describe('disconnect grace + reap', () => {
     expect(lastFrame(host).players).toHaveLength(3);
   });
 
-  it('discards the room only after the last player’s window elapses, not on the drop (P7)', async () => {
+  it('a reaped last player leaves the room open while the host is there (S11)', async () => {
     const { deps, fireAll } = fakeTimerDeps();
     const [hub, , code] = await openWith(deps);
     const only = at(await seat(hub, code, 1), 0);
     hub.disconnect(only);
     await flush();
-    expect(hub.hasRoom(code)).toBe(true); // alive in the window
+    fireAll(); // the player's grace elapses — their seat is reaped
+    await flush();
+    expect(hub.hasRoom(code)).toBe(true); // a shared Wi-Fi blip no longer kills the room
+  });
+
+  it('closes the room once the board is gone past its own grace, players or not', async () => {
+    const { deps, fireAll } = fakeTimerDeps();
+    const [hub, host, code] = await openWith(deps);
+    hub.disconnect(host);
+    await flush();
     fireAll();
     await flush();
-    expect(hub.hasRoom(code)).toBe(false); // reaped
+    expect(hub.hasRoom(code)).toBe(false);
   });
 
   it('cancels a pending reaper when the room closes under it (no timer into a dead session)', async () => {

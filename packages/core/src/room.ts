@@ -125,8 +125,9 @@ function leave(room: Room, actor: Viewer, ctx: ReduceContext): Result<Room, Room
       ? room.scoreLedger
       : { ...room.scoreLedger, [ledgerKey(leaver.nickname)]: parked };
   const gameState = forwardRoster(room, { type: 'playerLeft', id: actor.id }, ctx);
-  const closed = players.length === 0; // P7: last player leaves -> discarded
-  return ok({ ...room, players, tokens, gameState, closed, sessionScores, scoreLedger });
+  // The room stays open with no players: the host may be waiting for people to (re)join.
+  // It closes only when the host goes (P6) — an abandoned board is reaped server-side.
+  return ok({ ...room, players, tokens, gameState, sessionScores, scoreLedger });
 }
 
 function selectGame(
