@@ -19,4 +19,8 @@ export class FrameTransport implements Transport {
   send(action: Action): void {
     this.sent.push(action);
   }
+  disposed = false;
+  dispose(): void {
+    this.disposed = true;
+  }
 }

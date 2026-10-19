@@ -301,7 +301,7 @@ test('a host page reload resumes the same room, game intact (8.1)', async ({ bro
   await host.page.getByRole('button', { name: /guess who said it/i }).click();
   await expect(host.page.getByText(/selected/i)).toBeVisible(); // game picked
 
-  await host.page.reload(); // closes the socket + wipes in-memory state; only localStorage survives
+  await host.page.reload(); // closes the socket + wipes in-memory state; only web storage survives (sessionStorage for the host)
 
   // Auto-resumed: same room code, not bounced to the landing, and the picked game
   // survived (the server held the room; the client re-attached via resumeHost).
@@ -533,7 +533,7 @@ test('a host reload mid-guess resumes the live round, phones unaffected (L5)', a
   await host.page.getByRole('button', { name: STEP.show }).click();
   await expect(host.page.getByRole('button', { name: STEP.reveal })).toBeVisible();
 
-  await host.page.reload(); // closes the socket mid-round; only localStorage survives
+  await host.page.reload(); // closes the socket mid-round; only web storage survives (sessionStorage for the host)
 
   // Auto-resumed onto the same room, and the guess phase is intact: the reveal step
   // is available again (a fresh/lobby board would show "Start the round" instead).

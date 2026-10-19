@@ -14,3 +14,6 @@ view per game. Design system: @../../design.md
 - Tests use React Testing Library and query by role and label — never by test
   id or class name.
 - `pnpm dev` without `VITE_WS_URL` runs on the in-browser mock transport.
+- A `Transport` connects on first subscribe (never in render: StrictMode builds
+  state twice), heals itself, and ends on a terminal error or `dispose()`. Call
+  `dispose()` whenever its screen goes away.

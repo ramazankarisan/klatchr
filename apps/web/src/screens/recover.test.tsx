@@ -32,6 +32,7 @@ class FakeTransport implements Transport {
     };
   }
   send(_action: Action): void {}
+  dispose(): void {}
   fail(message: string): void {
     act(() => {
       for (const cb of this.errorCbs) cb({ code: 'WXYZ', message });
