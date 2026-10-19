@@ -49,14 +49,16 @@ pnpm gate       # full pre-commit wall — run before calling any task done
 This project is built with an AI coding agent (Claude Code) under a fixed method:
 
 - **RPI cycle** — Research → Plan (written to `docs/plan-N.md`, approved before
-  code) → Implement. One cycle per session.
+  code) → Implement.
 - **TDD inside implement** — red → green → refactor. `core` and `games` are pure
   with a 100% coverage threshold; redaction tests are written first.
-- **`CLAUDE.md`** — the agent's standing instructions: architecture, hard rules,
-  and working style. It overrides default agent behavior.
-- **Gate wall** (`pnpm gate`) — a phased, fail-fast check (syntax → format → dead
-  code → static analysis → types → module architecture → tests). A task is not
-  done until the wall is green. End-to-end tests (`pnpm e2e`) run in CI on every
+- **`CLAUDE.md`** — the agent's standing instructions: a short root file with the
+  architecture rules and working style, plus one per area (`packages/`,
+  `apps/server/`, `apps/web/`, `e2e/`) that loads only when the agent works there.
+- **Gate wall** (`pnpm gate`, `scripts/gate.sh`) — a fail-fast wall: custom checks
+  (purity, redaction tests, bypass directives, line caps), secrets scan, biome,
+  dead code, duplication, types, type coverage, module architecture, audit, tests.
+  A task is not done until the wall is green. End-to-end tests (`pnpm e2e`) run in CI on every
   PR and at cycle end, not on every commit.
 
-See `CLAUDE.md` for the full rules and `SPEC.md` for the design.
+See `CLAUDE.md` and the per-area `CLAUDE.md` files for the full rules and `SPEC.md` for the design.

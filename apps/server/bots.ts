@@ -9,8 +9,8 @@
  * One bot opens a room as host and picks a game; `--players N` bots join and
  * loop sensible moves by role (submit/vote/guess, the host advances); `--chaos`
  * randomly drops and reconnects a fraction to exercise grace/reap/reclaim under
- * load. Every inbound frame is parsed with `@klatchr/protocol` (rule 2). Exits
- * non-zero if any error frame or socket error was seen, so a soak is scriptable.
+ * load. Every inbound frame is parsed with `@klatchr/protocol` (parse at the
+ * boundary). Exits non-zero if any error frame or socket error was seen, so a soak is scriptable.
  *
  * This is a dev script (outside `src`, so it is not shipped, coverage-scanned,
  * or knip-analysed); `Math.random`/`Date.now` are legitimate here.
@@ -129,7 +129,7 @@ class Bot {
       }
       const parsed = serverMessage.safeParse(json);
       if (!parsed.success) {
-        return; // a real client drops off-schema payloads (rule 2)
+        return; // a real client drops off-schema payloads (the parse-at-the-boundary rule)
       }
       const message = parsed.data;
       if (message.type === 'error') {

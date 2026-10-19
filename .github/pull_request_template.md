@@ -24,7 +24,7 @@ Delete any section that doesn't apply.
 ## Checklist
 
 - [ ] `pnpm gate` is green
-- [ ] Touched a UI in `apps/web`? Design sketch approved first (see CLAUDE.md)
+- [ ] Touched a UI in `apps/web`? Design sketch approved first (see apps/web/CLAUDE.md)
 - [ ] New reducer transition? Unit test added, including rejections
 - [ ] No new dependency added without asking
 

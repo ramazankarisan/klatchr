@@ -37,7 +37,8 @@ async function openRoom(): Promise<[WsClient, string]> {
   return [host, frame.code];
 }
 
-/** The host view's collect-phase progress, read without casting the payload (rule 2). */
+/** The host view's collect-phase progress, read without casting the payload
+ * (the parse-at-the-boundary rule). */
 function submittedCount(view: unknown): number | undefined {
   if (typeof view === 'object' && view !== null && 'submittedCount' in view) {
     return typeof view.submittedCount === 'number' ? view.submittedCount : undefined;

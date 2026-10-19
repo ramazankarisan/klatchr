@@ -7,10 +7,10 @@ import { type ServerDeps, realDeps } from './serverDeps.js';
 
 /**
  * The room registry and inbound router. One `RoomSession` per live room keyed by
- * code (rule 7 — in memory, discarded when empty); a connection belongs to at
+ * code (the no-persistence rule — in memory, discarded when empty); a connection belongs to at
  * most one session. Transport-agnostic: the gateway feeds it a `Connection` plus
  * raw wire strings, and this parses every inbound with `@klatchr/protocol`
- * (rule 2) before routing. All redaction/authority lives in the session.
+ * (the parse-at-the-boundary rule) before routing. All redaction/authority lives in the session.
  */
 export class RoomHub {
   private readonly rooms = new Map<string, RoomSession>();

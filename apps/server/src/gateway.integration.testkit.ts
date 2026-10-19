@@ -6,8 +6,8 @@ import { realDeps } from './serverDeps.js';
 
 /**
  * Harness for the ws-integration test (plan-14 L3): a real `ws` client that
- * parses every inbound with `@klatchr/protocol` (rule 2 — the client parses too)
- * and lets a test await a specific frame, plus a controllable schedule so the
+ * parses every inbound with `@klatchr/protocol` (parse at the boundary — the
+ * client parses too) and lets a test await a specific frame, plus a controllable schedule so the
  * grace/reap window is driven deterministically over a real socket.
  */
 
@@ -44,7 +44,7 @@ export class WsClient {
       }
       const parsed = serverMessage.safeParse(json);
       if (!parsed.success) {
-        return; // a real client drops anything off-schema (rule 2)
+        return; // a real client drops anything off-schema (the parse-at-the-boundary rule)
       }
       this.messages.push(parsed.data);
       for (const waiter of this.waiters.splice(0)) {

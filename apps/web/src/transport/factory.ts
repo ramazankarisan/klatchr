@@ -4,14 +4,14 @@ import type { Transport } from './types.js';
 
 /**
  * Picks the transport: a real `SocketTransport` when `VITE_WS_URL` is set (the
- * browser, dev + prod — rule 6, never a hardcoded host), the in-browser
+ * browser, dev + prod — the VITE_WS_URL rule, never a hardcoded host), the in-browser
  * `MockEngine` otherwise (RTL tests run with no server). One transport per
  * surface, bound to its viewer.
  */
 
 // In a single-service deploy (7.3) the client talks to its *own* origin, so the
 // prod build sets `VITE_WS_URL=same-origin` rather than baking a host — the URL
-// still comes *from* `VITE_WS_URL` (rule 6 holds), we just expand it at runtime to
+// still comes *from* `VITE_WS_URL` (the VITE_WS_URL rule holds), we just expand it at runtime to
 // `ws(s)://<this-host>` (wss under https). Any other value is used verbatim.
 const SAME_ORIGIN = 'same-origin';
 export function resolveWsUrl(

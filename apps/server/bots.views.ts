@@ -1,7 +1,7 @@
 /**
  * Typed readers for the game views the bot tool acts on. A frame carries
- * `gameView: unknown`, and rule 2 forbids casting an incoming payload, so each
- * field is checked rather than assumed. A renamed field reads as undefined.
+ * `gameView: unknown`, and the parse-at-the-boundary rule forbids casting an
+ * incoming payload, so each field is checked rather than assumed. A renamed field reads as undefined.
  */
 
 export interface HostGameView {

@@ -127,7 +127,7 @@ sudo docker rm -f klatchr
 sudo docker run -d --restart unless-stopped --name klatchr -p 127.0.0.1:8080:8080 klatchr
 ```
 
-**Live rooms are in memory (rule 7)** — a redeploy or a VM reboot ends any game in
+**Live rooms are in memory (no persistence — see CLAUDE.md)** — a redeploy or a VM reboot ends any game in
 progress. That is acceptable: "available for everyone" means the *server* is always
 reachable, not that a round survives a restart.
 
@@ -152,7 +152,7 @@ reachable, not that a round survives a restart.
   (redo steps 3–6) if you want OS updates.
 - **Same-origin URL.** The image bakes `VITE_WS_URL=same-origin`
   (`apps/web/.env.production`), so the browser talks to `wss://<its-own-host>` — no
-  host is hardcoded (rule 6). `PORT` and `WEB_DIST` are set in the `Dockerfile`.
+  host is hardcoded (the VITE_WS_URL rule). `PORT` and `WEB_DIST` are set in the `Dockerfile`.
 - **Alternative host.** GCP `e2-micro` (us-west1/central1/east1) is the same 1 GB
   free-forever VM; steps 3–6 are identical, only the VM creation and firewall
   console differ.

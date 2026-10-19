@@ -27,7 +27,7 @@ export function createRoom(deps: RoomDeps, taken: ReadonlySet<string> = new Set(
 
 /** The ledger key for a display nickname: case-insensitive on purpose — phone
  * keyboards auto-capitalise, and reclaim-after-reap is exactly the flaky-phone
- * path. Same trust level as the resume token (rule 7: no auth). */
+ * path. Same trust level as the resume token (the no-persistence rule: no auth). */
 function ledgerKey(nickname: string): string {
   return nickname.toLowerCase();
 }

@@ -7,7 +7,7 @@ import { asPlayer, ctxWith, player, room } from './room.testkit.js';
  * D4 nickname-reclaim (plan-13 A8–A10): a player reaped past the grace window
  * loses their seat but not their night — `leave` parks the session score in a
  * room-level ledger keyed by nickname, and a fresh `join` with the same
- * nickname reclaims it. Same trust level as the resume token (rule 7).
+ * nickname reclaims it. Same trust level as the resume token (the no-persistence rule).
  */
 
 function named(id: string, nickname: string): Player {

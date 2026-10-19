@@ -222,7 +222,7 @@ describe('a full round: authority, redaction, scores', () => {
   });
 });
 
-describe('parsing the boundary (rule 2)', () => {
+describe('parsing the boundary (the parse-at-the-boundary rule)', () => {
   it('rejects malformed JSON', () => {
     const hub = new RoomHub();
     const conn = new FakeConn();
@@ -248,7 +248,7 @@ describe('parsing the boundary (rule 2)', () => {
   });
 });
 
-describe('lifecycle guards and empty-room discard (rule 7)', () => {
+describe('lifecycle guards and empty-room discard (the no-persistence rule)', () => {
   it('refuses play/host/leave from a connection in no room', () => {
     const hub = new RoomHub();
     const conn = new FakeConn();

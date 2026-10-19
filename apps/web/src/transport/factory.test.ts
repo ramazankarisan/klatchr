@@ -4,7 +4,7 @@ import { clearHostSession, resolveWsUrl, storedHostSession, storedNick } from '.
 /**
  * The single-service (7.3) `same-origin` sentinel: the prod build sets
  * `VITE_WS_URL=same-origin`; the factory expands it to this page's own origin at
- * runtime (rule 6 — the URL still comes *from* the env, no host is baked).
+ * runtime (the VITE_WS_URL rule — the URL still comes *from* the env, no host is baked).
  */
 describe('resolveWsUrl', () => {
   it('expands "same-origin" to wss on an https page', () => {

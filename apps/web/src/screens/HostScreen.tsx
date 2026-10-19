@@ -42,7 +42,8 @@ function RoundPill({
   );
 }
 
-/** Where players go to join — this host's own origin (rule 6: never a baked host). */
+/** Where players go to join — this host's own origin (the VITE_WS_URL rule: never a
+ * baked host). */
 function joinHost(): string {
   return typeof window === 'undefined' ? '' : window.location.host;
 }

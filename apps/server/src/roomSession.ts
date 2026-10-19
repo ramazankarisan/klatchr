@@ -26,7 +26,7 @@ const RECONNECT_GRACE_MS = 30_000;
  *   - authority: the actor handed to `reduce` comes from the *connection's*
  *     registered identity, never from the message, so a player can't act as the
  *     host or as another player;
- *   - redaction (rule 3): every outbound is `view(state, viewer)` for that
+ *   - redaction (the view-only rule): every outbound is `view(state, viewer)` for that
  *     connection's own viewer — never the raw state;
  *   - coalesced fan-out (W3): a burst of applied events collapses to one frame
  *     per connection per microtask.
@@ -384,7 +384,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-/** `{ type: 'advance' }` is the platform-wide phase-advance convention (CLAUDE.md). */
+/** `{ type: 'advance' }` is the platform-wide phase-advance convention (packages/CLAUDE.md). */
 function isAdvance(event: unknown): boolean {
   return isObject(event) && event.type === 'advance';
 }

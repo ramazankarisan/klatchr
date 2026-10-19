@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Every game must ship a redaction test (CLAUDE.md § Testing). 100% coverage
+# Every game must ship a redaction test (packages/CLAUDE.md). 100% coverage
 # forces view() to *execute*, but not to *withhold* hidden info — only a
 # redaction test proves the no-leak property. This asserts the file exists so a
 # new game directory cannot skip it. Each immediate subdirectory of
