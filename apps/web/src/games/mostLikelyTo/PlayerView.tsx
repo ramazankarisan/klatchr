@@ -31,7 +31,9 @@ function VotePhone({
         onPick={onVote}
       />
       {v.yourVote !== undefined ? (
-        <Typography sx={{ mt: 'auto', color: tokens.color.teal, fontWeight: 700, fontSize: 13.5 }}>
+        <Typography
+          sx={{ mt: 'auto', color: tokens.color.tealDeep, fontWeight: 700, fontSize: 13.5 }}
+        >
           ✓ Voted for {nameOf(v.yourVote, players)} — tap another to change
         </Typography>
       ) : null}

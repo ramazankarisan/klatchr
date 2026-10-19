@@ -1,52 +1,17 @@
 import { Box, Button, Typography } from '@mui/material';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { Board, tvType } from '../components/board.js';
 import { ConfirmDialog, confirmDialogFor } from '../components/confirmDialog.js';
-import { Board, Recover } from '../components/paper.js';
-import { SessionStandings } from '../components/standings.js';
-import { type GameOption, gameCatalog, viewsFor } from '../games/registry.js';
+import { Recover } from '../components/paper.js';
+import { RoundStandings } from '../components/standings.js';
+import { gameCatalog, viewsFor } from '../games/registry.js';
 import { GameLabel } from '../games/viewKit.js';
-import { playerColor, tokens } from '../tokens.js';
+import { tokens } from '../tokens.js';
 import type { Action, Transport, ViewFrame } from '../transport/types.js';
 import { useScreen } from '../useScreen.js';
 import { CustomizeQuestions } from './customizeQuestions.js';
-
-/** A small round-counter pill for the board header (S6). */
-function RoundPill({
-  round,
-  over,
-  exhausted,
-}: { round: number; over: boolean; exhausted: boolean }): ReactNode {
-  const label = !over
-    ? `Round ${round}`
-    : exhausted
-      ? `All ${round} ${round === 1 ? 'question' : 'questions'} played`
-      : `Game over · ${round} ${round === 1 ? 'round' : 'rounds'}`;
-  return (
-    <Box
-      component="span"
-      sx={{
-        fontFamily: tokens.font.mono,
-        fontSize: { xs: 12, md: 14 },
-        fontWeight: 700,
-        color: tokens.color.markerDeep,
-        backgroundColor: '#f4e7d5',
-        border: '1px solid #e6d6bd',
-        borderRadius: 999,
-        px: 1.5,
-        py: 0.5,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </Box>
-  );
-}
-
-/** Where players go to join — this host's own origin (the VITE_WS_URL rule: never a
- * baked host). */
-function joinHost(): string {
-  return typeof window === 'undefined' ? '' : window.location.host;
-}
+import { Lobby } from './hostLobby.js';
+import { LeaveControl, RoundPill, joinHost } from './hostParts.js';
 
 /** The host's one control button, resolved for any game from the current frame. */
 function hostControl(frame: ViewFrame): { label: string; actions: readonly Action[] } {
@@ -88,143 +53,13 @@ function startHint(frame: ViewFrame): string | null {
     : null;
 }
 
-function GamePicker({
-  games,
-  selectedId,
-  onSelect,
-}: {
-  games: readonly GameOption[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}): ReactNode {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {games.map((game) => {
-        const sel = game.id === selectedId;
-        return (
-          <Button
-            key={game.id}
-            onClick={() => onSelect(game.id)}
-            sx={{
-              textTransform: 'none',
-              textAlign: 'left',
-              alignItems: 'flex-start',
-              flexDirection: 'column',
-              gap: 0.5,
-              p: '15px 16px',
-              color: tokens.color.ink,
-              backgroundColor: tokens.color.card,
-              border: `1px solid ${sel ? tokens.color.marker : '#e8dcc6'}`,
-              borderRadius: `${tokens.radius.card}px`,
-              boxShadow: sel
-                ? `0 0 0 1px ${tokens.color.marker}, 1px 3px 6px rgba(43,38,32,.14)`
-                : '1px 3px 6px rgba(43,38,32,.14)',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                gap: 1,
-              }}
-            >
-              <Typography variant="h3" sx={{ fontSize: 20 }}>
-                {game.name}
-              </Typography>
-              {sel ? (
-                <Typography sx={{ color: tokens.color.marker, fontWeight: 800, fontSize: 14 }}>
-                  ✓ selected
-                </Typography>
-              ) : null}
-            </Box>
-            <Typography sx={{ color: tokens.color.inkSoft, fontSize: 13.5 }}>
-              {game.description}
-            </Typography>
-            <Typography
-              sx={{
-                fontFamily: tokens.font.mono,
-                fontSize: 11.5,
-                color: tokens.color.markerDeep,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {game.minPlayers}–{game.maxPlayers} players
-            </Typography>
-          </Button>
-        );
-      })}
-    </Box>
-  );
-}
-
-function Lobby({
-  frame,
-  onSelect,
-}: { frame: ViewFrame; onSelect: (id: string) => void }): ReactNode {
-  // Cap comes from the picked game (8.2) — never a hardcoded 50. Over the seat cap
-  // it reads seats-vs-waiting (X2), not a nonsensical "15 / 12".
-  const game = gameCatalog().find((g) => g.id === frame.selectedGameId);
-  const n = frame.players.length;
-  const roster =
-    game === undefined
-      ? `${n} in the room`
-      : n > game.maxPlayers
-        ? `${game.maxPlayers} playing · ${n - game.maxPlayers} waiting`
-        : `${n} / ${game.maxPlayers} in the room`;
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="h3" sx={{ fontSize: 20 }}>
-          Choose tonight’s game
-        </Typography>
-        <Typography
-          sx={{ fontFamily: tokens.font.mono, color: tokens.color.markerDeep, fontWeight: 700 }}
-        >
-          {roster}
-        </Typography>
-      </Box>
-      <GamePicker games={gameCatalog()} selectedId={frame.selectedGameId} onSelect={onSelect} />
-      {frame.players.length > 0 ? (
-        // Compact chips, not big tiles — reads at 50 (plan-9 §F2). Waiting players dimmed.
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2.5 }}>
-          {frame.players.map((p) => (
-            <Box
-              key={p.id}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                fontSize: 13,
-                fontWeight: 600,
-                backgroundColor: tokens.color.card,
-                border: '1px solid #eaddc6',
-                borderRadius: 999,
-                px: 1.25,
-                py: 0.5,
-                opacity: p.spectator ? 0.5 : 1,
-              }}
-            >
-              <Box
-                component="span"
-                sx={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: '50%',
-                  backgroundColor: playerColor(p.id, frame.players),
-                }}
-              />
-              {p.nickname}
-              {p.spectator ? ' · waiting' : ''}
-            </Box>
-          ))}
-        </Box>
-      ) : null}
-    </Box>
-  );
-}
+// Board-scale buttons (UX-1): the primary is a markerDeep pill (theme), the rest outlined.
+const bigButton = {
+  fontSize: tvType.button,
+  minHeight: 'clamp(52px, 4.4vw, 76px)',
+  px: 'clamp(24px, 2.6vw, 48px)',
+  borderRadius: 999,
+} as const;
 
 export function HostScreen({
   transport,
@@ -295,12 +130,20 @@ export function HostScreen({
   return (
     <Board
       code={frame.code}
-      hint={<>Join at {joinHost()} · punch in the code</>}
+      // Code-first only in the real lobby; in-game the code sits small in the corner.
+      joinHost={joinHost()}
+      codeFirst={frame.phase === 'LOBBY'}
       badge={
         frame.round > 0 ? (
-          <RoundPill round={frame.round} over={over} exhausted={exhausted} />
+          <RoundPill
+            round={frame.round}
+            total={frame.roundsTotal}
+            over={over}
+            exhausted={exhausted}
+          />
         ) : undefined
       }
+      corner={<LeaveControl onLeave={() => setConfirm('leave')} />}
       reconnecting={reconnecting}
     >
       {showPicker ? (
@@ -325,16 +168,30 @@ export function HostScreen({
           <views.Host view={frame.gameView} players={frame.players} />
         </Box>
       )}
-      {over && !picking && frame.sessionScores.length > 0 ? (
-        <Box sx={{ mt: 3 }}>
-          <SessionStandings scores={frame.sessionScores} players={frame.players} />
+      {over && !picking ? (
+        <Box sx={{ mt: 'clamp(24px, 3vw, 48px)' }}>
+          <RoundStandings
+            round={frame.scores}
+            session={frame.sessionScores}
+            players={frame.players}
+            title={exhausted ? 'Final standings' : 'Standings so far'}
+          />
         </Box>
       ) : null}
-      <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          mt: 'clamp(28px, 3.4vw, 56px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          flexWrap: 'wrap',
+        }}
+      >
         {gameOver ? null : (
           <Button
             variant="contained"
             size="large"
+            sx={bigButton}
             disabled={control.actions.length === 0 || customizeBlocked || (exhausted && showPicker)}
             onClick={() => {
               for (const action of control.actions) {
@@ -350,27 +207,27 @@ export function HostScreen({
             variant="outlined"
             size="large"
             color="inherit"
+            sx={bigButton}
             onClick={() => setConfirm('change')}
           >
             Change game
           </Button>
         ) : null}
         {frame.phase === 'IN_GAME' ? (
-          <Button variant="text" size="large" color="inherit" onClick={() => setConfirm('end')}>
+          <Button
+            variant="outlined"
+            size="large"
+            color="inherit"
+            sx={bigButton}
+            onClick={() => setConfirm('end')}
+          >
             End game
           </Button>
         ) : null}
-        <Button
-          variant="text"
-          size="large"
-          color="error"
-          onClick={() => setConfirm('leave')}
-          sx={{ ml: { sm: 'auto' } }}
-        >
-          Leave &amp; close room
-        </Button>
         {hint !== null ? (
-          <Typography sx={{ color: tokens.color.inkSoft, fontSize: 15 }}>{hint}</Typography>
+          <Typography sx={{ color: tokens.color.inkSoft, fontSize: tvType.body }}>
+            {hint}
+          </Typography>
         ) : null}
       </Box>
       {confirmProps !== null ? (

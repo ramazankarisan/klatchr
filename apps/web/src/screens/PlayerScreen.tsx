@@ -19,7 +19,7 @@ function Brand({ code, name }: { code: string; name: string }): ReactNode {
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Typography sx={{ fontSize: 12, color: tokens.color.inkSoft }}>{name}</Typography>
-        <DymoCode code={code} small />
+        <DymoCode code={code} size="small" />
       </Box>
     </Box>
   );

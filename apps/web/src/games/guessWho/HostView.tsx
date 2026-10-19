@@ -4,40 +4,61 @@ import { IndexCard, Stamp } from '../../components/paper.js';
 import { nameOf } from '../../players.js';
 import { playerColor, tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
-import { HostKicker, Prompt, gameHostView } from '../viewKit.js';
+import { ActedProgress } from '../progressChips.js';
+import { HostKicker, Prompt, actedIds, gameHostView, seatedIds } from '../viewKit.js';
 import { type GuessHostView, type RevealView, asHostView } from './frames.js';
 
 const cardLabel = (i: number): string => `Card ${String.fromCharCode(65 + i)}`;
 
-const cardGrid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: 2.5,
-} as const;
+/** The answer cards as a labelled list, so "what is on a card" is queryable on its own —
+ * apart from the progress chips' names, which say who has acted, never who wrote what. */
+function CardGrid({ mt, children }: { mt: number; children: ReactNode }): ReactNode {
+  return (
+    <Box
+      component="ul"
+      aria-label="Answer cards"
+      sx={{
+        listStyle: 'none',
+        p: 0,
+        mb: 0,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(220px, 18vw, 340px), 1fr))',
+        gap: 'clamp(20px, 2vw, 36px)',
+        mt,
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
 
 function AnswerText({ text }: { text: string }): ReactNode {
-  return <Typography sx={{ fontSize: 18, fontWeight: 600 }}>{text}</Typography>;
+  return (
+    <Typography sx={{ fontSize: 'clamp(18px, 1.7vw, 30px)', fontWeight: 600 }}>{text}</Typography>
+  );
 }
 
 function GuessCards({ cards }: { cards: GuessHostView['cards'] }): ReactNode {
   return (
-    <Box sx={{ ...cardGrid, mt: 3 }}>
+    <CardGrid mt={4}>
       {cards.map((card, i) => (
-        <IndexCard key={card.id}>
-          <Typography
-            sx={{
-              fontFamily: tokens.font.mono,
-              fontSize: 11,
-              color: tokens.color.markerDeep,
-              fontWeight: 700,
-            }}
-          >
-            {cardLabel(i)}
-          </Typography>
-          <AnswerText text={card.text} />
-        </IndexCard>
+        <Box component="li" key={card.id}>
+          <IndexCard>
+            <Typography
+              sx={{
+                fontFamily: tokens.font.mono,
+                fontSize: 'clamp(13px, 1.1vw, 18px)',
+                color: tokens.color.markerDeep,
+                fontWeight: 700,
+              }}
+            >
+              {cardLabel(i)}
+            </Typography>
+            <AnswerText text={card.text} />
+          </IndexCard>
+        </Box>
       ))}
-    </Box>
+    </CardGrid>
   );
 }
 
@@ -46,120 +67,55 @@ function RevealCards({
   players,
 }: { cards: RevealView['cards']; players: readonly PublicPlayer[] }): ReactNode {
   return (
-    <Box sx={{ ...cardGrid, mt: 1 }}>
+    <CardGrid mt={1}>
       {cards.map((card) => (
-        <IndexCard key={card.id}>
-          <Stamp />
-          <AnswerText text={card.text} />
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              mt: 'auto',
-              color: tokens.color.teal,
-              fontWeight: 800,
-              fontSize: 13,
-            }}
-          >
+        <Box component="li" key={card.id}>
+          <IndexCard>
+            <Stamp />
+            <AnswerText text={card.text} />
             <Box
-              component="span"
               sx={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                backgroundColor: playerColor(card.authorId, players),
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mt: 'auto',
+                color: tokens.color.tealDeep,
+                fontWeight: 800,
+                fontSize: 'clamp(15px, 1.4vw, 24px)',
               }}
-            />
-            {nameOf(card.authorId, players)}
-          </Box>
-        </IndexCard>
+            >
+              <Box
+                component="span"
+                sx={{
+                  width: '0.8em',
+                  height: '0.8em',
+                  borderRadius: '50%',
+                  backgroundColor: playerColor(card.authorId, players),
+                }}
+              />
+              {nameOf(card.authorId, players)}
+            </Box>
+          </IndexCard>
+        </Box>
       ))}
-    </Box>
+    </CardGrid>
   );
 }
 
-/**
- * The reveal scoreboard on the shared screen. Public by nature (everyone sees
- * the board), so no leak — and shown only at reveal, so mid-round scores never
- * spoil it. This is the *round* tally; the cross-round cumulative total rides
- * alongside it as the platform-level `SessionStandings` (S6, Cycle 10).
- */
-function Standings({
-  scores,
-  players,
-}: { scores: RevealView['scores']; players: readonly PublicPlayer[] }): ReactNode {
-  const ranked = [...scores].sort((a, b) => b.points - a.points);
-  return (
-    <Box sx={{ mt: 4 }}>
-      <HostKicker>Standings · this round</HostKicker>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 520 }}>
-        {ranked.map((s, i) => (
-          <Box
-            key={s.playerId}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              backgroundColor: tokens.color.card,
-              border: '1px solid #e9ddc7',
-              borderRadius: `${tokens.radius.control}px`,
-              p: 1.25,
-              boxShadow: i === 0 ? `inset 3px 0 0 ${tokens.color.marker}` : 'none',
-            }}
-          >
-            <Typography
-              sx={{
-                fontFamily: tokens.font.mono,
-                fontSize: 13,
-                color: tokens.color.inkSoft,
-                width: 22,
-              }}
-            >
-              {i + 1}
-            </Typography>
-            <Box
-              component="span"
-              sx={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                backgroundColor: playerColor(s.playerId, players),
-              }}
-            />
-            <Typography sx={{ flex: 1, fontWeight: 700 }}>{nameOf(s.playerId, players)}</Typography>
-            <Typography
-              sx={{
-                fontFamily: tokens.font.mono,
-                fontWeight: 700,
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              +{s.points}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
+// The round's scores are no longer drawn here: the platform's one ranked standings table
+// (this round + total, UX-1) sits under the reveal on the SCORES screen.
 export const HostView = gameHostView(asHostView, (v, players) => {
   if (v.phase === 'collect') {
     return (
       <Box>
         <HostKicker>Everyone’s writing an answer</HostKicker>
         <Prompt text={v.prompt} />
-        <Typography
-          sx={{
-            mt: 3,
-            fontFamily: tokens.font.mono,
-            fontWeight: 700,
-            color: tokens.color.markerDeep,
-          }}
-        >
-          {v.submittedCount} of {v.total} answered
-        </Typography>
+        <ActedProgress
+          ids={seatedIds(players)}
+          done={actedIds(v.submitted)}
+          verb="answered"
+          players={players}
+        />
       </Box>
     );
   }
@@ -168,16 +124,12 @@ export const HostView = gameHostView(asHostView, (v, players) => {
       <Box>
         <HostKicker>Guess who said it — on your phones</HostKicker>
         <Prompt text={v.prompt} />
-        <Typography
-          sx={{
-            mt: 2,
-            fontFamily: tokens.font.mono,
-            fontWeight: 700,
-            color: tokens.color.markerDeep,
-          }}
-        >
-          {v.guessed.length} of {v.candidates.length} have guessed
-        </Typography>
+        <ActedProgress
+          ids={seatedIds(players)}
+          done={actedIds(v.guessed)}
+          verb="have guessed"
+          players={players}
+        />
         <GuessCards cards={v.cards} />
       </Box>
     );
@@ -186,7 +138,6 @@ export const HostView = gameHostView(asHostView, (v, players) => {
     <Box>
       <HostKicker>And the authors are…</HostKicker>
       <RevealCards cards={v.cards} players={players} />
-      <Standings scores={v.scores} players={players} />
     </Box>
   );
 });

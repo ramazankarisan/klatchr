@@ -3,72 +3,32 @@ import type { ReactNode } from 'react';
 import { nameOf } from '../../players.js';
 import { tokens } from '../../tokens.js';
 import type { PublicPlayer } from '../../transport/types.js';
-import { HostKicker, PlayerDot, Prompt, TallyBars, gameHostView } from '../viewKit.js';
+import { ActedProgress } from '../progressChips.js';
+import {
+  HostKicker,
+  PlayerDot,
+  Prompt,
+  TallyBars,
+  actedIds,
+  gameHostView,
+  seatedIds,
+} from '../viewKit.js';
 import { type ResultsView, type VoteHostView, asHostView } from './frames.js';
 
 function VoteBoard({
   v,
   players,
 }: { v: VoteHostView; players: readonly PublicPlayer[] }): ReactNode {
-  const active = players.filter((p) => !p.spectator);
-  const pct = v.total > 0 ? (v.votedCount / v.total) * 100 : 0;
   return (
     <Box>
       <HostKicker>Everyone’s voting</HostKicker>
       <Prompt text={v.prompt} />
-      <Box
-        sx={{
-          mt: 3,
-          height: 16,
-          borderRadius: 999,
-          backgroundColor: tokens.color.kraft2,
-          overflow: 'hidden',
-        }}
-      >
-        <Box sx={{ height: '100%', width: `${pct}%`, backgroundColor: tokens.color.marker }} />
-      </Box>
-      <Typography
-        sx={{
-          mt: 1.5,
-          fontFamily: tokens.font.mono,
-          fontWeight: 700,
-          color: tokens.color.markerDeep,
-        }}
-      >
-        {v.votedCount} of {v.total} voted
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-        {active.map((p) => {
-          const done = v.voted.includes(p.id);
-          return (
-            <Box
-              key={p.id}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                fontSize: 13,
-                fontWeight: done ? 600 : 400,
-                color: done ? tokens.color.ink : tokens.color.inkSoft,
-                backgroundColor: tokens.color.card,
-                border: '1px solid #eaddc6',
-                borderRadius: 999,
-                px: 1.25,
-                py: 0.5,
-                opacity: done ? 1 : 0.6,
-              }}
-            >
-              <PlayerDot id={p.id} players={players} size={10} />
-              {nameOf(p.id, players)}
-              {done ? (
-                <Box component="span" sx={{ color: tokens.color.teal, fontWeight: 800 }}>
-                  ✓
-                </Box>
-              ) : null}
-            </Box>
-          );
-        })}
-      </Box>
+      <ActedProgress
+        ids={seatedIds(players)}
+        done={actedIds(v.voted)}
+        verb="voted"
+        players={players}
+      />
     </Box>
   );
 }
@@ -98,12 +58,12 @@ function WinnerSpotlight({
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
-          color: tokens.color.marker,
-          border: `3px solid ${tokens.color.marker}`,
+          color: tokens.color.markerDeep,
+          border: `3px solid ${tokens.color.markerDeep}`,
           borderRadius: 1,
           px: 1.25,
           py: 0.5,
-          fontSize: 13,
+          fontSize: 'clamp(14px, 1.2vw, 20px)',
           transform: 'rotate(-6deg)',
         }}
       >
@@ -116,7 +76,7 @@ function WinnerSpotlight({
           gap: 1.25,
           fontFamily: tokens.font.display,
           fontWeight: 900,
-          fontSize: 30,
+          fontSize: 'clamp(30px, 3vw, 52px)',
         }}
       >
         <PlayerDot id={id} players={players} size={18} />
@@ -128,6 +88,7 @@ function WinnerSpotlight({
           fontFamily: tokens.font.mono,
           fontWeight: 700,
           color: tokens.color.markerDeep,
+          fontSize: 'clamp(16px, 1.4vw, 24px)',
         }}
       >
         {points} {points === 1 ? 'vote' : 'votes'}

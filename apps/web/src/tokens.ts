@@ -9,10 +9,12 @@ export const tokens = {
     kraft2: '#E7DCC8',
     card: '#FBF6EC',
     ink: '#2B2620',
-    inkSoft: '#6B6154',
+    inkSoft: '#5B5246', // UX-1: was #6B6154 — darkened so small secondary text on kraft passes AA
+    inkFaint: '#8C8274', // UX-1: dashed outlines / quiet control borders (non-text, ≥3:1 on kraft)
     marker: '#E8623D',
     markerDeep: '#C14A2B',
     teal: '#2E8B7B',
+    tealDeep: '#23695D', // UX-1: small teal text and teal fills under white text (AA)
     dymo: '#34302A',
     bad: '#C0392B', // failure states only (error mark / outline) — never decorative
   },
