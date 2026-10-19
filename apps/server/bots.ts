@@ -17,6 +17,12 @@
  */
 import { type ClientMessage, type ServerMessage, serverMessage } from '@klatchr/protocol';
 import { WebSocket } from 'ws';
+import {
+  type HostGameView,
+  type PlayerGameView,
+  readHostView,
+  readPlayerView,
+} from './bots.views.js';
 
 interface Options {
   players: number;
@@ -112,7 +118,16 @@ class Bot {
       onOpen();
     });
     socket.on('message', (data) => {
-      const parsed = serverMessage.safeParse(JSON.parse(data.toString()));
+      if (socket !== this.socket) {
+        return; // a late frame from a socket churn already replaced
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(data.toString());
+      } catch {
+        return; // non-JSON is off-schema too (e.g. a proxy page) — dropped, never thrown
+      }
+      const parsed = serverMessage.safeParse(json);
       if (!parsed.success) {
         return; // a real client drops off-schema payloads (rule 2)
       }
@@ -133,7 +148,9 @@ class Bot {
       }
     });
     socket.on('error', () => {
-      stats.socketErrors += 1;
+      if (socket === this.socket) {
+        stats.socketErrors += 1; // a churned-away socket's teardown is not a defect
+      }
     });
     return socket;
   }
@@ -150,6 +167,12 @@ class Bot {
     this.socket = this.connect(() =>
       this.send({ type: 'join', code, nickname, reconnectToken: this.reconnectToken }),
     );
+  }
+
+  /** Churnable only once the current socket is up — closing one still CONNECTING
+   * aborts its handshake with an 'error', which would read as a false failure. */
+  isOpen(): boolean {
+    return this.socket.readyState === WebSocket.OPEN;
   }
 
   close(): void {
@@ -220,21 +243,22 @@ async function main(): Promise<void> {
 }
 
 /** The host drives phases from its own frame, so it never fires an event into
- * the wrong phase. It advances only once everyone seated has acted (so no late
- * action races the phase change), and restarts a spent session to keep the
- * soak producing rounds. */
+ * the wrong phase. It advances only once everyone seated has acted (so late
+ * actions rarely race the phase change), and restarts a spent session to keep
+ * the soak producing rounds. */
 function driveHost(host: Bot, code: string): void {
   const frame = host.frame;
   if (frame === undefined) {
     return;
   }
   if (frame.phase === 'IN_GAME') {
-    const view = frame.gameView as HostGameView | null;
+    const view = readHostView(frame.gameView);
     if (view !== null && everyoneActed(view)) {
       host.send({ type: 'play', code, event: { type: 'advance', from: view.phase } });
     }
     return;
   }
+  guessTicks = 0;
   if (frame.phase === 'SCORES' && frame.roundsTotal > 0 && frame.round >= frame.roundsTotal) {
     // The set is spent — restart the session so the soak keeps running.
     host.send({ type: 'host', code, action: 'selectGame', gameId: frame.selectedGameId ?? '' });
@@ -243,14 +267,9 @@ function driveHost(host: Bot, code: string): void {
   host.send({ type: 'host', code, action: 'startGame' }); // LOBBY, or next round from SCORES
 }
 
-interface HostGameView {
-  phase: 'collect' | 'guess' | 'vote' | 'results' | 'reveal';
-  votedCount?: number;
-  submittedCount?: number;
-  guessed?: string[];
-  candidates?: string[];
-  total?: number;
-}
+// Ticks spent in the guess phase since everyone made a first guess (see everyoneActed).
+let guessTicks = 0;
+const GUESS_DWELL_TICKS = 4;
 
 /** Has everyone seated acted this phase, so the host can advance without racing
  * a late action? Progress counts come straight from the host's own view. */
@@ -262,23 +281,22 @@ function everyoneActed(view: HostGameView): boolean {
     return (view.submittedCount ?? 0) >= (view.total ?? 0);
   }
   if (view.phase === 'guess') {
-    // The guess view carries no `total`; its `candidates` are the seated roster,
-    // so wait until everyone has guessed at least once before advancing (else the
-    // guess phase would flip instantly and never soak under load).
+    // The host guess view only says *who* has guessed at all, not who has finished
+    // every card (guessOne sends one card a tick). So wait until everyone has a
+    // first guess, then dwell a few ticks for the rest of the cards to land before
+    // advancing — otherwise most guess traffic would be refused as WRONG_PHASE.
     const need = view.candidates?.length ?? 0;
-    return need > 0 && (view.guessed?.length ?? 0) >= need;
+    if (need === 0 || (view.guessed?.length ?? 0) < need) {
+      return false;
+    }
+    guessTicks += 1;
+    if (guessTicks < GUESS_DWELL_TICKS) {
+      return false;
+    }
+    guessTicks = 0;
+    return true;
   }
   return false;
-}
-
-interface PlayerGameView {
-  phase: 'collect' | 'guess' | 'vote' | 'results' | 'reveal';
-  candidates?: string[];
-  cards?: Array<{ id: string }>;
-  youVoted?: boolean;
-  youSubmitted?: boolean;
-  yourCardId?: string;
-  myGuesses?: Record<string, string>;
 }
 
 /** Send this bot's move for the current phase, once — driven by the view's own
@@ -292,7 +310,7 @@ function act(bot: Bot, code: string): void {
   if (frame.players.find((p) => p.id === bot.playerId)?.spectator === true) {
     return; // a spectator can't act this round
   }
-  const view = frame.gameView as PlayerGameView | null;
+  const view = readPlayerView(frame.gameView);
   if (view === null) {
     return;
   }
@@ -329,7 +347,7 @@ function guessOne(bot: Bot, code: string, view: PlayerGameView): void {
 /** Randomly drop ~1 in 8 bots and reconnect them — the grace/reap/reclaim path. */
 function churn(players: readonly Bot[], code: string): void {
   for (const [i, bot] of players.entries()) {
-    if (Math.random() < 0.12) {
+    if (bot.isOpen() && Math.random() < 0.12) {
       bot.close();
       bot.reconnect(code, `Bot${i}`);
     }

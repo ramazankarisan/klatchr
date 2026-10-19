@@ -174,3 +174,14 @@ Deltas and findings against the plan:
 in Testing; `pnpm bots` in Commands; reap-forfeit in the roster-policy note), SPEC (cycles note
 → 14, plan range → plan-14), `docs/playtest.md` (bot-army section), this plan's log.
 README/design.md/deploy.md unaffected (no user-facing or UI/deploy change).
+
+**Review fixes (pre-merge, medium review):** the round scoreboard in a SCORES frame now comes
+from the same seated-only `roundScores` as the session fold, so a forfeited player's points no
+longer show on the board while missing from the standings. The A4 redaction test now waits for
+the submit to apply and checks every frame Bo received, since it used to read a pre-submit frame.
+A6 settles before counting error frames. The ws test client drops non-JSON, and `waitFor` times
+out or rejects on close. `startSocketServer` rejects on a listen error (EADDRINUSE). Fixes in
+`bots.ts`: it reads views with field checks instead of `as` casts (rule 2); churn skips sockets
+still CONNECTING and ignores late frames from replaced sockets; the guess phase waits a few ticks
+after every player's first guess before advancing. The static-file test waits for `res.end`,
+not a fixed 10ms, which flaked under load. **Docs checked:** this log; no other doc affected.

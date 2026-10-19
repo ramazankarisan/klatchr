@@ -24,13 +24,25 @@ export class WsClient {
   private readonly waiters: Array<{
     pred: (m: ServerMessage) => boolean;
     resolve: (m: ServerMessage) => void;
+    reject: (e: Error) => void;
   }> = [];
 
   constructor(url: string) {
     this.socket = new WebSocket(url);
     this.opened = once(this.socket, 'open');
+    this.socket.on('close', () => {
+      for (const waiter of this.waiters.splice(0)) {
+        waiter.reject(new Error('socket closed while waiting for a message'));
+      }
+    });
     this.socket.on('message', (data) => {
-      const parsed = serverMessage.safeParse(JSON.parse(data.toString()));
+      let json: unknown;
+      try {
+        json = JSON.parse(data.toString());
+      } catch {
+        return; // non-JSON is off-schema too — dropped, never thrown in the listener
+      }
+      const parsed = serverMessage.safeParse(json);
       if (!parsed.success) {
         return; // a real client drops anything off-schema (rule 2)
       }
@@ -62,13 +74,35 @@ export class WsClient {
     this.socket.close();
   }
 
-  /** Resolve with the first (past or future) message matching `pred`. */
-  waitFor(pred: (m: ServerMessage) => boolean): Promise<ServerMessage> {
+  /** Resolve with the first (past or future) message matching `pred`. Rejects after
+   * `timeoutMs` or when the socket closes, so a missing frame fails with a cause
+   * instead of a bare test timeout. */
+  waitFor(pred: (m: ServerMessage) => boolean, timeoutMs = 2000): Promise<ServerMessage> {
     const seen = this.messages.find(pred);
     if (seen !== undefined) {
       return Promise.resolve(seen);
     }
-    return new Promise((resolve) => this.waiters.push({ pred, resolve }));
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const at = this.waiters.indexOf(waiter);
+        if (at !== -1) {
+          this.waiters.splice(at, 1);
+        }
+        reject(new Error(`waitFor: no matching message within ${timeoutMs}ms`));
+      }, timeoutMs);
+      const waiter = {
+        pred,
+        resolve: (m: ServerMessage) => {
+          clearTimeout(timer);
+          resolve(m);
+        },
+        reject: (e: Error) => {
+          clearTimeout(timer);
+          reject(e);
+        },
+      };
+      this.waiters.push(waiter);
+    });
   }
 
   async waitForFrame(pred: (f: Frame) => boolean): Promise<Frame> {

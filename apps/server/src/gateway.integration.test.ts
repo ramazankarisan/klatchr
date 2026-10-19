@@ -37,6 +37,14 @@ async function openRoom(): Promise<[WsClient, string]> {
   return [host, frame.code];
 }
 
+/** The host view's collect-phase progress, read without casting the payload (rule 2). */
+function submittedCount(view: unknown): number | undefined {
+  if (typeof view === 'object' && view !== null && 'submittedCount' in view) {
+    return typeof view.submittedCount === 'number' ? view.submittedCount : undefined;
+  }
+  return undefined;
+}
+
 async function seat(code: string, nickname: string): Promise<[WsClient, string]> {
   const client = new WsClient(url);
   await client.open();
@@ -64,9 +72,15 @@ describe('ws-integration: a room over a real socket', () => {
     await a.waitForFrame((f) => f.gameView !== null);
 
     a.send({ type: 'play', code, event: { type: 'submit', text: 'Ada-secret' } });
-    // Bo's frame must never carry Ada's answer text — redaction survives the wire.
-    const bFrame = await b.waitForFrame((f) => f.gameView !== null);
-    expect(JSON.stringify(bFrame)).not.toContain('Ada-secret');
+    // Wait until the server has applied the submit (the host progress counts it), so
+    // the frames checked below were all produced after the secret existed.
+    await host.waitForFrame((f) => submittedCount(f.gameView) === 1);
+    await settle(); // Bo's copy of that broadcast lands
+    // No frame Bo ever received may carry Ada's answer text — redaction survives the wire.
+    const bFrames = b.messages.filter((m) => m.type === 'frame');
+    expect(bFrames.length).toBeGreaterThan(1);
+    expect(JSON.stringify(bFrames)).not.toContain('Ada-secret');
+    expect(JSON.stringify(host.messages)).not.toContain('Ada-secret');
     expect(c.lastFrame().players).toHaveLength(3);
   });
 
@@ -114,6 +128,7 @@ describe('ws-integration: a room over a real socket', () => {
     await host.open();
     host.sendRaw('{ not valid json');
     await host.waitFor((m) => m.type === 'error');
+    await settle(); // a second, regressed error frame would land within this window
     expect(host.messages.filter((m) => m.type === 'error')).toHaveLength(1);
   });
 });
@@ -128,5 +143,13 @@ describe('ws-integration: the static branch', () => {
       });
     });
     expect(status).toBe(404);
+  });
+});
+
+describe('ws-integration: startup', () => {
+  it('rejects with the cause when the port is already taken (a stale server)', async () => {
+    await startWith(); // holds an ephemeral port
+    const second = startSocketServer(new RoomHub(fakeTimerDeps().deps), { port: server.port });
+    await expect(second).rejects.toMatchObject({ code: 'EADDRINUSE' });
   });
 });

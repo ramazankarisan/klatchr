@@ -21,7 +21,9 @@ export interface SocketServer {
  * (dev/e2e: Vite serves the page, this answers only the socket).
  *
  * Resolves once the server is listening, with the actually-bound port (so
- * `port: 0` yields an ephemeral port the caller can read back).
+ * `port: 0` yields an ephemeral port the caller can read back). Rejects when the
+ * listen fails (EADDRINUSE — a stale server on the port — or EACCES), so the
+ * caller sees the cause instead of an unhandled 'error' crash or a hung await.
  */
 export function startSocketServer(
   hub: RoomHub,
@@ -37,8 +39,15 @@ export function startSocketServer(
   const http = createServer(onRequest);
   const ws = new WebSocketServer({ server: http });
   ws.on('connection', (socket: WebSocket) => wire(hub, socket));
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // ws re-emits the http server's errors on itself; only a listen-time one is ours.
+    const onListenError = (error: Error): void => {
+      http.close();
+      reject(error);
+    };
+    ws.once('error', onListenError);
     http.listen(opts.port, () => {
+      ws.off('error', onListenError);
       const address = http.address();
       const port = typeof address === 'object' && address !== null ? address.port : opts.port;
       resolve({

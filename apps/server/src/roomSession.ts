@@ -8,6 +8,7 @@ import {
   type Viewer,
   playerIdForToken,
   roomReduce,
+  roundScores,
 } from '@klatchr/core';
 import type { ServerMessage } from '@klatchr/protocol';
 import type { Connection } from './connection.js';
@@ -348,7 +349,7 @@ export class RoomSession {
     }
     return {
       view: game.view(gameState, viewer),
-      scores: phase === 'SCORES' ? game.scores(gameState) : null,
+      scores: phase === 'SCORES' ? roundScores(this.room, game) : null,
     };
   }
 

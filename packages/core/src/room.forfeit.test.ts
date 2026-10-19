@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { stubGame } from './game.testkit.js';
 import { ok } from './result.js';
-import { roomReduce } from './room.js';
+import { roomReduce, roundScores } from './room.js';
 import { asPlayer, ctxWith, player, room } from './room.testkit.js';
 
 /**
@@ -122,5 +122,16 @@ describe('the score fold forfeits a mid-round-departed player (D2)', () => {
       expect(Object.values(back.value.sessionScores)).toEqual([5]);
       expect(back.value.scoreLedger).toEqual({});
     }
+  });
+});
+
+describe('roundScores — the one source for the fold and the frame scoreboard', () => {
+  it('drops a departed id from the round scoreboard, matching the fold', () => {
+    const game = completingGame([
+      { playerId: 'p1', points: 2 },
+      { playerId: 'p2', points: 1 }, // departed — forfeit on the scoreboard too
+    ]);
+    const r = room({ gameState: { moves: 0 }, players: [player('p1'), player('p3')] });
+    expect(roundScores(r, game)).toEqual([{ playerId: 'p1', points: 2 }]);
   });
 });
