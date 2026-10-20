@@ -378,3 +378,12 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - GitHub description and topics: set by the owner (settings are not writable from
     the agent session).
   - Docs checked: README.md, CLAUDE.md, docs/backlog.md.
+- **PR 10 (ADRs and the design changelog):**
+  - `docs/adr/`: seven short ADRs (view as the redaction boundary, pure reducers with
+    injected games, in-memory rooms, zod at both ends, tokens and grace windows, one
+    container on one origin, the enforced wall) with an index.
+  - design.md now holds only the current system: tokens (adds the missing `color.bad`)
+    and one "Patterns (current)" section; the per-cycle entries moved verbatim to
+    `docs/plans/design-changelog.md`. That also shrinks what `apps/web/CLAUDE.md` loads.
+  - Docs checked: design.md, docs/plans/design-changelog.md, docs/plans/README.md,
+    docs/adr/, README.md, ARCHITECTURE.md, apps/web/CLAUDE.md.
