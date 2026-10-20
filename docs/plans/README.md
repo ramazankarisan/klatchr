@@ -20,6 +20,7 @@ Every change to Klatchr starts as a written plan (research, then plan, then impl
 | [plan-13](plan-13.md) | hardening: conformance fuzz + reconnect matrix (one PR) |
 | [plan-14](plan-14.md) | verification pyramid: fold-fix + ws-integration + bot army + e2e flows (one PR) |
 | [plan-15](plan-15.md) | lead-dev audit: harden, fix, guard, polish, present |
+| [plan-16](plan-16.md) | usage logging: rooms, joins, rounds per game |
 
 The design system's per-cycle history is in [design-changelog.md](design-changelog.md); the decisions
 these plans settled are summarised in [docs/adr/](../adr/).

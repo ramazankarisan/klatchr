@@ -13,6 +13,8 @@ Thin NestJS + `ws` host for the pure room reducer. Rooms live in memory.
   keeps their seat for `PLAYER_GRACE_MS` (3 min), a dropped board for `HOST_GRACE_MS`.
 - `src/socketServer.ts` keeps the public server healthy: heartbeat, handshake
   deadline, per-address cap, per-socket rate limit. `RoomHub` caps live rooms.
+- Usage logging (`src/usage.ts`, plan-16) is an optional `ServerDeps.usage` sink: counts
+  only, never names, answers, codes or addresses. Only the gateway wires stdout.
 - A seat resumed on a second device supersedes the first: it gets `SUPERSEDED` and
   is closed. Clients treat that, and a gone room, as terminal — never reconnect.
 
