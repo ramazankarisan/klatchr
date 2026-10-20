@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { GameDeps, RoomDeps } from '@klatchr/core';
+import type { UsageSink } from './usage.js';
 
 /**
  * The non-deterministic sources injected at the server boundary. `core`/`games`
@@ -16,6 +17,8 @@ export interface ServerDeps {
    * here so tests can drive it deterministically instead of waiting on the wall.
    */
   schedule(callback: () => void, ms: number): () => void;
+  /** Usage counts (plan-16). Absent ⇒ nothing is logged; the gateway wires stdout. */
+  usage?: UsageSink;
 }
 
 export function realDeps(): ServerDeps {

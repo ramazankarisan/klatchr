@@ -15,6 +15,7 @@ import type { ServerMessage } from '@klatchr/protocol';
 import type { Connection } from './connection.js';
 import { type HostAction, hostEvent, stampPlayerId } from './roomEvents.js';
 import type { ServerDeps } from './serverDeps.js';
+import { roundStarted } from './usage.js';
 
 /** How long a dropped player's slot survives before it is reaped (a reload, a flaky
  * network or a locked phone reconnects with the same token inside this window and
@@ -130,6 +131,7 @@ export class RoomSession {
       this.cancelReap(playerId);
       this.evict(playerId);
     }
+    if (added !== undefined) this.deps.usage?.({ ev: 'player.join' });
     this.members.set(conn, { role: 'player', id: playerId });
     // The token is the resume secret — sent only here, never in a frame roster.
     conn.send({ type: 'joined', code: this.room.code, playerId, reconnectToken: token });
@@ -293,6 +295,8 @@ export class RoomSession {
     // the returning connection still needs its frame.
     const noOp = result.ok && event.type === 'gameEvent' && result.value === this.room;
     if (result.ok && !noOp) {
+      const started = roundStarted(this.room, result.value);
+      if (started !== null) this.deps.usage?.(started);
       this.room = result.value;
       this.scheduleBroadcast();
     }

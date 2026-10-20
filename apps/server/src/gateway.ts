@@ -4,7 +4,9 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { RoomHub } from './roomHub.js';
+import { realDeps } from './serverDeps.js';
 import { type SocketServer, startSocketServer } from './socketServer.js';
+import { stdoutUsage } from './usage.js';
 
 const DEFAULT_PORT = 8080;
 
@@ -20,7 +22,8 @@ const DEFAULT_PORT = 8080;
  */
 @Injectable()
 export class SocketGateway implements OnApplicationBootstrap, OnApplicationShutdown {
-  private readonly hub = new RoomHub();
+  // The live server logs usage counts to stdout (plan-16); tests build hubs without it.
+  private readonly hub = new RoomHub({ ...realDeps(), usage: stdoutUsage });
   private server: SocketServer | undefined;
 
   async onApplicationBootstrap(): Promise<void> {

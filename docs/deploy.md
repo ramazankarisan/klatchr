@@ -80,7 +80,7 @@ sudo apt install -y docker.io               # see the focal note — this, not g
 git clone https://github.com/ramazankarisan/klatchr.git
 cd klatchr
 sudo docker build -t klatchr .              # a few minutes on 1 GB; swap covers it
-sudo docker run -d --restart unless-stopped --name klatchr -p 127.0.0.1:8080:8080 klatchr
+sudo docker run -d --restart unless-stopped --log-driver journald --name klatchr -p 127.0.0.1:8080:8080 klatchr
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/   # expect 200
 ```
 
@@ -124,7 +124,7 @@ cd klatchr
 git pull
 sudo docker build -t klatchr .
 sudo docker rm -f klatchr
-sudo docker run -d --restart unless-stopped --name klatchr -p 127.0.0.1:8080:8080 klatchr
+sudo docker run -d --restart unless-stopped --log-driver journald --name klatchr -p 127.0.0.1:8080:8080 klatchr
 ```
 
 **Live rooms are in memory (no persistence — see CLAUDE.md)** — a redeploy or a VM reboot ends any game in
@@ -135,6 +135,26 @@ WebSocket; clients reconnect into their rooms within the grace window.
 **Per-client limits trust Caddy.** The image sets `TRUST_PROXY=1`, so the per-address limits (sockets,
 rooms opened) read the client from the last `X-Forwarded-For` hop, the one Caddy appends. Only publish
 the container on `127.0.0.1` (as above): exposed directly, anyone could forge that header.
+
+## Reading usage
+
+The server prints one `usage` line when a room opens, a new player joins and a round starts
+(plan-16): counts and the game id only, never names, answers, room codes or addresses.
+`--log-driver journald` (in the `docker run` lines above) keeps them in the VM's journal
+across redeploys; journald rotates them. On the VM:
+
+```bash
+u() { sudo journalctl CONTAINER_NAME=klatchr -o cat | grep '^usage ' | cut -c7-; }
+
+u | grep -c '"room.open"'      # rooms created
+u | grep -c '"player.join"'    # players joined (a reconnect is not counted again)
+u | jq -r 'select(.ev=="round.start") | .game' | sort | uniq -c   # rounds played, per game
+u | jq -r '.t[:10] + " " + .ev' | sort | uniq -c                  # the same, per day
+```
+
+`jq` comes from `sudo apt install -y jq`. Add `--since "7 days ago"` after `journalctl` for a
+window. A container started before the journald switch keeps its old logs only until it is
+removed.
 
 ## Gotchas we actually hit
 

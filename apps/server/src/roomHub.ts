@@ -144,6 +144,7 @@ export class RoomHub {
     }
     this.sessionOf.set(conn, session);
     session.addHost(conn);
+    this.deps.usage?.({ ev: 'room.open' });
   }
 
   private forgetOpener(code: string): void {
