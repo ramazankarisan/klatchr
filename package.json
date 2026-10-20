@@ -1,6 +1,7 @@
 {
   "name": "klatchr",
   "description": "A party-game platform for teams: a host opens a room on a shared screen, everyone plays from their phone.",
+  "license": "MIT",
   "homepage": "https://klatchr.duckdns.org",
   "repository": {
     "type": "git",
