@@ -3,6 +3,7 @@
 [![gate](https://github.com/ramazankarisan/klatchr/actions/workflows/gate.yml/badge.svg)](https://github.com/ramazankarisan/klatchr/actions/workflows/gate.yml)
 ![coverage: 100% core/games](https://img.shields.io/badge/coverage-100%25%20core%2Fgames-2E8B7B)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+[![license: MIT](https://img.shields.io/badge/license-MIT-5B5246)](LICENSE)
 
 **A party-game platform for teams.** A host opens a room on a shared screen (a TV or a
 laptop on a projector), everyone joins from their phone with a four-letter code, and the
@@ -127,7 +128,13 @@ packages/protocol   zod schemas for every client↔server message
 apps/server         NestJS + ws gateway, room hub, sessions, bot soak tool
 apps/web            React + MUI board and phone views
 e2e/                Playwright multi-device rounds
-docs/               deploy runbook, play-test checklist, plans and design history
+docs/               deploy runbook, play-test checklist, backlog, plans and design history
 ```
 
 Deploy: a single Docker container behind Caddy on a small VM — [docs/deploy.md](docs/deploy.md).
+
+Ideas not yet planned live in [docs/backlog.md](docs/backlog.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Ramazan Karisan

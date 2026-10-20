@@ -370,3 +370,11 @@ Layers: **DSL** = core scenario DSL unit · **Hub** = server unit with FakeConn 
   - Owner decisions still open: a LICENSE, and the GitHub description and topics.
   - Docs checked: CLAUDE.md (plan path), README.md, ARCHITECTURE.md,
     docs/plans/README.md.
+- **PR 9 (owner decisions):**
+  - MIT `LICENSE`, the README badge and section, `"license": "MIT"` in package.json.
+  - `docs/backlog.md` keeps the deferred ideas (QR code, change my answer, who is
+    still thinking on phones, dark mode, deploy automation, VM OS upgrade, S18); the
+    root CLAUDE.md points at it.
+  - GitHub description and topics: set by the owner (settings are not writable from
+    the agent session).
+  - Docs checked: README.md, CLAUDE.md, docs/backlog.md.
