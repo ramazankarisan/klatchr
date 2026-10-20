@@ -1,6 +1,7 @@
 # Architecture
 
-How Klatchr is put together and why. For the rules an agent works under, see `CLAUDE.md`.
+How Klatchr is put together and why. For the rules an agent works under, see `CLAUDE.md`;
+the key decisions are recorded one per file in [docs/adr/](docs/adr/).
 
 ## Shape
 

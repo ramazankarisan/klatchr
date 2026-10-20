@@ -117,7 +117,8 @@ Klatchr is developed with Claude Code working under written, enforced rules:
 - **Backpressure** — the gate above, plus Claude Code hooks that refuse skipping it
   (`--no-verify`, pushing to `main`) and ask before an agent edits the wall itself.
 
-The plans are the project's history: [docs/plans/](docs/plans/).
+The plans are the project's history: [docs/plans/](docs/plans/). The decisions they settled are
+summarised as ADRs in [docs/adr/](docs/adr/), and the design system is [design.md](design.md).
 
 ## Repository map
 
@@ -128,7 +129,7 @@ packages/protocol   zod schemas for every client↔server message
 apps/server         NestJS + ws gateway, room hub, sessions, bot soak tool
 apps/web            React + MUI board and phone views
 e2e/                Playwright multi-device rounds
-docs/               deploy runbook, play-test checklist, backlog, plans and design history
+docs/               deploy runbook, play-test checklist, backlog, ADRs, plans and design history
 ```
 
 Deploy: a single Docker container behind Caddy on a small VM — [docs/deploy.md](docs/deploy.md).
